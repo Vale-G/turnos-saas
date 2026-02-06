@@ -16,13 +16,13 @@ export default function Home() {
 
   const cargarDatosMaestros = async () => {
     // Eliminamos ", activo" de la consulta para evitar el error 400
-    const { data, error } = await supabase.from('Negocio').select(`
-        id, 
-        nombre, 
-        plan,
-        Servicio (id, nombre, precio, duracion_minutos), 
-        turnos (id, nombre_cliente, hora_inicio, estado, Servicio (nombre, precio, duracion_minutos))
-      `)
+      const { data, error } = await supabase.from('Negocio').select(`
+      id, 
+      nombre, 
+      plan,
+      Servicio (id, nombre, precio, duracion_minutos), 
+      turnos (id, nombre_cliente, hora_inicio, estado, Servicio (nombre, precio, duracion_minutos))
+    `)
 
     if (error) {
       console.error("Error de Supabase:", error.message);
@@ -202,8 +202,8 @@ export default function Home() {
                  <option value="">Servicio...</option>
                  {/* Eliminamos el filtro .activo para que no se rompa */}
                  {negocioActual?.Servicio?.map((s: any) => (
-                   <option key={s.id} value={s.id} className="bg-[#020617]">{s.nombre}</option>
-                 ))}
+                    <option key={s.id} value={s.id}>{s.nombre}</option>
+                  ))}
                </select>
                <input type="datetime-local" value={fechaSeleccionada} onChange={e => setFechaSeleccionada(e.target.value)} className="w-full p-4 bg-[#020617] rounded-2xl border border-white/10 text-white outline-none focus:border-[#10b981]" required />
                <button className="w-full bg-[#10b981] text-[#020617] font-black py-5 rounded-2xl uppercase tracking-widest text-[10px] shadow-lg shadow-[#10b981]/10 hover:bg-white transition-all">

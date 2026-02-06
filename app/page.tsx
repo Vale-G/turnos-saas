@@ -20,7 +20,7 @@ export default function Home() {
       `)
     if (data) {
       setNegocios(data)
-      setNegocioActual(prev => prev ? data.find((n: any) => n.id === prev.id) || data[0] : data[0])
+      setNegocioActual((prev: any) => prev ? data.find((n: any) => n.id === prev.id) || data[0] : data[0])
     }
   }
 

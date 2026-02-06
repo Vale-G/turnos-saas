@@ -8,14 +8,14 @@ export default function Home() {
   const [seccionActiva, setSeccionActiva] = useState<'agenda' | 'servicios' | 'admin' | 'analytics'>('agenda')
   const [rol, setRol] = useState<'superadmin' | 'admin' | 'peluquero' | 'cliente'>('superadmin')
   
-  // States: Formularios
+  // States: Formularios Turnos
   const [nombreCliente, setNombreCliente] = useState('')
   const [servicioId, setServicioId] = useState('')
   const [fechaTurno, setFechaTurno] = useState('')
   const [filtroFecha, setFiltroFecha] = useState(new Date().toISOString().split('T')[0])
-  const [nuevoNegocioNombre, setNuevoNegocioNombre] = useState('')
   
-  // State: Nuevo Servicio
+  // States: Gestión SaaS y Servicios
+  const [nuevoNegocioNombre, setNuevoNegocioNombre] = useState('')
   const [formServicio, setFormServicio] = useState({ nombre: '', precio: '', duracion: '' })
 
   const cargarDatos = async () => {
@@ -32,7 +32,18 @@ export default function Home() {
 
   useEffect(() => { cargarDatos() }, [])
 
-  // --- ACCIONES DE SERVICIOS ---
+  // --- ACCIONES SAAS (SUPERADMIN) ---
+  const handleCrearNegocio = async (e: any) => {
+    e.preventDefault()
+    if (!nuevoNegocioNombre) return
+    const { error } = await supabase.from('Negocio').insert([{ nombre: nuevoNegocioNombre, plan: 'basico' }])
+    if (!error) {
+      setNuevoNegocioNombre('')
+      await cargarDatos()
+    }
+  }
+
+  // --- ACCIONES SERVICIOS (ADMIN) ---
   const handleCrearServicio = async (e: any) => {
     e.preventDefault()
     const { error } = await supabase.from('Servicio').insert([{
@@ -52,7 +63,7 @@ export default function Home() {
     if (!error) await cargarDatos()
   }
 
-  // --- ACCIONES DE TURNOS ---
+  // --- ACCIONES TURNOS (CLIENTE/STAFF) ---
   const handleCrearTurno = async (e: any) => {
     e.preventDefault()
     const { error } = await supabase.from('turnos').insert([{
@@ -80,7 +91,7 @@ export default function Home() {
       {/* SIDEBAR */}
       <aside className="w-64 border-r border-white/5 bg-[#020617] flex flex-col p-6 gap-8 sticky top-0 h-screen">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-[#10b981] rounded-lg flex items-center justify-center text-[#020617] font-black">V</div>
+          <div className="w-8 h-8 bg-[#10b981] rounded-lg flex items-center justify-center text-[#020617] font-black shadow-[0_0_15px_rgba(16,185,129,0.3)]">V</div>
           <h1 className="font-black italic text-white text-lg tracking-tighter uppercase">Platform</h1>
         </div>
 
@@ -89,7 +100,7 @@ export default function Home() {
             { id: 'agenda', label: 'Agenda', icon: '📅', roles: ['superadmin', 'admin', 'peluquero', 'cliente'] },
             { id: 'servicios', label: 'Servicios', icon: '✂️', roles: ['superadmin', 'admin', 'peluquero', 'cliente'] },
             { id: 'analytics', label: 'Reportes', icon: '📊', roles: ['superadmin', 'admin'] },
-            { id: 'admin', label: 'SaaS Control', icon: '🛡️', roles: ['superadmin'] },
+            { id: 'admin', label: 'Configuración', icon: '⚙️', roles: ['superadmin'] },
           ].map((item) => {
             if (item.roles.includes(rol)) {
               return (
@@ -116,7 +127,7 @@ export default function Home() {
         <header className="p-8 border-b border-white/5 flex justify-between items-center bg-[#020617]/80 backdrop-blur-md sticky top-0 z-40">
           <div>
             <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">{negocioActual.nombre}</h2>
-            <p className="text-[10px] text-[#10b981] font-black uppercase tracking-widest">Vista: {rol}</p>
+            <p className="text-[10px] text-[#10b981] font-black uppercase tracking-widest">Acceso: {rol}</p>
           </div>
           <select value={negocioActual.id} onChange={(e) => setNegocioActual(negocios.find(n => n.id === e.target.value))} className="bg-[#0f172a] border border-white/10 text-white text-[10px] font-black p-3 rounded-xl outline-none uppercase cursor-pointer">
             {negocios.map(n => <option key={n.id} value={n.id}>{n.nombre}</option>)}
@@ -142,7 +153,7 @@ export default function Home() {
                           <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">{t.Servicio?.nombre} — <span className="text-[#10b981]">{t.estado}</span></p>
                         </div>
                       </div>
-                      {rol !== 'cliente' && rol !== 'superadmin' && t.estado !== 'finalizado' && (
+                      {['admin', 'peluquero'].includes(rol) && t.estado !== 'finalizado' && (
                         <button onClick={async () => {
                           const nEst = t.estado === 'pendiente' ? 'proceso' : 'finalizado';
                           await supabase.from('turnos').update({ estado: nEst }).eq('id', t.id);
@@ -156,14 +167,13 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* COLUMNA RESERVA (Solo visible si NO es Superadmin) */}
               <div className="lg:col-span-4 space-y-6">
-                {rol !== 'superadmin' ? (
+                {rol !== 'superadmin' && (
                   <section className="bg-[#0f172a] p-8 rounded-[2.5rem] border border-white/10">
                     <h4 className="text-white font-black uppercase italic mb-6 tracking-tighter">Nueva Reserva</h4>
                     <form onSubmit={handleCrearTurno} className="space-y-4">
-                      <input type="text" placeholder="Cliente" value={nombreCliente} onChange={e => setNombreCliente(e.target.value)} className="w-full bg-[#020617] border border-white/5 p-4 rounded-xl text-xs outline-none text-white" required />
-                      <select value={servicioId} onChange={e => setServicioId(e.target.value)} className="w-full bg-[#020617] border border-white/5 p-4 rounded-xl text-xs outline-none text-white" required>
+                      <input type="text" placeholder="Tu Nombre" value={nombreCliente} onChange={e => setNombreCliente(e.target.value)} className="w-full bg-[#020617] border border-white/5 p-4 rounded-xl text-xs outline-none text-white focus:border-[#10b981]" required />
+                      <select value={servicioId} onChange={e => setServicioId(e.target.value)} className="w-full bg-[#020617] border border-white/5 p-4 rounded-xl text-xs outline-none text-white focus:border-[#10b981]" required>
                         <option value="">Servicio...</option>
                         {negocioActual.Servicio?.map((s: any) => <option key={s.id} value={s.id}>{s.nombre} (${s.precio})</option>)}
                       </select>
@@ -171,14 +181,10 @@ export default function Home() {
                       <button className="w-full bg-[#10b981] text-black font-black py-4 rounded-xl uppercase text-[10px] tracking-widest hover:bg-white transition-all">Confirmar</button>
                     </form>
                   </section>
-                ) : (
-                  <div className="p-8 bg-[#0f172a] rounded-[2.5rem] border border-dashed border-white/10 text-center">
-                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-relaxed">Panel de Control General<br/>No habilitado para agendamiento</p>
-                  </div>
                 )}
-                {rol !== 'cliente' && (
+                {['admin', 'peluquero', 'superadmin'].includes(rol) && (
                   <div className="p-8 bg-[#10b981] rounded-[2.5rem] text-[#020617]">
-                    <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Caja del Día</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Recaudación</p>
                     <p className="text-5xl font-black italic tracking-tighter">${recaudacionTotal}</p>
                   </div>
                 )}
@@ -186,13 +192,10 @@ export default function Home() {
             </div>
           )}
 
-          {/* SECCIÓN SERVICIOS + GESTIÓN ADMIN */}
+          {/* SECCIÓN SERVICIOS */}
           {seccionActiva === 'servicios' && (
             <div className="space-y-12 animate-in fade-in duration-500">
-              <div className="flex justify-between items-end">
-                <h3 className="text-4xl font-black text-white italic uppercase tracking-tighter">Lista de <span className="text-[#10b981]">Servicios</span></h3>
-              </div>
-
+              <h3 className="text-4xl font-black text-white italic uppercase tracking-tighter">Lista de <span className="text-[#10b981]">Servicios</span></h3>
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
                 <div className="lg:col-span-8 grid grid-cols-1 md:grid-cols-2 gap-6 h-fit">
                   {negocioActual.Servicio?.map((s: any) => (
@@ -201,21 +204,19 @@ export default function Home() {
                       <p className="text-[#10b981] font-black text-2xl mt-2">${s.precio}</p>
                       <p className="text-[9px] text-slate-500 font-black uppercase mt-4">⏱️ {s.duracion_minutos} min</p>
                       {rol === 'admin' && (
-                        <button onClick={() => eliminarServicio(s.id)} className="absolute top-4 right-4 text-xs opacity-0 group-hover:opacity-100 text-red-500 font-black uppercase transition-opacity">Eliminar</button>
+                        <button onClick={() => eliminarServicio(s.id)} className="absolute top-4 right-4 text-xs opacity-0 group-hover:opacity-100 text-red-500 font-black uppercase transition-opacity hover:underline">Eliminar</button>
                       )}
                     </div>
                   ))}
                 </div>
-
-                {/* FORMULARIO PARA AGREGAR SERVICIO (Solo Admin) */}
                 {rol === 'admin' && (
                   <div className="lg:col-span-4 bg-[#020617] border border-[#10b981]/20 p-8 rounded-[2.5rem]">
                     <h4 className="text-white font-black uppercase italic mb-6">Nuevo Servicio</h4>
                     <form onSubmit={handleCrearServicio} className="space-y-4">
-                      <input type="text" placeholder="Nombre (Ej: Corte)" value={formServicio.nombre} onChange={e => setFormServicio({...formServicio, nombre: e.target.value})} className="w-full bg-[#0f172a] border border-white/5 p-4 rounded-xl text-xs text-white" required />
-                      <input type="number" placeholder="Precio ($)" value={formServicio.precio} onChange={e => setFormServicio({...formServicio, precio: e.target.value})} className="w-full bg-[#0f172a] border border-white/5 p-4 rounded-xl text-xs text-white" required />
-                      <input type="number" placeholder="Duración (Minutos)" value={formServicio.duracion} onChange={e => setFormServicio({...formServicio, duracion: e.target.value})} className="w-full bg-[#0f172a] border border-white/5 p-4 rounded-xl text-xs text-white" required />
-                      <button className="w-full bg-[#10b981] text-black font-black py-4 rounded-xl uppercase text-[10px] tracking-widest">Añadir Servicio</button>
+                      <input type="text" placeholder="Nombre" value={formServicio.nombre} onChange={e => setFormServicio({...formServicio, nombre: e.target.value})} className="w-full bg-[#0f172a] border border-white/5 p-4 rounded-xl text-xs text-white outline-none focus:border-[#10b981]" required />
+                      <input type="number" placeholder="Precio ($)" value={formServicio.precio} onChange={e => setFormServicio({...formServicio, precio: e.target.value})} className="w-full bg-[#0f172a] border border-white/5 p-4 rounded-xl text-xs text-white outline-none focus:border-[#10b981]" required />
+                      <input type="number" placeholder="Minutos" value={formServicio.duracion} onChange={e => setFormServicio({...formServicio, duracion: e.target.value})} className="w-full bg-[#0f172a] border border-white/5 p-4 rounded-xl text-xs text-white outline-none focus:border-[#10b981]" required />
+                      <button className="w-full bg-[#10b981] text-black font-black py-4 rounded-xl uppercase text-[10px] tracking-widest shadow-lg shadow-[#10b981]/10">Añadir</button>
                     </form>
                   </div>
                 )}
@@ -223,7 +224,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* SaaS CONTROL (Solo Valentin) */}
+          {/* SECCIÓN CONFIGURACIÓN (SAAS CONTROL) */}
           {seccionActiva === 'admin' && rol === 'superadmin' && (
             <div className="space-y-10 animate-in slide-in-from-right-4 duration-500">
                <h3 className="text-4xl font-black text-white italic uppercase tracking-tighter">SaaS <span className="text-[#10b981]">Control</span></h3>
@@ -231,11 +232,12 @@ export default function Home() {
                  <p className="text-[10px] font-black text-[#10b981] uppercase mb-6 tracking-widest">Registrar Nuevo Local</p>
                  <form onSubmit={handleCrearNegocio} className="flex gap-4">
                    <input type="text" value={nuevoNegocioNombre} onChange={e => setNuevoNegocioNombre(e.target.value)} placeholder="Nombre del local" className="flex-1 bg-[#020617] border border-white/5 p-5 rounded-2xl text-xs text-white outline-none focus:border-[#10b981]" />
-                   <button className="bg-white text-black px-10 rounded-2xl font-black uppercase text-xs hover:bg-[#10b981] transition-colors">Activar</button>
+                   <button className="bg-white text-black px-10 rounded-2xl font-black uppercase text-xs hover:bg-[#10b981] transition-colors shadow-lg">Activar</button>
                  </form>
                </div>
             </div>
           )}
+
         </div>
       </main>
     </div>

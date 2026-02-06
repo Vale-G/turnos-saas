@@ -13,37 +13,35 @@ export default function Home() {
   const [fechaSeleccionada, setFechaSeleccionada] = useState('')
   const [filtroFecha, setFiltroFecha] = useState(new Date().toISOString().split('T')[0])
   const [nuevoNegocioNombre, setNuevoNegocioNombre] = useState('')
-  const [cargando, setCargando] = useState(false)
 
   const cargarDatosMaestros = async () => {
-    // Usamos Negocio con N mayúscula y Servicio con S mayúscula
+    // Eliminamos ", activo" de la consulta para evitar el error 400
     const { data, error } = await supabase.from('Negocio').select(`
         id, 
         nombre, 
         plan,
-        Servicio (id, nombre, precio, duracion_minutos, activo), 
+        Servicio (id, nombre, precio, duracion_minutos), 
         turnos (id, nombre_cliente, hora_inicio, estado, Servicio (nombre, precio, duracion_minutos))
       `)
 
     if (error) {
       console.error("Error de Supabase:", error.message);
-      // Si hay error, seteamos un estado para que no se quede "Cargando"
       setNegocios([]);
       return;
     }
 
     if (data && data.length > 0) {
       setNegocios(data);
-      setNegocioActual(negocioActual ? data.find(n => n.id === negocioActual.id) : data[0]);
+      // Mantenemos el negocio seleccionado o cargamos el primero por defecto
+      setNegocioActual(prev => prev ? data.find(n => n.id === prev.id) || data[0] : data[0]);
     } else {
-      // Si no hay negocios creados todavía
       setNegocios([]);
     }
   };
 
   useEffect(() => { cargarDatosMaestros() }, [])
 
-  // --- FUNCIONES EXCLUSIVAS DE VALENTIN (SUPERADMIN) ---
+  // --- FUNCIONES SUPERADMIN ---
   const handleCrearNegocio = async (e: any) => {
     e.preventDefault()
     if (!nuevoNegocioNombre) return
@@ -66,7 +64,15 @@ export default function Home() {
   const recaudacionReal = turnosHoy.filter((t: any) => t.estado === 'finalizado')
     .reduce((acc: number, t: any) => acc + (t.Servicio?.precio || 0), 0)
 
-  if (!negocioActual) return <div className="min-h-screen bg-[#020617] flex items-center justify-center text-[#10b981] font-black uppercase tracking-[0.5em]">Cargando Ecosistema...</div>
+  // Pantalla de carga mejorada
+  if (!negocioActual && negocios.length === 0) {
+    return (
+      <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center gap-4">
+        <div className="w-12 h-12 border-4 border-[#10b981] border-t-transparent rounded-full animate-spin"></div>
+        <div className="text-[#10b981] font-black uppercase tracking-[0.5em] animate-pulse">Cargando Ecosistema...</div>
+      </div>
+    )
+  }
 
   return (
     <main className="min-h-screen bg-[#020617] text-slate-300 font-sans pb-24 selection:bg-[#10b981]/30">
@@ -93,7 +99,7 @@ export default function Home() {
           </div>
 
           <select 
-            value={negocioActual.id} 
+            value={negocioActual?.id || ''} 
             onChange={(e) => setNegocioActual(negocios.find(n => n.id === e.target.value))}
             className="bg-[#0f172a] text-[#10b981] text-[10px] font-black px-4 py-2 rounded-xl border border-[#10b981]/20 outline-none uppercase"
           >
@@ -104,13 +110,11 @@ export default function Home() {
 
       <div className="max-w-7xl mx-auto p-6 space-y-10">
         
-        {/* --- CONSOLA EXCLUSIVA DE VALENTIN --- */}
         {rol === 'superadmin' && (
           <section className="bg-gradient-to-br from-[#064e3b] to-[#020617] p-10 rounded-[3rem] border border-[#10b981]/30 shadow-2xl animate-in fade-in slide-in-from-top-4 duration-700">
             <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-8">Consola de Control <span className="text-[#10b981]">Global</span></h2>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-              {/* ALTA DE LOCALES */}
               <div className="space-y-4">
                 <p className="text-[10px] font-black text-[#10b981] uppercase tracking-[0.3em]">Registrar Nuevo Local</p>
                 <form onSubmit={handleCrearNegocio} className="flex gap-3">
@@ -119,7 +123,6 @@ export default function Home() {
                 </form>
               </div>
 
-              {/* GESTIÓN DE SUSCRIPCIONES */}
               <div className="space-y-4">
                 <p className="text-[10px] font-black text-[#10b981] uppercase tracking-[0.3em]">Suscripciones Activas</p>
                 <div className="bg-[#020617] rounded-2xl border border-white/5 divide-y divide-white/5 max-h-[200px] overflow-y-auto">
@@ -138,17 +141,15 @@ export default function Home() {
           </section>
         )}
 
-        {/* CONTENIDO DEL LOCAL SELECCIONADO */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
-          {/* DASHBOARD Y AGENDA */}
           <section className="lg:col-span-8 space-y-8">
             <header className="bg-[#0f172a] p-10 rounded-[3rem] border border-[#10b981]/10 flex justify-between items-end relative overflow-hidden">
                <div className="relative z-10">
                  <p className="text-[10px] font-black text-[#10b981] uppercase tracking-[0.4em] mb-2">Entorno de Trabajo</p>
-                 <h2 className="text-5xl font-black text-white italic uppercase tracking-tighter">{negocioActual.nombre}</h2>
+                 <h2 className="text-5xl font-black text-white italic uppercase tracking-tighter">{negocioActual?.nombre}</h2>
                  <span className={`inline-block mt-4 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${esPro ? 'bg-amber-500 text-black shadow-[0_0_15px_rgba(245,158,11,0.4)]' : 'bg-slate-800 text-slate-400'}`}>
-                    Plan {negocioActual.plan}
+                    Plan {negocioActual?.plan}
                  </span>
                </div>
                {rol !== 'cliente' && (
@@ -199,7 +200,8 @@ export default function Home() {
                <input type="text" placeholder="Nombre" value={nombre} onChange={e => setNombre(e.target.value)} className="w-full p-4 bg-[#020617] rounded-2xl border border-white/10 text-white outline-none focus:border-[#10b981]" required />
                <select value={servicioId} onChange={e => setServicioId(e.target.value)} className="w-full p-4 bg-[#020617] rounded-2xl border border-white/10 text-white outline-none focus:border-[#10b981]" required>
                  <option value="">Servicio...</option>
-                 {negocioActual.Servicio?.filter((s: any) => s.activo).map((s: any) => (
+                 {/* Eliminamos el filtro .activo para que no se rompa */}
+                 {negocioActual?.Servicio?.map((s: any) => (
                    <option key={s.id} value={s.id} className="bg-[#020617]">{s.nombre}</option>
                  ))}
                </select>

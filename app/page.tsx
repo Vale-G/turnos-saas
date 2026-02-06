@@ -5,221 +5,181 @@ import { supabase } from '../lib/supabase'
 export default function Home() {
   const [negocios, setNegocios] = useState<any[]>([])
   const [negocioActual, setNegocioActual] = useState<any>(null)
+  const [seccionActiva, setSeccionActiva] = useState<'agenda' | 'servicios' | 'admin' | 'analytics'>('agenda')
   const [rol, setRol] = useState<'superadmin' | 'admin' | 'peluquero' | 'cliente'>('superadmin')
   
-  // States: Formularios
-  const [nombre, setNombre] = useState('')
-  const [servicioId, setServicioId] = useState('')
-  const [fechaSeleccionada, setFechaSeleccionada] = useState('')
+  // Estados de formularios y filtros
   const [filtroFecha, setFiltroFecha] = useState(new Date().toISOString().split('T')[0])
-  const [nuevoNegocioNombre, setNuevoNegocioNombre] = useState('')
+  const [nuevoServicio, setNuevoServicio] = useState({ nombre: '', precio: '' })
 
-  const cargarDatosMaestros = async () => {
+  const cargarDatos = async () => {
     const { data, error } = await supabase.from('Negocio').select(`
         id, nombre, plan,
         Servicio (id, nombre, precio, duracion_minutos), 
         turnos (id, nombre_cliente, hora_inicio, estado, Servicio (nombre, precio, duracion_minutos))
       `)
-    
-    if (error) {
-      console.error("Error cargando datos:", error.message)
-      return
-    }
-
-    if (data && data.length > 0) {
+    if (data) {
       setNegocios(data)
-      // Lógica de selección segura para TypeScript
-      if (!negocioActual) {
-        setNegocioActual(data[0])
-      } else {
-        const actualizado = data.find((n: any) => n.id === negocioActual.id)
-        setNegocioActual(actualizado || data[0])
-      }
+      setNegocioActual(prev => prev ? data.find((n: any) => n.id === prev.id) || data[0] : data[0])
     }
   }
 
-  useEffect(() => { cargarDatosMaestros() }, [])
+  useEffect(() => { cargarDatos() }, [])
 
-  // --- FUNCIONES EXCLUSIVAS DE VALENTIN (SUPERADMIN) ---
-  const handleCrearNegocio = async (e: any) => {
-    e.preventDefault()
-    if (!nuevoNegocioNombre) return
-    const { error } = await supabase.from('Negocio').insert([{ nombre: nuevoNegocioNombre, plan: 'basico' }])
-    if (!error) {
-      setNuevoNegocioNombre('')
-      await cargarDatosMaestros()
-      alert("🚀 Nuevo local activado en la plataforma")
-    }
-  }
-
-  const cambiarPlanNegocio = async (id: string, nuevoPlan: string) => {
-    await supabase.from('Negocio').update({ plan: nuevoPlan }).eq('id', id)
-    await cargarDatosMaestros()
-  }
-
-  // --- LÓGICA DE NEGOCIO ---
-  const esPro = negocioActual?.plan === 'premium' || negocioActual?.plan === 'pro';
+  // --- LÓGICA DE CÁLCULOS ---
   const turnosHoy = negocioActual?.turnos?.filter((t: any) => t.hora_inicio.includes(filtroFecha)) || []
-  const recaudacionReal = turnosHoy.filter((t: any) => t.estado === 'finalizado')
+  const recaudacionTotal = turnosHoy.filter((t: any) => t.estado === 'finalizado')
     .reduce((acc: number, t: any) => acc + (t.Servicio?.precio || 0), 0)
 
-  if (!negocioActual) {
-    return (
-      <div className="min-h-screen bg-[#020617] flex items-center justify-center text-[#10b981] font-black uppercase tracking-[0.5em]">
-        Cargando Ecosistema...
-      </div>
-    )
-  }
+  if (!negocioActual) return <div className="min-h-screen bg-[#020617] flex items-center justify-center text-[#10b981] font-black animate-pulse">INICIANDO SISTEMA...</div>
 
   return (
-    <main className="min-h-screen bg-[#020617] text-slate-300 font-sans pb-24 selection:bg-[#10b981]/30">
+    <div className="min-h-screen bg-[#020617] text-slate-300 flex">
       
-      {/* NAVBAR GLOBAL */}
-      <nav className="sticky top-0 z-50 backdrop-blur-xl bg-[#020617]/90 border-b border-[#10b981]/20 p-4">
-        <div className="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#10b981] rounded-xl flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.4)]">
-              <span className="text-[#020617] font-black text-2xl">V</span>
-            </div>
-            <div>
-              <h1 className="text-xl font-black italic text-white uppercase tracking-tighter">Valentin <span className="text-[#10b981]">Platform</span></h1>
-              <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">SaaS Management</p>
-            </div>
-          </div>
-          
-          <div className="flex gap-1 bg-[#0f172a] p-1 rounded-xl border border-white/5">
-            {['superadmin', 'admin', 'peluquero', 'cliente'].map((r: any) => (
-              <button key={r} onClick={() => setRol(r as any)} className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase transition-all ${rol === r ? 'bg-[#10b981] text-[#020617]' : 'text-slate-500'}`}>
-                {r}
-              </button>
+      {/* SIDEBAR FIJA */}
+      <aside className="w-64 border-r border-white/5 bg-[#020617] flex flex-col p-6 gap-8">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 bg-[#10b981] rounded-lg flex items-center justify-center text-[#020617] font-black">V</div>
+          <h1 className="font-black italic text-white text-lg tracking-tighter uppercase">Valentin</h1>
+        </div>
+
+        <nav className="flex flex-col gap-2 flex-1">
+          {[
+            { id: 'agenda', label: 'Agenda Diaria', icon: '📅' },
+            { id: 'servicios', label: 'Mis Servicios', icon: '✂️' },
+            { id: 'analytics', label: 'Estadísticas', icon: '📊' },
+            { id: 'admin', label: 'SaaS Control', icon: '🛡️' },
+          ].map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setSeccionActiva(item.id as any)}
+              className={`flex items-center gap-3 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${seccionActiva === item.id ? 'bg-[#10b981] text-[#020617] shadow-[0_0_20px_rgba(16,185,129,0.2)]' : 'hover:bg-white/5 text-slate-500'}`}
+            >
+              <span>{item.icon}</span> {item.label}
+            </button>
+          ))}
+        </nav>
+
+        <div className="bg-[#0f172a] p-4 rounded-2xl border border-white/5">
+          <p className="text-[8px] font-black text-slate-500 uppercase mb-2 text-center">Rol Actual</p>
+          <div className="flex flex-wrap gap-1 justify-center">
+            {['admin', 'peluquero', 'cliente'].map(r => (
+              <button key={r} onClick={() => setRol(r as any)} className={`px-2 py-1 rounded text-[7px] font-black uppercase ${rol === r ? 'bg-white text-black' : 'text-slate-600'}`}>{r}</button>
             ))}
           </div>
+        </div>
+      </aside>
 
+      {/* ÁREA DE CONTENIDO DINÁMICO */}
+      <main className="flex-1 overflow-y-auto">
+        {/* HEADER SUPERIOR */}
+        <header className="p-8 border-b border-white/5 flex justify-between items-center bg-[#020617]/50 backdrop-blur-md sticky top-0 z-40">
+          <div>
+            <h2 className="text-2xl font-black text-white italic uppercase tracking-tighter">{negocioActual.nombre}</h2>
+            <p className="text-[10px] text-[#10b981] font-black uppercase tracking-widest">Plan: {negocioActual.plan}</p>
+          </div>
           <select 
-            value={negocioActual.id} 
+            value={negocioActual.id}
             onChange={(e) => setNegocioActual(negocios.find(n => n.id === e.target.value))}
-            className="bg-[#0f172a] text-[#10b981] text-[10px] font-black px-4 py-2 rounded-xl border border-[#10b981]/20 outline-none uppercase"
+            className="bg-[#0f172a] border border-white/10 text-white text-[10px] font-black p-3 rounded-xl outline-none"
           >
             {negocios.map(n => <option key={n.id} value={n.id}>{n.nombre}</option>)}
           </select>
-        </div>
-      </nav>
+        </header>
 
-      <div className="max-w-7xl mx-auto p-6 space-y-10">
-        
-        {/* --- CONSOLA EXCLUSIVA DE VALENTIN --- */}
-        {rol === 'superadmin' && (
-          <section className="bg-gradient-to-br from-[#064e3b] to-[#020617] p-10 rounded-[3rem] border border-[#10b981]/30 shadow-2xl animate-in fade-in slide-in-from-top-4 duration-700">
-            <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter mb-8">Consola de Control <span className="text-[#10b981]">Global</span></h2>
-            
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-              <div className="space-y-4">
-                <p className="text-[10px] font-black text-[#10b981] uppercase tracking-[0.3em]">Registrar Nuevo Local</p>
-                <form onSubmit={handleCrearNegocio} className="flex gap-3">
-                  <input type="text" placeholder="Nombre del local" value={nuevoNegocioNombre} onChange={e => setNuevoNegocioNombre(e.target.value)} className="flex-1 p-4 bg-[#020617] rounded-2xl border border-white/10 outline-none focus:border-[#10b981]" />
-                  <button className="bg-[#10b981] text-[#020617] px-8 rounded-2xl font-black uppercase text-xs hover:bg-white transition-all">Activar</button>
-                </form>
+        <div className="p-8">
+          {/* SECCIÓN: AGENDA */}
+          {seccionActiva === 'agenda' && (
+            <div className="space-y-8 animate-in fade-in duration-500">
+              <div className="flex justify-between items-end">
+                <h3 className="text-4xl font-black text-white italic uppercase tracking-tighter">Agenda <span className="text-[#10b981]">Operativa</span></h3>
+                <input type="date" value={filtroFecha} onChange={e => setFiltroFecha(e.target.value)} className="bg-[#0f172a] border border-white/10 p-3 rounded-xl text-white font-black text-xs" />
               </div>
 
-              <div className="space-y-4">
-                <p className="text-[10px] font-black text-[#10b981] uppercase tracking-[0.3em]">Suscripciones Activas</p>
-                <div className="bg-[#020617] rounded-2xl border border-white/5 divide-y divide-white/5 max-h-[200px] overflow-y-auto">
-                  {negocios.map(n => (
-                    <div key={n.id} className="p-4 flex justify-between items-center">
-                      <span className="text-xs font-bold text-white uppercase">{n.nombre}</span>
-                      <div className="flex gap-2">
-                        <button onClick={() => cambiarPlanNegocio(n.id, 'basico')} className={`px-3 py-1 rounded-lg text-[8px] font-black ${n.plan === 'basico' ? 'bg-slate-700 text-white' : 'bg-[#0f172a] text-slate-500'}`}>BASICO</button>
-                        <button onClick={() => cambiarPlanNegocio(n.id, 'premium')} className={`px-3 py-1 rounded-lg text-[8px] font-black ${n.plan === 'premium' ? 'bg-amber-500 text-black shadow-lg' : 'bg-[#0f172a] text-slate-500'}`}>PREMIUM</button>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 space-y-4">
+                  {turnosHoy.length > 0 ? turnosHoy.map((t: any) => (
+                    <div key={t.id} className="bg-[#0f172a] border border-white/5 p-6 rounded-[2rem] flex justify-between items-center group hover:border-[#10b981]/30 transition-all">
+                      <div className="flex items-center gap-6">
+                        <div className="text-2xl font-black text-white/20 italic">#{new Date(t.hora_inicio).getHours()}:00</div>
+                        <div>
+                          <p className="font-black text-white text-xl uppercase italic tracking-tighter">{t.nombre_cliente}</p>
+                          <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">{t.Servicio?.nombre} — <span className="text-[#10b981]">{t.estado}</span></p>
+                        </div>
                       </div>
+                      {rol !== 'cliente' && t.estado !== 'finalizado' && (
+                        <button 
+                          onClick={async () => {
+                            const nuevoEstado = t.estado === 'pendiente' ? 'proceso' : 'finalizado';
+                            await supabase.from('turnos').update({ estado: nuevoEstado }).eq('id', t.id);
+                            cargarDatos();
+                          }}
+                          className="bg-[#10b981] text-[#020617] px-6 py-2 rounded-xl font-black text-[10px] uppercase hover:scale-105 transition-transform"
+                        >
+                          {t.estado === 'pendiente' ? 'Atender' : 'Cobrar'}
+                        </button>
+                      )}
                     </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* CONTENIDO DEL LOCAL SELECCIONADO */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
-          {/* DASHBOARD Y AGENDA */}
-          <section className="lg:col-span-8 space-y-8">
-            <header className="bg-[#0f172a] p-10 rounded-[3rem] border border-[#10b981]/10 flex justify-between items-end relative overflow-hidden">
-               <div className="relative z-10">
-                 <p className="text-[10px] font-black text-[#10b981] uppercase tracking-[0.4em] mb-2">Entorno de Trabajo</p>
-                 <h2 className="text-5xl font-black text-white italic uppercase tracking-tighter">{negocioActual.nombre}</h2>
-                 <span className={`inline-block mt-4 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${esPro ? 'bg-amber-500 text-black shadow-[0_0_15px_rgba(245,158,11,0.4)]' : 'bg-slate-800 text-slate-400'}`}>
-                    Plan {negocioActual.plan}
-                 </span>
-               </div>
-               {rol !== 'cliente' && (
-                 <div className="text-right relative z-10">
-                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Caja Cobrada</p>
-                   <p className="text-4xl font-black text-white italic">${recaudacionReal}</p>
-                 </div>
-               )}
-            </header>
-
-            <div className="bg-[#0f172a]/20 p-8 rounded-[3rem] border border-white/5 space-y-4">
-              <div className="flex justify-between items-center mb-6 px-4">
-                <h3 className="text-xl font-black uppercase italic text-white tracking-tighter">Agenda Operativa</h3>
-                <input type="date" value={filtroFecha} onChange={e => setFiltroFecha(e.target.value)} className="bg-[#020617] border border-[#10b981]/20 text-[#10b981] p-3 rounded-xl font-bold text-[10px] outline-none" />
-              </div>
-              
-              {turnosHoy.map((t: any) => (
-                <div key={t.id} className={`p-6 rounded-[2rem] border flex justify-between items-center transition-all ${t.estado === 'proceso' ? 'bg-[#10b981]/5 border-[#10b981]' : t.estado === 'finalizado' ? 'bg-white/5 border-transparent opacity-40' : 'bg-[#0f172a] border-white/5 hover:border-[#10b981]/30'}`}>
-                  <div className="flex items-center gap-6">
-                    <div className="w-14 h-14 bg-[#020617] rounded-2xl flex items-center justify-center border border-[#10b981]/20 font-black text-[#10b981] text-xs">
-                      {new Date(t.hora_inicio).getHours()}:{new Date(t.hora_inicio).getMinutes().toString().padStart(2, '0')}
-                    </div>
-                    <div>
-                      <p className="font-black text-xl text-white italic uppercase tracking-tighter">{rol === 'cliente' ? 'RESERVADO' : t.nombre_cliente}</p>
-                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em]">{t.Servicio?.nombre} — <span className="text-[#10b981]">{t.estado}</span></p>
-                    </div>
-                  </div>
-                  {rol !== 'cliente' && (
-                    <div className="flex gap-2">
-                      {t.estado === 'pendiente' && <button onClick={() => supabase.from('turnos').update({ estado: 'proceso' }).eq('id', t.id).then(cargarDatosMaestros)} className="px-4 py-2 bg-[#10b981] text-[#020617] rounded-lg text-[8px] font-black uppercase">Atender</button>}
-                      {t.estado === 'proceso' && <button onClick={() => supabase.from('turnos').update({ estado: 'finalizado' }).eq('id', t.id).then(cargarDatosMaestros)} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-[8px] font-black uppercase">Cobrar</button>}
+                  )) : (
+                    <div className="py-20 text-center border-2 border-dashed border-white/5 rounded-[3rem]">
+                      <p className="text-slate-600 font-black uppercase tracking-[0.3em]">No hay turnos agendados</p>
                     </div>
                   )}
                 </div>
-              ))}
+
+                <aside className="bg-gradient-to-b from-[#0f172a] to-transparent p-8 rounded-[3rem] border border-white/5 h-fit">
+                   <h4 className="text-white font-black uppercase italic mb-6">Resumen del Día</h4>
+                   <div className="space-y-6">
+                     <div>
+                       <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Caja Cobrada</p>
+                       <p className="text-4xl font-black text-[#10b981] italic">${recaudacionTotal}</p>
+                     </div>
+                     <div>
+                       <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Turnos Totales</p>
+                       <p className="text-4xl font-black text-white italic">{turnosHoy.length}</p>
+                     </div>
+                   </div>
+                </aside>
+              </div>
             </div>
-          </section>
+          )}
 
-          {/* COLUMNA RESERVA */}
-          <section className="lg:col-span-4 bg-[#0f172a] p-10 rounded-[3rem] border border-[#10b981]/10 h-fit">
-             <h3 className="text-xl font-black uppercase italic text-[#10b981] mb-8">Nueva Entrada</h3>
-             <form onSubmit={async (e) => {
-               e.preventDefault();
-               const { error } = await supabase.from('turnos').insert([{ 
-                 negocio_id: negocioActual.id, 
-                 nombre_cliente: nombre, 
-                 servicio_id: servicioId, 
-                 hora_inicio: new Date(fechaSeleccionada).toISOString(),
-                 estado: 'pendiente'
-               }]);
-               if (!error) {
-                 setNombre(''); setServicioId(''); setFechaSeleccionada(''); await cargarDatosMaestros();
-               }
-             }} className="space-y-4">
-               <input type="text" placeholder="Nombre Cliente" value={nombre} onChange={e => setNombre(e.target.value)} className="w-full p-4 bg-[#020617] rounded-2xl border border-white/10 text-white outline-none focus:border-[#10b981]" required />
-               <select value={servicioId} onChange={e => setServicioId(e.target.value)} className="w-full p-4 bg-[#020617] rounded-2xl border border-white/10 text-white outline-none focus:border-[#10b981]" required>
-                 <option value="">Seleccionar Servicio...</option>
-                 {negocioActual.Servicio?.map((s: any) => (
-                   <option key={s.id} value={s.id} className="bg-[#020617]">{s.nombre}</option>
-                 ))}
-               </select>
-               <input type="datetime-local" value={fechaSeleccionada} onChange={e => setFechaSeleccionada(e.target.value)} className="w-full p-4 bg-[#020617] rounded-2xl border border-white/10 text-white outline-none focus:border-[#10b981]" required />
-               <button className="w-full bg-[#10b981] text-[#020617] font-black py-5 rounded-2xl uppercase tracking-widest text-[10px] shadow-lg shadow-[#10b981]/10 hover:bg-white transition-all">
-                 Confirmar Turno
-               </button>
-             </form>
-          </section>
+          {/* SECCIÓN: SERVICIOS */}
+          {seccionActiva === 'servicios' && (
+            <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+              <h3 className="text-4xl font-black text-white italic uppercase tracking-tighter">Mis <span className="text-[#10b981]">Servicios</span></h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {negocioActual.Servicio?.map((s: any) => (
+                  <div key={s.id} className="bg-[#0f172a] border border-white/5 p-8 rounded-[2.5rem] relative overflow-hidden group">
+                    <div className="relative z-10">
+                      <p className="text-2xl font-black text-white uppercase italic tracking-tighter mb-1">{s.nombre}</p>
+                      <p className="text-[#10b981] font-black text-xl italic">${s.precio}</p>
+                      <p className="text-[10px] text-slate-500 font-black uppercase tracking-widest mt-4">⏱️ {s.duracion_minutos} min</p>
+                    </div>
+                    <div className="absolute right-[-10%] bottom-[-10%] text-6xl opacity-5 group-hover:scale-110 transition-transform">✂️</div>
+                  </div>
+                ))}
+                {/* Botón para agregar (solo admin) */}
+                {rol === 'admin' && (
+                  <button className="border-2 border-dashed border-[#10b981]/30 rounded-[2.5rem] flex flex-col items-center justify-center p-8 hover:bg-[#10b981]/5 transition-all gap-2">
+                    <span className="text-3xl">+</span>
+                    <span className="text-[10px] font-black uppercase tracking-widest">Nuevo Servicio</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
 
+          {/* SECCIÓN: ANALYTICS (PROXIMAMENTE) */}
+          {seccionActiva === 'analytics' && (
+            <div className="py-20 text-center">
+              <div className="text-6xl mb-6">📈</div>
+              <h3 className="text-2xl font-black text-white uppercase italic">Métricas de Rendimiento</h3>
+              <p className="text-slate-500 text-xs mt-2 uppercase tracking-[0.2em]">En desarrollo para el plan Premium</p>
+            </div>
+          )}
         </div>
-      </div>
-    </main>
+      </main>
+    </div>
   )
 }

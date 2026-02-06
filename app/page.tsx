@@ -16,17 +16,30 @@ export default function Home() {
   const [cargando, setCargando] = useState(false)
 
   const cargarDatosMaestros = async () => {
-    const { data } = await supabase.from('Negocio').select(`
-        id, nombre, plan,
+    // Usamos Negocio con N mayúscula y Servicio con S mayúscula
+    const { data, error } = await supabase.from('Negocio').select(`
+        id, 
+        nombre, 
+        plan,
         Servicio (id, nombre, precio, duracion_minutos, activo), 
         turnos (id, nombre_cliente, hora_inicio, estado, Servicio (nombre, precio, duracion_minutos))
       `)
-    if (data) {
-      setNegocios(data)
-      if (!negocioActual) setNegocioActual(data[0])
-      else setNegocioActual(data.find(n => n.id === negocioActual.id))
+
+    if (error) {
+      console.error("Error de Supabase:", error.message);
+      // Si hay error, seteamos un estado para que no se quede "Cargando"
+      setNegocios([]);
+      return;
     }
-  }
+
+    if (data && data.length > 0) {
+      setNegocios(data);
+      setNegocioActual(negocioActual ? data.find(n => n.id === negocioActual.id) : data[0]);
+    } else {
+      // Si no hay negocios creados todavía
+      setNegocios([]);
+    }
+  };
 
   useEffect(() => { cargarDatosMaestros() }, [])
 

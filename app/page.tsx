@@ -33,7 +33,7 @@ export default function Home() {
     if (data && data.length > 0) {
       setNegocios(data);
       // Mantenemos el negocio seleccionado o cargamos el primero por defecto
-      setNegocioActual(prev => prev ? data.find(n => n.id === prev.id) || data[0] : data[0]);
+      setNegocioActual(data[0]);
     } else {
       setNegocios([]);
     }

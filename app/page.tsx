@@ -23,14 +23,12 @@ export default function Home() {
       `)
     if (data) {
       setNegocios(data)
-      // Fix de TypeScript para 'prev'
       setNegocioActual((prev: any) => prev ? data.find((n: any) => n.id === prev.id) || data[0] : data[0])
     }
   }
 
   useEffect(() => { cargarDatos() }, [])
 
-  // --- ACCIONES DE BASE DE DATOS ---
   const handleCrearTurno = async (e: any) => {
     e.preventDefault()
     const { error } = await supabase.from('turnos').insert([{
@@ -53,21 +51,20 @@ export default function Home() {
     if (!error) { setNuevoNegocioNombre(''); await cargarDatos(); }
   }
 
-  // --- LÓGICA DE CÁLCULOS ---
   const turnosHoy = negocioActual?.turnos?.filter((t: any) => t.hora_inicio.includes(filtroFecha)) || []
   const recaudacionTotal = turnosHoy.filter((t: any) => t.estado === 'finalizado')
     .reduce((acc: number, t: any) => acc + (t.Servicio?.precio || 0), 0)
 
   if (!negocioActual) return (
     <div className="min-h-screen bg-[#020617] flex items-center justify-center">
-      <div className="text-[#10b981] font-black uppercase tracking-[0.5em] animate-pulse">Iniciando Ecosistema...</div>
+      <div className="text-[#10b981] font-black uppercase tracking-[0.5em] animate-pulse text-center">Iniciando Valentin Platform...</div>
     </div>
   )
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-300 flex font-sans">
       
-      {/* SIDEBAR DINÁMICA CON PERMISOS */}
+      {/* SIDEBAR DINÁMICA */}
       <aside className="w-64 border-r border-white/5 bg-[#020617] flex flex-col p-6 gap-8 sticky top-0 h-screen">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-[#10b981] rounded-lg flex items-center justify-center text-[#020617] font-black shadow-[0_0_15px_rgba(16,185,129,0.3)]">V</div>
@@ -96,16 +93,11 @@ export default function Home() {
           })}
         </nav>
 
-        {/* SELECTOR DE ROL (SIMULADOR) */}
         <div className="bg-[#0f172a] p-4 rounded-2xl border border-white/5">
-          <p className="text-[8px] font-black text-slate-500 uppercase mb-3 text-center tracking-[0.2em]">Vista de Usuario</p>
+          <p className="text-[8px] font-black text-slate-500 uppercase mb-3 text-center tracking-[0.2em]">Simular Rol</p>
           <div className="grid grid-cols-2 gap-1">
             {['admin', 'peluquero', 'cliente', 'superadmin'].map(r => (
-              <button key={r} onClick={() => {
-                setRol(r as any);
-                // Si el rol cambia y no tiene acceso a la sección actual, lo mandamos a la agenda
-                setSeccionActiva('agenda');
-              }} className={`px-1 py-1 rounded text-[7px] font-black uppercase transition-colors ${rol === r ? 'bg-white text-black' : 'text-slate-600 hover:text-white'}`}>{r}</button>
+              <button key={r} onClick={() => { setRol(r as any); setSeccionActiva('agenda'); }} className={`px-1 py-1 rounded text-[7px] font-black uppercase transition-colors ${rol === r ? 'bg-white text-black' : 'text-slate-600 hover:text-white'}`}>{r}</button>
             ))}
           </div>
         </div>
@@ -121,15 +113,14 @@ export default function Home() {
           <select 
             value={negocioActual.id}
             onChange={(e) => setNegocioActual(negocios.find(n => n.id === e.target.value))}
-            className="bg-[#0f172a] border border-white/10 text-white text-[10px] font-black p-3 rounded-xl outline-none uppercase cursor-pointer"
+            className="bg-[#0f172a] border border-white/10 text-white text-[10px] font-black p-3 rounded-xl outline-none uppercase"
           >
             {negocios.map(n => <option key={n.id} value={n.id}>{n.nombre}</option>)}
           </select>
         </header>
 
         <div className="p-8">
-          
-          {/* SECCIÓN 1: AGENDA (Y Formulario de Reserva) */}
+          {/* SECCIÓN AGENDA */}
           {seccionActiva === 'agenda' && (
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 animate-in fade-in duration-500">
               <div className="lg:col-span-8 space-y-8">
@@ -137,9 +128,8 @@ export default function Home() {
                   <h3 className="text-4xl font-black text-white italic uppercase tracking-tighter">Agenda <span className="text-[#10b981]">Hoy</span></h3>
                   <input type="date" value={filtroFecha} onChange={e => setFiltroFecha(e.target.value)} className="bg-[#0f172a] border border-white/10 p-3 rounded-xl text-[#10b981] font-black text-xs outline-none" />
                 </div>
-                
                 <div className="space-y-4">
-                  {turnosHoy.length > 0 ? turnosHoy.map((t: any) => (
+                  {turnosHoy.map((t: any) => (
                     <div key={t.id} className={`p-6 rounded-[2rem] border flex justify-between items-center transition-all ${t.estado === 'proceso' ? 'bg-[#10b981]/5 border-[#10b981]' : 'bg-[#0f172a] border-white/5'}`}>
                       <div className="flex items-center gap-6">
                         <div className="w-14 h-14 bg-[#020617] rounded-2xl flex items-center justify-center border border-[#10b981]/20 font-black text-[#10b981] text-xs">
@@ -150,7 +140,6 @@ export default function Home() {
                           <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">{t.Servicio?.nombre} — <span className="text-[#10b981]">{t.estado}</span></p>
                         </div>
                       </div>
-                      {/* Solo personal puede gestionar turnos */}
                       {['superadmin', 'admin', 'peluquero'].includes(rol) && t.estado !== 'finalizado' && (
                         <button onClick={async () => {
                           const nEst = t.estado === 'pendiente' ? 'proceso' : 'finalizado';
@@ -161,35 +150,26 @@ export default function Home() {
                         </button>
                       )}
                     </div>
-                  )) : (
-                    <div className="py-20 text-center border-2 border-dashed border-white/5 rounded-[3rem]">
-                      <p className="text-slate-600 font-black uppercase tracking-[0.3em]">No hay actividad registrada</p>
-                    </div>
-                  )}
+                  ))}
                 </div>
               </div>
 
-              {/* COLUMNA DERECHA: Reserva y Caja */}
               <div className="lg:col-span-4 space-y-6">
                 <section className="bg-gradient-to-br from-[#0f172a] to-[#020617] p-8 rounded-[2.5rem] border border-white/10">
-                  <h4 className="text-white font-black uppercase italic mb-6 tracking-tighter text-lg">Nueva Reserva</h4>
+                  <h4 className="text-white font-black uppercase italic mb-6 tracking-tighter">Nueva Reserva</h4>
                   <form onSubmit={handleCrearTurno} className="space-y-4">
-                    <input type="text" placeholder="Tu Nombre" value={nombreCliente} onChange={e => setNombreCliente(e.target.value)} className="w-full bg-[#020617] border border-white/5 p-4 rounded-xl text-xs outline-none focus:border-[#10b981] text-white" required />
-                    <select value={servicioId} onChange={e => setServicioId(e.target.value)} className="w-full bg-[#020617] border border-white/5 p-4 rounded-xl text-xs outline-none focus:border-[#10b981] text-white" required>
-                      <option value="">¿Qué servicio buscás?</option>
+                    <input type="text" placeholder="Tu Nombre" value={nombreCliente} onChange={e => setNombreCliente(e.target.value)} className="w-full bg-[#020617] border border-white/5 p-4 rounded-xl text-xs outline-none text-white focus:border-[#10b981]" required />
+                    <select value={servicioId} onChange={e => setServicioId(e.target.value)} className="w-full bg-[#020617] border border-white/5 p-4 rounded-xl text-xs outline-none text-white focus:border-[#10b981]" required>
+                      <option value="">Servicio...</option>
                       {negocioActual.Servicio?.map((s: any) => <option key={s.id} value={s.id}>{s.nombre} (${s.precio})</option>)}
                     </select>
                     <input type="datetime-local" value={fechaTurno} onChange={e => setFechaTurno(e.target.value)} className="w-full bg-[#020617] border border-white/5 p-4 rounded-xl text-xs text-white outline-none focus:border-[#10b981]" required />
-                    <button className="w-full bg-[#10b981] text-black font-black py-4 rounded-xl uppercase text-[10px] tracking-[0.2em] shadow-lg shadow-[#10b981]/10 hover:bg-white transition-all">
-                      Confirmar Turno
-                    </button>
+                    <button className="w-full bg-[#10b981] text-black font-black py-4 rounded-xl uppercase text-[10px] tracking-[0.2em]">Confirmar</button>
                   </form>
                 </section>
-
-                {/* LA CAJA: OCULTA PARA CLIENTES */}
                 {['superadmin', 'admin', 'peluquero'].includes(rol) && (
-                  <div className="p-8 bg-[#10b981] rounded-[2.5rem] text-[#020617] animate-in zoom-in-95 duration-500">
-                    <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Recaudación Real</p>
+                  <div className="p-8 bg-[#10b981] rounded-[2.5rem] text-[#020617]">
+                    <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Recaudación</p>
                     <p className="text-5xl font-black italic tracking-tighter">${recaudacionTotal}</p>
                   </div>
                 )}
@@ -197,60 +177,48 @@ export default function Home() {
             </div>
           )}
 
-          {/* SECCIÓN 2: SERVICIOS */}
+          {/* SECCIÓN SERVICIOS */}
           {seccionActiva === 'servicios' && (
-            <div className="space-y-8 animate-in fade-in duration-500">
-              <h3 className="text-4xl font-black text-white italic uppercase tracking-tighter">Nuestros <span className="text-[#10b981]">Servicios</span></h3>
+            <div className="animate-in fade-in duration-500">
+              <h3 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-8">Nuestros <span className="text-[#10b981]">Servicios</span></h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {negocioActual.Servicio?.map((s: any) => (
-                  <div key={s.id} className="bg-[#0f172a] p-8 rounded-[2rem] border border-white/5 group hover:border-[#10b981]/50 transition-all cursor-default">
-                    <p className="text-white font-black uppercase italic text-lg tracking-tighter group-hover:text-[#10b981] transition-colors">{s.nombre}</p>
-                    <p className="text-white/40 font-black text-2xl mt-2 italic">${s.precio}</p>
-                    <p className="text-[9px] text-slate-500 font-black uppercase mt-4 tracking-widest">⏱️ Estimado: {s.duracion_minutos} min</p>
+                  <div key={s.id} className="bg-[#0f172a] p-8 rounded-[2rem] border border-white/5 hover:border-[#10b981]/50 transition-all">
+                    <p className="text-white font-black uppercase italic text-lg tracking-tighter">{s.nombre}</p>
+                    <p className="text-[#10b981] font-black text-2xl mt-2">${s.precio}</p>
+                    <p className="text-[9px] text-slate-500 font-black uppercase mt-4">⏱️ {s.duracion_minutos} min</p>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* SECCIÓN 3: CONTROL SAAS (SOLO VALENTÍN) */}
+          {/* SECCIÓN ADMIN */}
           {seccionActiva === 'admin' && rol === 'superadmin' && (
-            <div className="space-y-10 animate-in slide-in-from-right-4 duration-500">
-              <h3 className="text-4xl font-black text-white italic uppercase tracking-tighter">SaaS <span className="text-[#10b981]">Control Center</span></h3>
+            <div className="space-y-8 animate-in slide-in-from-right-4 duration-500">
+              <h3 className="text-4xl font-black text-white italic uppercase tracking-tighter">SaaS <span className="text-[#10b981]">Control</span></h3>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <div className="bg-[#0f172a] p-8 rounded-[2.5rem] border border-white/5">
-                  <p className="text-[10px] font-black text-[#10b981] uppercase mb-4 tracking-widest">Activar Nuevo Local</p>
+                  <p className="text-[10px] font-black text-[#10b981] uppercase mb-4 tracking-widest">Nuevo Local</p>
                   <form onSubmit={handleCrearNegocio} className="flex gap-2">
                     <input type="text" value={nuevoNegocioNombre} onChange={e => setNuevoNegocioNombre(e.target.value)} placeholder="Ej: Barbería Rojas" className="flex-1 bg-[#020617] border border-white/5 p-4 rounded-xl text-xs outline-none text-white" />
-                    <button className="bg-white text-black px-6 rounded-xl font-black uppercase text-[10px] hover:bg-[#10b981] transition-colors">Crear</button>
+                    <button className="bg-white text-black px-6 rounded-xl font-black uppercase text-[10px]">Crear</button>
                   </form>
-                </div>
-                <div className="bg-[#0f172a] p-8 rounded-[2.5rem] border border-white/5">
-                  <p className="text-[10px] font-black text-slate-500 uppercase mb-4 tracking-widest">Base de Negocios Activos</p>
-                  <div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
-                    {negocios.map(n => (
-                      <div key={n.id} className="flex justify-between items-center p-4 bg-[#020617] rounded-xl border border-white/5">
-                        <span className="text-[10px] font-bold text-white uppercase tracking-tight">{n.nombre}</span>
-                        <span className="text-[8px] bg-white/10 text-white px-3 py-1 rounded-full font-black uppercase">{n.plan}</span>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* SECCIÓN 4: ANALYTICS (SOLO ADMINS) */}
+          {/* SECCIÓN ANALYTICS */}
           {seccionActiva === 'analytics' && (rol === 'admin' || rol === 'superadmin') && (
             <div className="p-20 text-center border-2 border-dashed border-white/5 rounded-[4rem] animate-in zoom-in-95 duration-700">
               <div className="text-7xl mb-6">📈</div>
-              <h3 className="text-3xl font-black text-white uppercase italic tracking-tighter">Métricas de Crecimiento</h3>
-              <p className="text-slate-500 text-xs mt-4 uppercase tracking-[0.4em] max-w-sm mx-auto leading-relaxed">Estamos procesando los datos históricos para generar tus reportes de facturación mensual.</p>
+              <h3 className="text-3xl font-black text-white uppercase italic tracking-tighter">Métricas</h3>
+              <p className="text-slate-500 text-xs mt-4 uppercase tracking-[0.4em]">Procesando datos del sistema...</p>
             </div>
           )}
-
         </div>
-      </div>
+      </main>
     </div>
   )
 }

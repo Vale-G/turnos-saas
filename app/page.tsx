@@ -285,12 +285,15 @@ export default function DashboardOwner() {
     );
   }
 
-  // --- VARIABLES SEGURAS ---
- // --- VARIABLES SEGURAS (Con red de seguridad '?' y valores por defecto) ---
+  // --- VARIABLES CON RED DE SEGURIDAD ---
+  // Usamos el "?" para que si el negocio no cargó, la app no explote
   const colorPrimario = negocio?.color_primario || '#10b981';
+  
+  // Si el plan no existe, le asignamos 'trial' por defecto para que features no falle
   const planActual = negocio?.plan || 'trial';
   const features = usePlanFeatures(planActual);
-  
+
+  // Cálculo de días con validación de fecha
   const diasTrial = (negocio?.plan === 'trial' && negocio?.trial_ends_at) 
     ? Math.max(0, Math.floor((new Date(negocio.trial_ends_at).getTime() - new Date().getTime()) / (1000 * 3600 * 24)))
     : 0;

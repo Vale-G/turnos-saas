@@ -273,17 +273,24 @@ export default function DashboardOwner() {
   }
   // --- Lógica de Protección (Insertar antes del return) ---
   // Si 'negocio' es null o undefined, mostramos la carga para evitar el error de 'secciones_disponibles'
+  // --- PROTECCIÓN DE CARGA ---
   if (loading || !negocio) {
-    return <LoadingScreen />; 
+    return (
+      <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center">
+        <div className="w-16 h-16 border-4 border-[#10b981]/10 border-t-[#10b981] rounded-full animate-spin mb-6" />
+        <div className="text-[#10b981] font-black tracking-[0.3em] animate-pulse uppercase text-xs">
+          Accediendo a la Plataforma
+        </div>
+      </div>
+    );
   }
 
-return (
-  <div className="min-h-screen bg-[#020617] text-slate-300 flex font-sans">
-    {/* ... resto de tu código del Dashboard ... */}
-  const colorPrimario = negocio.color_primario
-  const features = usePlanFeatures(negocio.plan)
-  const diasTrial = negocio.plan === 'trial' && negocio.trial_ends_at ? calcularDiasRestantesTrial(negocio.trial_ends_at) : 0
-
+  // --- VARIABLES SEGURAS ---
+  const colorPrimario = negocio.color_primario || '#10b981';
+  const features = usePlanFeatures(negocio.plan);
+  const diasTrial = negocio.plan === 'trial' && negocio.trial_ends_at 
+    ? (new Date(negocio.trial_ends_at).getTime() - new Date().getTime()) / (1000 * 3600 * 24) 
+    : 0;
   return (
     <div className="min-h-screen bg-[#020617] text-slate-300 flex font-sans">
       

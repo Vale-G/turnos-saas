@@ -46,32 +46,61 @@ export default function DashboardOwner() {
   const cargarDatos = async () => {
     setLoading(true)
     
-    // TODO: Obtener negocio del usuario autenticado
-    // Por ahora simulamos con el primero disponible
-    const { data: negocioData } = await supabase
-      .from('Negocio')
-      .select('*')
-      .limit(1)
-      .single()
+    try {
+      // TODO: Obtener negocio del usuario autenticado
+      // Por ahora simulamos con el primero disponible
+      const { data: negocioData, error: negocioError } = await supabase
+        .from('Negocio')
+        .select('*')
+        .limit(1)
+        .single()
 
-    if (negocioData) {
-      setNegocio(negocioData)
+      if (negocioError) {
+        console.error('Error cargando negocio:', negocioError)
+        setLoading(false)
+        return
+      }
 
-      // Cargar datos relacionados
-      const [serviciosRes, staffRes, turnosRes, egresosRes] = await Promise.all([
-        supabase.from('Servicio').select('*').eq('negocio_id', negocioData.id).eq('activo', true),
-        supabase.from('Staff').select('*').eq('negocio_id', negocioData.id),
-        supabase.from('turnos').select('*, Servicio(*), Staff(*)').eq('negocio_id', negocioData.id).gte('hora_inicio', new Date().toISOString()),
-        supabase.from('Egresos').select('*').eq('negocio_id', negocioData.id)
-      ])
+      if (negocioData) {
+        setNegocio(negocioData)
 
-      setServicios(serviciosRes.data || [])
-      setStaff(staffRes.data || [])
-      setTurnos(turnosRes.data || [])
-      setEgresos(egresosRes.data || [])
+        // Cargar datos relacionados - CORRECCIÓN: usar .is en vez de .eq para booleanos
+        const [serviciosRes, staffRes, turnosRes, egresosRes] = await Promise.all([
+          supabase
+            .from('Servicio')
+            .select('*')
+            .eq('negocio_id', negocioData.id)
+            .is('activo', true), // CAMBIO AQUÍ: usar .is() para booleanos
+          supabase
+            .from('Staff')
+            .select('*')
+            .eq('negocio_id', negocioData.id),
+          supabase
+            .from('turnos')
+            .select('*, Servicio(*), Staff(*)')
+            .eq('negocio_id', negocioData.id)
+            .gte('hora_inicio', new Date().toISOString()),
+          supabase
+            .from('Egresos')
+            .select('*')
+            .eq('negocio_id', negocioData.id)
+        ])
+
+        if (serviciosRes.error) console.error('Error servicios:', serviciosRes.error)
+        if (staffRes.error) console.error('Error staff:', staffRes.error)
+        if (turnosRes.error) console.error('Error turnos:', turnosRes.error)
+        if (egresosRes.error) console.error('Error egresos:', egresosRes.error)
+
+        setServicios(serviciosRes.data || [])
+        setStaff(staffRes.data || [])
+        setTurnos(turnosRes.data || [])
+        setEgresos(egresosRes.data || [])
+      }
+    } catch (error) {
+      console.error('Error en cargarDatos:', error)
+    } finally {
+      setTimeout(() => setLoading(false), 500)
     }
-
-    setTimeout(() => setLoading(false), 500)
   }
 
   const notify = (texto: string, tipo: Message['tipo']) => {
@@ -239,6 +268,28 @@ export default function DashboardOwner() {
     setModalUpgrade({ abierto: false, feature: '' })
   }
 
+  // --- PROTECCIÓN DE CARGA ---
+  if (loading || !negocio) {
+    return (
+      <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center gap-6">
+        <div className="w-20 h-20 border-4 border-[#10b981]/10 border-t-[#10b981] rounded-full animate-spin" />
+        <h2 className="text-[#10b981] font-black text-2xl uppercase tracking-[0.4em] animate-pulse">
+          Cargando Plataforma
+        </h2>
+      </div>
+    )
+  }
+
+  // --- VARIABLES CON RED DE SEGURIDAD ---
+  const colorPrimario = negocio.color_primario || '#10b981'
+  const planActual = negocio.plan || 'trial'
+  const features = usePlanFeatures(planActual)
+
+  // Cálculo de días con validación de fecha
+  const diasTrial = (negocio.plan === 'trial' && negocio.trial_ends_at) 
+    ? Math.max(0, Math.floor((new Date(negocio.trial_ends_at).getTime() - new Date().getTime()) / (1000 * 3600 * 24)))
+    : 0
+
   const turnosHoy = turnos.filter(t => t.hora_inicio.includes(filtroFecha))
   const ingresosBrutos = turnosHoy.filter(t => t.estado === 'finalizado').reduce((sum, t) => sum + (t.Servicio?.precio || 0), 0)
   const egresosHoy = egresos.filter(e => e.fecha === filtroFecha).reduce((sum, e) => sum + e.monto, 0)
@@ -257,46 +308,6 @@ export default function DashboardOwner() {
       .slice(0, 6)
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center gap-6">
-        <div className="w-20 h-20 border-4 border-[#10b981]/10 border-t-[#10b981] rounded-full animate-spin" />
-        <h2 className="text-[#10b981] font-black text-2xl uppercase tracking-[0.4em] animate-pulse">
-          Cargando Plataforma
-        </h2>
-      </div>
-    )
-  }
-
-  if (!negocio) {
-    return <div className="min-h-screen bg-[#020617] text-white flex items-center justify-center">Error: No hay negocio asignado</div>
-  }
-  // --- Lógica de Protección (Insertar antes del return) ---
-  // Si 'negocio' es null o undefined, mostramos la carga para evitar el error de 'secciones_disponibles'
-  // --- PROTECCIÓN DE CARGA ---
-  if (loading || !negocio) {
-    return (
-      <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center">
-        <div className="w-16 h-16 border-4 border-[#10b981]/10 border-t-[#10b981] rounded-full animate-spin mb-6" />
-        <div className="text-[#10b981] font-black tracking-[0.3em] animate-pulse uppercase text-xs">
-          Accediendo a la Plataforma
-        </div>
-      </div>
-    );
-  }
-
-  // --- VARIABLES CON RED DE SEGURIDAD ---
-  // Usamos el "?" para que si el negocio no cargó, la app no explote
-  const colorPrimario = negocio?.color_primario || '#10b981';
-  
-  // Si el plan no existe, le asignamos 'trial' por defecto para que features no falle
-  const planActual = negocio?.plan || 'trial';
-  const features = usePlanFeatures(planActual);
-
-  // Cálculo de días con validación de fecha
-  const diasTrial = (negocio?.plan === 'trial' && negocio?.trial_ends_at) 
-    ? Math.max(0, Math.floor((new Date(negocio.trial_ends_at).getTime() - new Date().getTime()) / (1000 * 3600 * 24)))
-    : 0;
   return (
     <div className="min-h-screen bg-[#020617] text-slate-300 flex font-sans">
       

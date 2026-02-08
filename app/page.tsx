@@ -606,7 +606,7 @@ export default function DashboardOwner() {
           planActual={negocio.plan}
           featureBloqueada={modalUpgrade.feature}
           onClose={() => setModalUpgrade({ abierto: false, feature: '' })}
-          onUpgrade={handleUpgrade}
+          onUpgrade={(plan: any) => handleUpgrade(plan)}
         />
       )}
     </div>

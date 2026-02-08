@@ -286,10 +286,13 @@ export default function DashboardOwner() {
   }
 
   // --- VARIABLES SEGURAS ---
-  const colorPrimario = negocio.color_primario || '#10b981';
-  const features = usePlanFeatures(negocio.plan);
-  const diasTrial = negocio.plan === 'trial' && negocio.trial_ends_at 
-    ? (new Date(negocio.trial_ends_at).getTime() - new Date().getTime()) / (1000 * 3600 * 24) 
+ // --- VARIABLES SEGURAS (Con red de seguridad '?' y valores por defecto) ---
+  const colorPrimario = negocio?.color_primario || '#10b981';
+  const planActual = negocio?.plan || 'trial';
+  const features = usePlanFeatures(planActual);
+  
+  const diasTrial = (negocio?.plan === 'trial' && negocio?.trial_ends_at) 
+    ? Math.max(0, Math.floor((new Date(negocio.trial_ends_at).getTime() - new Date().getTime()) / (1000 * 3600 * 24)))
     : 0;
   return (
     <div className="min-h-screen bg-[#020617] text-slate-300 flex font-sans">

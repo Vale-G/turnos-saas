@@ -271,7 +271,15 @@ export default function DashboardOwner() {
   if (!negocio) {
     return <div className="min-h-screen bg-[#020617] text-white flex items-center justify-center">Error: No hay negocio asignado</div>
   }
+  // --- Lógica de Protección (Insertar antes del return) ---
+  // Si 'negocio' es null o undefined, mostramos la carga para evitar el error de 'secciones_disponibles'
+  if (loading || !negocio) {
+    return <LoadingScreen />; 
+  }
 
+return (
+  <div className="min-h-screen bg-[#020617] text-slate-300 flex font-sans">
+    {/* ... resto de tu código del Dashboard ... */}
   const colorPrimario = negocio.color_primario
   const features = usePlanFeatures(negocio.plan)
   const diasTrial = negocio.plan === 'trial' && negocio.trial_ends_at ? calcularDiasRestantesTrial(negocio.trial_ends_at) : 0

@@ -35,54 +35,73 @@ export default function BookingPublico({ params }: PageProps) {
   const cargarDatos = async () => {
     setLoading(true)
 
-    // Cargar negocio por slug
-    const { data: negocioData } = await supabase
-      .from('Negocio')
-      .select('*')
-      .eq('slug', params.slug)
-      .single()
+    try {
+      // Cargar negocio por slug
+      const { data: negocioData, error: negocioError } = await supabase
+        .from('Negocio')
+        .select('*')
+        .eq('slug', params.slug)
+        .single()
 
-    if (!negocioData) {
-      alert('Negocio no encontrado')
-      return
+      if (negocioError || !negocioData) {
+        console.error('Error cargando negocio:', negocioError)
+        alert('Negocio no encontrado')
+        setLoading(false)
+        return
+      }
+
+      setNegocio(negocioData)
+
+      // ✅ CORREGIDO: Cargar servicios activos
+      const { data: serviciosData, error: serviciosError } = await supabase
+        .from('Servicio')
+        .select('*')
+        .eq('negocio_id', negocioData.id)
+        .eq('activo', true)  // ✅ Usar .eq() para booleanos
+        .order('precio', { ascending: true })
+
+      if (serviciosError) {
+        console.error('Error cargando servicios:', serviciosError)
+      }
+
+      setServicios(serviciosData || [])
+
+      // ✅ CORREGIDO: Cargar staff activo
+      const { data: staffData, error: staffError } = await supabase
+        .from('Staff')
+        .select('*')
+        .eq('negocio_id', negocioData.id)
+        .eq('activo', true)  // ✅ Usar .eq() para booleanos
+
+      if (staffError) {
+        console.error('Error cargando staff:', staffError)
+      }
+
+      setStaff(staffData || [])
+
+      // Cargar turnos ocupados (próximos 30 días)
+      const hoy = new Date()
+      const treintaDias = new Date()
+      treintaDias.setDate(hoy.getDate() + 30)
+
+      const { data: turnosData, error: turnosError } = await supabase
+        .from('turnos')
+        .select('*')
+        .eq('negocio_id', negocioData.id)
+        .gte('hora_inicio', hoy.toISOString())
+        .lte('hora_inicio', treintaDias.toISOString())
+        .in('estado', ['pendiente', 'confirmado'])
+
+      if (turnosError) {
+        console.error('Error cargando turnos:', turnosError)
+      }
+
+      setTurnos(turnosData || [])
+    } catch (error) {
+      console.error('Error general en cargarDatos:', error)
+    } finally {
+      setLoading(false)
     }
-
-    setNegocio(negocioData)
-
-    // Cargar servicios activos
-    const { data: serviciosData } = await supabase
-      .from('Servicio')
-      .select('*')
-      .eq('negocio_id', negocioData.id)
-      .eq('activo', true)
-      .order('precio', { ascending: true })
-
-    setServicios(serviciosData || [])
-
-    // Cargar staff activo
-    const { data: staffData } = await supabase
-      .from('Staff')
-      .select('*')
-      .eq('negocio_id', negocioData.id)
-      .eq('activo', true)
-
-    setStaff(staffData || [])
-
-    // Cargar turnos ocupados (próximos 30 días)
-    const hoy = new Date()
-    const treintaDias = new Date()
-    treintaDias.setDate(hoy.getDate() + 30)
-
-    const { data: turnosData } = await supabase
-      .from('turnos')
-      .select('*')
-      .eq('negocio_id', negocioData.id)
-      .gte('hora_inicio', hoy.toISOString())
-      .lte('hora_inicio', treintaDias.toISOString())
-      .in('estado', ['pendiente', 'confirmado'])
-
-    setTurnos(turnosData || [])
-    setLoading(false)
   }
 
   const seleccionarServicio = (servicio: Servicio) => {
@@ -115,13 +134,14 @@ export default function BookingPublico({ params }: PageProps) {
       staff_id: staffSeleccionado.id,
       nombre_cliente: datosCliente.nombre,
       telefono_cliente: datosCliente.telefono,
-      email_cliente: datosCliente.email,
+      email_cliente: datosCliente.email || null,
       hora_inicio: fechaCompleta.toISOString(),
       estado: 'pendiente',
-      notas_internas: datosCliente.notas
+      notas_internas: datosCliente.notas || null
     }])
 
     if (error) {
+      console.error('Error al confirmar reserva:', error)
       setMensaje({ texto: '❌ Error al reservar. Intenta nuevamente.', tipo: 'error' })
       return
     }
@@ -284,7 +304,7 @@ export default function BookingPublico({ params }: PageProps) {
                     style={{ backgroundColor: `${colorPrimario}20` }}
                   >
                     {miembro.avatar_url ? (
-                      <img src={miembro.avatar_url} className="w-full h-full rounded-full object-cover" />
+                      <img src={miembro.avatar_url} className="w-full h-full rounded-full object-cover" alt={miembro.nombre} />
                     ) : (
                       '👤'
                     )}

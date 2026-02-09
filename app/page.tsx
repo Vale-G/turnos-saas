@@ -62,40 +62,28 @@ export default function DashboardOwner() {
       }
 
       if (negocioData) {
-        setNegocio(negocioData)
+      setNegocio(negocioData)
 
-        // Cargar datos relacionados - CORRECCIÓN: usar .eq() para booleanos
-        const [serviciosRes, staffRes, turnosRes, egresosRes] = await Promise.all([
-          supabase
-            .from('Servicio')
-            .select('*')
-            .eq('negocio_id', negocioData.id)
-            .eq('activo', true), // ✅ CORREGIDO: usar .eq() para valores booleanos
-          supabase
-            .from('Staff')
-            .select('*')
-            .eq('negocio_id', negocioData.id),
-          supabase
-            .from('turnos')
-            .select('*, Servicio(*), Staff(*)')
-            .eq('negocio_id', negocioData.id)
-            .gte('hora_inicio', new Date().toISOString()),
-          supabase
-            .from('Egresos')
-            .select('*')
-            .eq('negocio_id', negocioData.id)
-        ])
+      // 1. Cargamos todo en paralelo. Ojo a los corchetes [ ]
+      const [serviciosRes, staffRes, turnosRes, egresosRes] = await Promise.all([
+        supabase.from('Servicio').select('*').eq('negocio_id', negocioData.id),
+        supabase.from('Staff').select('*').eq('negocio_id', negocioData.id),
+        supabase.from('turnos').select('*, Servicio(*), Staff(*)').eq('negocio_id', negocioData.id),
+        supabase.from('Egresos').select('*').eq('negocio_id', negocioData.id)
+      ])
 
-        if (serviciosRes.error) console.error('Error servicios:', serviciosRes.error)
-        if (staffRes.error) console.error('Error staff:', staffRes.error)
-        if (turnosRes.error) console.error('Error turnos:', turnosRes.error)
-        if (egresosRes.error) console.error('Error egresos:', egresosRes.error)
+      // 2. Ahora sí estas líneas funcionan porque las variables existen
+      if (serviciosRes.error) console.error('Error servicios:', serviciosRes.error)
+      if (staffRes.error) console.error('Error staff:', staffRes.error)
+      if (turnosRes.error) console.error('Error turnos:', turnosRes.error)
+      if (egresosRes.error) console.error('Error egresos:', egresosRes.error)
 
-        setServicios(serviciosRes.data || [])
-        setStaff(staffRes.data || [])
-        setTurnos(turnosRes.data || [])
-        setEgresos(egresosRes.data || [])
-      }
+      // 3. Guardamos los datos en el estado
+      setServicios(serviciosRes.data || [])
+      setStaff(staffRes.data || [])
+      setTurnos(turnosRes.data || [])
+      setEgresos(egresosRes.data || [])
+    }
     } catch (error) {
       console.error('Error en cargarDatos:', error)
     } finally {

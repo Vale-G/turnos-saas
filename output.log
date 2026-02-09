@@ -1,0 +1,21 @@
+
+> turnos-saas@0.1.0 dev
+> next dev
+
+▲ Next.js 16.1.6 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://10.0.0.81:3000
+
+✓ Starting...
+✓ Ready in 669ms
+○ Compiling / ...
+⨯ Error: supabaseUrl is required.
+    at module evaluation (lib/supabase.ts:6:37)
+    at module evaluation (app/page.tsx:5:1)
+  4 | const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  5 |
+> 6 | export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    |                                     ^ {
+  digest: '3114769754'
+}
+ GET / 500 in 6.2s (compile: 5.6s, render: 657ms)

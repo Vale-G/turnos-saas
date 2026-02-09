@@ -217,33 +217,25 @@ export const PLANES: FeaturesPlanes = {
  * @example
  * const { canAccessCRM, canAccessFinanzas, limits } = usePlanFeatures(negocio.plan)
  */
-export const usePlanFeatures = (plan: PlanNegocio) => {
-  const planData = PLANES[plan]
-  
+export const usePlanFeatures = (plan: string) => {
+  // Definimos qué tiene cada plan por si la base de datos falla
+  const planes: any = {
+    trial: { secciones_disponibles: ['agenda', 'servicios', 'staff'], servicios_ilimitados: false },
+    basico: { secciones_disponibles: ['agenda', 'servicios', 'staff'], servicios_ilimitados: false },
+    pro: { secciones_disponibles: ['agenda', 'servicios', 'staff', 'clientes', 'finanzas'], servicios_ilimitados: true }
+  };
+
+  // Si el plan no existe en nuestra lista, usamos 'trial' por defecto
+  const planData = planes[plan] || planes['trial'];
+
   return {
-    // Acceso a secciones
+    // Ahora es seguro porque planData nunca va a ser undefined
     canAccessCRM: planData.secciones_disponibles.includes('clientes'),
     canAccessFinanzas: planData.secciones_disponibles.includes('finanzas'),
     canAccessAnalytics: planData.secciones_disponibles.includes('analytics'),
-    
-    // Datos del plan
-    planName: planData.nombre,
-    precio: planData.precio,
-    features: planData.features,
-    
-    // Límites
-    limits: planData.limites,
-    
-    // Helpers
-    isLimitReached: (tipo: 'turnos' | 'staff' | 'servicios', cantidad: number) => {
-      const limite = planData.limites[`${tipo}_max` as keyof typeof planData.limites]
-      return limite !== 'ilimitado' && cantidad >= (limite as number)
-    },
-    
-    canUpgrade: plan !== 'pro',
-    nextPlan: plan === 'trial' ? 'basico' : plan === 'basico' ? 'pro' : null
-  }
-}
+    serviciosIlimitados: planData.servicios_ilimitados
+  };
+};
 
 // ============================================
 // VALIDACIONES DE NEGOCIO

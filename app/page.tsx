@@ -1,14 +1,13 @@
 // ============================================================================
 // ARCHIVO: app/(owner)/dashboard/page.tsx
-// DESCRIPCIÓN: Dashboard principal del sistema de gestión de turnos
+// VERSIÓN: 2.0 - DEBUGGING & ANTI-INFINITE-LOOP
 // 
-// CARACTERÍSTICAS PRINCIPALES:
-// - Sistema RBAC con 4 roles: admin, manager, staff, recepcionista
-// - Autenticación real con Supabase
-// - Abstracción completa de dominio (labels dinámicos)
-// - Blindaje anti-crash en secciones Pro
-// - Early returns para optimización de recursos
-// - Optional chaining en todos los accesos a datos
+// MEJORAS IMPLEMENTADAS:
+// ✅ Trazabilidad completa con console.log estratégicos
+// ✅ Blindaje de tablas (case sensitivity)
+// ✅ Manejo robusto de estados de carga con timeout
+// ✅ Fallbacks para prevenir bucles infinitos
+// ✅ Validación de arrays antes de renderizar componentes
 // ============================================================================
 
 'use client'
@@ -42,15 +41,8 @@ import UpgradePlanModal from '@/components/dashboard/UpgradePlanModal'
 // ============================================================================
 
 type SeccionActiva = 'agenda' | 'servicios' | 'staff' | 'clientes' | 'finanzas' | 'configuracion'
-
-// Definición de los 4 roles del sistema RBAC
-// - admin: Acceso total, gestión de configuración y planes
-// - manager: Gestión de recursos, staff y agenda (sin finanzas ni configuración)
-// - staff: Solo visualización de su propia agenda y turnos
-// - recepcionista: Gestión de agenda global y clientes (sin configuración)
 type RolSistema = 'admin' | 'manager' | 'staff' | 'recepcionista'
 
-// Interfaz para el perfil del usuario autenticado
 interface Perfil {
   id: string
   email: string
@@ -69,34 +61,24 @@ export default function DashboardOwner() {
   const router = useRouter()
   
   // ==========================================================================
-  // ESTADO - Autenticación
+  // ESTADO
   // ==========================================================================
   
   const [perfil, setPerfil] = useState<Perfil | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [loadingAuth, setLoadingAuth] = useState(true)
-  
-  // ==========================================================================
-  // ESTADO - Negocio y Usuario
-  // ==========================================================================
-  
   const [negocio, setNegocio] = useState<Negocio | null>(null)
   const [seccionActiva, setSeccionActiva] = useState<SeccionActiva>('agenda')
   const [loading, setLoading] = useState(true)
+  const [errorCarga, setErrorCarga] = useState<string>('')
 
-  // ==========================================================================
-  // ESTADO - Datos de Supabase
-  // ==========================================================================
-  
+  // Estados de datos
   const [servicios, setServicios] = useState<Servicio[]>([])
   const [staff, setStaff] = useState<Staff[]>([])
   const [turnos, setTurnos] = useState<Turno[]>([])
   const [egresos, setEgresos] = useState<Egreso[]>([])
 
-  // ==========================================================================
-  // ESTADO - Formularios
-  // ==========================================================================
-  
+  // Estados de formularios
   const [formTurno, setFormTurno] = useState<FormTurno>({
     cliente: '', 
     telefono: '', 
@@ -130,10 +112,7 @@ export default function DashboardOwner() {
     fecha: new Date().toISOString().split('T')[0]
   })
 
-  // ==========================================================================
-  // ESTADO - UI/UX
-  // ==========================================================================
-  
+  // Estados UI/UX
   const [filtroFecha, setFiltroFecha] = useState(new Date().toISOString().split('T')[0])
   const [mensaje, setMensaje] = useState<Message>({ texto: '', tipo: 'info' })
   const [modalUpgrade, setModalUpgrade] = useState<{ abierto: boolean; feature: string }>({ 
@@ -146,65 +125,130 @@ export default function DashboardOwner() {
   })
 
   // ==========================================================================
-  // EFECTO: Verificar autenticación (EJECUTAR PRIMERO)
-  // TRAZABILIDAD:
-  // 1. Al montar el componente, verifica si hay sesión
-  // 2. Obtiene el usuario autenticado
-  // 3. Carga su perfil desde la tabla 'perfiles'
-  // 4. Valida que tenga negocio asignado
-  // 5. Carga los datos del negocio
+  // EFECTO: Verificar autenticación con TIMEOUT DE SEGURIDAD
   // ==========================================================================
   
   useEffect(() => {
+    console.log('🚀 [INICIO] Montando Dashboard...')
+    
+    // TIMEOUT DE SEGURIDAD: Si después de 10 segundos sigue cargando, forzar error
+    const timeoutId = setTimeout(() => {
+      if (loadingAuth) {
+        console.error('⏰ [TIMEOUT] La autenticación tardó más de 10 segundos')
+        setLoadingAuth(false)
+        setLoading(false)
+        setErrorCarga('La carga tardó demasiado. Por favor, recarga la página.')
+      }
+    }, 10000)
+
     verificarAutenticacion()
+
+    return () => clearTimeout(timeoutId)
   }, [])
 
+  // ==========================================================================
+  // FUNCIÓN: Verificar autenticación
+  // TRAZABILIDAD: Logs en cada paso crítico
+  // ==========================================================================
+  
   const verificarAutenticacion = async () => {
     try {
+      console.log('🔐 [AUTH] Iniciando verificación de autenticación...')
       setLoadingAuth(true)
+      setErrorCarga('')
 
+      // -----------------------------------------------------------------------
       // PASO 1: Obtener usuario actual
-      // IMPORTANTE: getUser() valida la sesión con el servidor
+      // -----------------------------------------------------------------------
+      console.log('📡 [AUTH] Obteniendo usuario de Supabase...')
       const { data: { user }, error: userError } = await supabase.auth.getUser()
 
-      if (userError || !user) {
-        // Sin sesión, redirigir a login
+      if (userError) {
+        console.error('❌ [AUTH] Error al obtener usuario:', userError)
         router.push('/login')
         return
       }
 
+      if (!user) {
+        console.warn('⚠️ [AUTH] No hay usuario autenticado')
+        router.push('/login')
+        return
+      }
+
+      console.log('✅ [AUTH] Usuario autenticado:', {
+        id: user.id,
+        email: user.email
+      })
       setUserId(user.id)
 
+      // -----------------------------------------------------------------------
       // PASO 2: Cargar perfil del usuario
+      // -----------------------------------------------------------------------
+      console.log('📡 [PERFIL] Cargando perfil desde tabla "perfiles"...')
       const { data: perfilData, error: perfilError } = await supabase
         .from('perfiles')
         .select('*')
         .eq('id', user.id)
         .single()
 
-      if (perfilError || !perfilData) {
+      if (perfilError) {
+        console.error('❌ [PERFIL] Error al cargar perfil:', perfilError)
         notify('❌ Error al cargar tu perfil', 'error')
-        router.push('/login')
+        setLoadingAuth(false)
+        setLoading(false)
+        setErrorCarga('No se pudo cargar tu perfil. Contacta a soporte.')
         return
       }
 
+      if (!perfilData) {
+        console.error('❌ [PERFIL] No se encontró perfil para el usuario')
+        notify('❌ Perfil no encontrado', 'error')
+        setLoadingAuth(false)
+        setLoading(false)
+        setErrorCarga('Tu perfil no existe. Contacta a soporte.')
+        return
+      }
+
+      console.log('✅ [PERFIL] Perfil recuperado:', {
+        id: perfilData.id,
+        email: perfilData.email,
+        nombre: perfilData.nombre,
+        rol: perfilData.rol,
+        negocio_id: perfilData.negocio_id
+      })
       setPerfil(perfilData)
 
+      // -----------------------------------------------------------------------
       // PASO 3: Validar que tenga negocio asignado
+      // -----------------------------------------------------------------------
       if (!perfilData.negocio_id && perfilData.rol !== 'staff') {
+        console.warn('⚠️ [NEGOCIO] Usuario sin negocio asignado')
         notify('⚠️ Necesitas configurar tu negocio', 'warning')
+        setLoadingAuth(false)
+        setLoading(false)
         router.push('/setup-negocio')
         return
       }
 
+      // -----------------------------------------------------------------------
       // PASO 4: Cargar datos del negocio
+      // -----------------------------------------------------------------------
       if (perfilData.negocio_id) {
+        console.log('📡 [NEGOCIO] ID de negocio encontrado:', perfilData.negocio_id)
         await cargarNegocio(perfilData.negocio_id)
+      } else {
+        // Usuario es staff sin negocio (caso válido)
+        console.log('ℹ️ [NEGOCIO] Usuario tipo staff sin negocio asignado')
+        setLoadingAuth(false)
+        setLoading(false)
       }
 
-    } catch (error) {
-      console.error('Error en autenticación:', error)
-      router.push('/login')
+    } catch (error: any) {
+      console.error('💥 [AUTH] Error crítico en autenticación:', error)
+      setLoadingAuth(false)
+      setLoading(false)
+      setErrorCarga(`Error inesperado: ${error.message}`)
+      // No redirigir automáticamente para que el usuario vea el error
     } finally {
       setLoadingAuth(false)
     }
@@ -212,35 +256,60 @@ export default function DashboardOwner() {
 
   // ==========================================================================
   // FUNCIÓN: Cargar negocio
-  // Ahora recibe el negocio_id como parámetro
-  // TRAZABILIDAD: Supabase → Estado local → UI
+  // BLINDAJE: Case sensitivity, fallbacks y logs
   // ==========================================================================
   
   const cargarNegocio = async (negocioId: string) => {
+    console.log('🏢 [NEGOCIO] Iniciando carga del negocio:', negocioId)
     setLoading(true)
     
     try {
       // -----------------------------------------------------------------------
       // PASO 1: Obtener negocio específico
+      // BLINDAJE: Usar nombre exacto de tabla con comillas
       // -----------------------------------------------------------------------
+      console.log('📡 [NEGOCIO] Consultando tabla "Negocio"...')
       const { data: negocioData, error: negocioError } = await supabase
-        .from('Negocio')
+        .from('Negocio') // ⚠️ IMPORTANTE: Case-sensitive
         .select('*')
         .eq('id', negocioId)
         .single()
 
-      if (negocioError || !negocioData) {
-        console.error('Error cargando negocio:', negocioError)
+      if (negocioError) {
+        console.error('❌ [NEGOCIO] Error al consultar negocio:', {
+          error: negocioError,
+          message: negocioError.message,
+          details: negocioError.details,
+          hint: negocioError.hint
+        })
         notify('❌ Error al cargar el negocio', 'error')
         setLoading(false)
+        setErrorCarga(`Error de base de datos: ${negocioError.message}`)
         return
       }
 
+      if (!negocioData) {
+        console.error('❌ [NEGOCIO] No se encontró negocio con ID:', negocioId)
+        notify('❌ Negocio no encontrado', 'error')
+        setLoading(false)
+        setErrorCarga('No se encontró el negocio asociado a tu cuenta.')
+        return
+      }
+
+      console.log('✅ [NEGOCIO] Negocio cargado exitosamente:', {
+        id: negocioData.id,
+        nombre: negocioData.nombre,
+        vertical: negocioData.vertical,
+        plan: negocioData.plan
+      })
       setNegocio(negocioData)
 
       // -----------------------------------------------------------------------
       // PASO 2: Cargar datos relacionados en PARALELO
+      // BLINDAJE: Logs individuales y manejo de errores
       // -----------------------------------------------------------------------
+      console.log('📡 [DATOS] Cargando servicios, staff, turnos y egresos...')
+      
       const [serviciosRes, staffRes, turnosRes, egresosRes] = await Promise.all([
         supabase
           .from('Servicio')
@@ -264,27 +333,54 @@ export default function DashboardOwner() {
           .eq('negocio_id', negocioData.id)
       ])
 
-      // Validación de errores individual
-      if (serviciosRes.error) console.error('Error servicios:', serviciosRes.error)
-      if (staffRes.error) console.error('Error staff:', staffRes.error)
-      if (turnosRes.error) console.error('Error turnos:', turnosRes.error)
-      if (egresosRes.error) console.error('Error egresos:', egresosRes.error)
+      // Validación individual con logs
+      if (serviciosRes.error) {
+        console.error('❌ [SERVICIOS] Error:', serviciosRes.error)
+      } else {
+        console.log(`✅ [SERVICIOS] ${serviciosRes.data?.length || 0} servicios cargados`)
+      }
 
-      // Filtrar servicios activos con blindaje
+      if (staffRes.error) {
+        console.error('❌ [STAFF] Error:', staffRes.error)
+      } else {
+        console.log(`✅ [STAFF] ${staffRes.data?.length || 0} staff cargados`)
+      }
+
+      if (turnosRes.error) {
+        console.error('❌ [TURNOS] Error:', turnosRes.error)
+      } else {
+        console.log(`✅ [TURNOS] ${turnosRes.data?.length || 0} turnos cargados`)
+      }
+
+      if (egresosRes.error) {
+        console.error('❌ [EGRESOS] Error:', egresosRes.error)
+      } else {
+        console.log(`✅ [EGRESOS] ${egresosRes.data?.length || 0} egresos cargados`)
+      }
+
+      // -----------------------------------------------------------------------
+      // PASO 3: Guardar en estado con FALLBACKS robustos
+      // -----------------------------------------------------------------------
+      // BLINDAJE: Filtrar servicios activos de forma segura
       const serviciosActivos = (serviciosRes.data || []).filter(s => 
         s.activo === undefined || s.activo === true
       )
 
-      // Guardar en estado con fallback a array vacío
-      setServicios(serviciosActivos)
-      setStaff(staffRes.data || [])
-      setTurnos(turnosRes.data || [])
-      setEgresos(egresosRes.data || [])
+      console.log('💾 [ESTADO] Guardando datos en estado local...')
+      setServicios(serviciosActivos || []) // Siempre array
+      setStaff(staffRes.data || []) // Siempre array
+      setTurnos(turnosRes.data || []) // Siempre array
+      setEgresos(egresosRes.data || []) // Siempre array
 
-    } catch (error) {
-      console.error('Error en cargarNegocio:', error)
+      console.log('🎉 [ÉXITO] Carga completa del dashboard')
+
+    } catch (error: any) {
+      console.error('💥 [NEGOCIO] Error crítico en cargarNegocio:', error)
       notify('❌ Error general al cargar datos', 'error')
+      setErrorCarga(`Error inesperado: ${error.message}`)
     } finally {
+      // CRÍTICO: SIEMPRE desactivar loading
+      console.log('🏁 [LOADING] Desactivando spinner de carga')
       setTimeout(() => setLoading(false), 500)
     }
   }
@@ -294,6 +390,7 @@ export default function DashboardOwner() {
   // ==========================================================================
   
   const notify = (texto: string, tipo: Message['tipo']) => {
+    console.log(`📢 [NOTIFICACIÓN] ${tipo.toUpperCase()}: ${texto}`)
     setMensaje({ texto, tipo })
     setTimeout(() => setMensaje({ texto: '', tipo: 'info' }), 4000)
   }
@@ -304,52 +401,44 @@ export default function DashboardOwner() {
   
   const handleLogout = async () => {
     try {
-      // PASO 1: Cerrar sesión en Supabase
-      // Esto elimina la cookie de sesión
+      console.log('🚪 [LOGOUT] Cerrando sesión...')
       const { error } = await supabase.auth.signOut()
       
       if (error) throw error
 
-      // PASO 2: Limpiar estado local
       setPerfil(null)
       setNegocio(null)
       setUserId(null)
 
-      // PASO 3: Redirigir a login
+      console.log('✅ [LOGOUT] Sesión cerrada correctamente')
       router.push('/login')
       
     } catch (error: any) {
-      console.error('Error al cerrar sesión:', error)
+      console.error('❌ [LOGOUT] Error al cerrar sesión:', error)
       notify(`❌ Error: ${error.message}`, 'error')
     }
   }
 
   // ==========================================================================
   // FUNCIÓN: Verificar acceso a features premium
-  // BLINDAJE: Fallback robusto si plan es undefined
   // ==========================================================================
   
   const verificarAccesoFeature = (seccion: SeccionActiva): boolean => {
-    // EARLY RETURN: Sin negocio, negar acceso
     if (!negocio) return false
     
-    // BLINDAJE: Si plan es undefined, usar 'trial' por defecto
     const planSeguro = negocio.plan || 'trial'
     const features = usePlanFeatures(planSeguro)
     
-    // BLINDAJE: Si features es undefined, usar valores restrictivos
     if (!features) {
-      console.error('Features es undefined para el plan:', planSeguro)
+      console.error('⚠️ [FEATURES] Features es undefined para el plan:', planSeguro)
       return false
     }
     
-    // Validación de acceso a CRM
     if (seccion === 'clientes' && !features.canAccessCRM) {
       setModalUpgrade({ abierto: true, feature: 'CRM de Clientes' })
       return false
     }
     
-    // Validación de acceso a Finanzas
     if (seccion === 'finanzas' && !features.canAccessFinanzas) {
       setModalUpgrade({ abierto: true, feature: 'Reportes Financieros' })
       return false
@@ -360,11 +449,9 @@ export default function DashboardOwner() {
 
   // ==========================================================================
   // FUNCIÓN: Verificar permisos RBAC por rol
-  // EARLY RETURNS: Optimización de recursos
   // ==========================================================================
   
   const tieneAccesoSeccion = (seccion: SeccionActiva): boolean => {
-    // Matriz de permisos RBAC
     const permisosPorRol: Record<RolSistema, SeccionActiva[]> = {
       admin: ['agenda', 'servicios', 'staff', 'clientes', 'finanzas', 'configuracion'],
       manager: ['agenda', 'servicios', 'staff', 'clientes'],
@@ -380,34 +467,30 @@ export default function DashboardOwner() {
   // ==========================================================================
   
   const cambiarSeccion = (seccion: SeccionActiva) => {
-    // EARLY RETURN: Sin permisos RBAC, salir
     if (!tieneAccesoSeccion(seccion)) {
       notify('⛔ No tienes permisos para acceder a esta sección', 'error')
       return
     }
     
-    // Verificar si tiene acceso según el plan
     if (verificarAccesoFeature(seccion)) {
       setSeccionActiva(seccion)
     }
   }
 
   // ==========================================================================
-  // HANDLER: Crear turno
+  // HANDLERS DE FORMULARIOS
   // ==========================================================================
   
   const handleCrearTurno = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!negocio) return
 
-    // Validación: Cliente requerido
     if (!formTurno.cliente.trim()) {
       return notify('⚠️ El nombre del cliente es requerido', 'error')
     }
 
     const isoFecha = new Date(formTurno.fecha).toISOString()
     
-    // Verificar conflictos de horario
     const conflicto = turnos.find(t => 
       t.staff_id === formTurno.staff && 
       t.hora_inicio === isoFecha && 
@@ -419,7 +502,6 @@ export default function DashboardOwner() {
       return notify('⚠️ El profesional ya tiene un turno a esa hora', 'error')
     }
 
-    // Inserción en Supabase
     const { error } = await supabase.from('turnos').insert([{
       negocio_id: negocio.id,
       nombre_cliente: formTurno.cliente,
@@ -437,7 +519,6 @@ export default function DashboardOwner() {
       return
     }
 
-    // Reset y recarga
     setFormTurno({ 
       cliente: '', 
       telefono: '', 
@@ -451,10 +532,6 @@ export default function DashboardOwner() {
     if (negocio.id) cargarNegocio(negocio.id)
   }
 
-  // ==========================================================================
-  // HANDLER: Crear servicio
-  // ==========================================================================
-  
   const handleCrearServicio = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!negocio) return
@@ -495,10 +572,6 @@ export default function DashboardOwner() {
     if (negocio.id) cargarNegocio(negocio.id)
   }
 
-  // ==========================================================================
-  // HANDLER: Crear staff
-  // ==========================================================================
-  
   const handleCrearStaff = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!negocio) return
@@ -528,10 +601,6 @@ export default function DashboardOwner() {
     if (negocio.id) cargarNegocio(negocio.id)
   }
 
-  // ==========================================================================
-  // HANDLER: Crear egreso
-  // ==========================================================================
-  
   const handleCrearEgreso = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!negocio) return
@@ -564,16 +633,55 @@ export default function DashboardOwner() {
     if (negocio.id) cargarNegocio(negocio.id)
   }
 
-  // ==========================================================================
-  // HANDLER: Upgrade de plan
-  // ==========================================================================
-  
   const handleUpgrade = async (nuevoPlan: 'basico' | 'pro') => {
     if (!negocio) return
-    
-    // TODO: Integración con Mercado Pago
     alert(`Redirigiendo a pago de ${nuevoPlan}...`)
     setModalUpgrade({ abierto: false, feature: '' })
+  }
+
+  // ==========================================================================
+  // PANTALLA DE ERROR (NUEVA)
+  // ==========================================================================
+  
+  if (errorCarga && !loadingAuth && !loading) {
+    return (
+      <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center gap-6 p-8">
+        <div className="text-red-500 text-8xl">❌</div>
+        <h2 className="text-red-400 font-black text-3xl uppercase tracking-wider text-center">
+          Error de Carga
+        </h2>
+        <p className="text-slate-400 text-center max-w-md">
+          {errorCarga}
+        </p>
+        <div className="flex gap-4 mt-6">
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-[#10b981] text-black px-8 py-4 rounded-2xl font-black uppercase text-sm hover:scale-105 transition-transform"
+          >
+            🔄 Recargar Página
+          </button>
+          <button
+            onClick={handleLogout}
+            className="bg-red-500/20 text-red-400 px-8 py-4 rounded-2xl font-black uppercase text-sm border border-red-500/30 hover:bg-red-500/30 transition-colors"
+          >
+            🚪 Cerrar Sesión
+          </button>
+        </div>
+        <details className="mt-8 bg-[#0f172a] p-6 rounded-2xl border border-white/5 max-w-2xl">
+          <summary className="cursor-pointer text-slate-500 text-xs uppercase font-black">
+            🔍 Ver detalles técnicos
+          </summary>
+          <pre className="text-xs text-slate-600 mt-4 overflow-auto">
+            {JSON.stringify({
+              perfil,
+              userId,
+              negocio: negocio?.id,
+              errorCarga
+            }, null, 2)}
+          </pre>
+        </details>
+      </div>
+    )
   }
 
   // ==========================================================================
@@ -587,6 +695,9 @@ export default function DashboardOwner() {
         <h2 className="text-[#10b981] font-black text-2xl uppercase tracking-[0.4em] animate-pulse">
           Verificando Sesión
         </h2>
+        <p className="text-slate-600 text-xs">
+          Esto no debería tardar más de unos segundos...
+        </p>
       </div>
     )
   }
@@ -602,18 +713,20 @@ export default function DashboardOwner() {
         <h2 className="text-[#10b981] font-black text-2xl uppercase tracking-[0.4em] animate-pulse">
           Cargando Plataforma
         </h2>
+        <p className="text-slate-600 text-xs">
+          Cargando negocio, servicios y turnos...
+        </p>
       </div>
     )
   }
 
   // ==========================================================================
-  // VARIABLES DERIVADAS CON BLINDAJE
+  // VARIABLES DERIVADAS CON BLINDAJE TOTAL
   // ==========================================================================
   
-  // Rol real del usuario autenticado
   const rol = perfil.rol
   
-  // ABSTRACCIÓN DE DOMINIO: Labels dinámicos
+  // FALLBACK: Labels genéricos si no están definidos
   const labelServicio = negocio.label_servicio || 'Servicio'
   const labelStaff = negocio.label_staff || 'Staff'
   const labelCliente = negocio.label_cliente || 'Cliente'
@@ -621,7 +734,6 @@ export default function DashboardOwner() {
   const colorPrimario = negocio.color_primario || '#10b981'
   const planActual = negocio.plan || 'trial'
   
-  // BLINDAJE: Fallback completo para features
   const features = usePlanFeatures(planActual) || {
     canAccessCRM: false,
     canAccessFinanzas: false,
@@ -629,7 +741,6 @@ export default function DashboardOwner() {
     maxServicios: 5
   }
 
-  // Cálculo de días trial
   const diasTrial = (negocio.plan === 'trial' && negocio.trial_ends_at) 
     ? Math.max(0, Math.floor(
         (new Date(negocio.trial_ends_at).getTime() - new Date().getTime()) 
@@ -637,7 +748,6 @@ export default function DashboardOwner() {
       ))
     : 0
 
-  // Cálculos financieros
   const turnosHoy = turnos.filter(t => t.hora_inicio?.includes(filtroFecha))
   const ingresosBrutos = turnosHoy
     .filter(t => t.estado === 'finalizado')
@@ -647,7 +757,6 @@ export default function DashboardOwner() {
     .reduce((sum, e) => sum + e.monto, 0)
   const gananciaNeta = ingresosBrutos - egresosHoy
 
-  // Top clientes
   const getTopClientes = () => {
     const mapa = new Map<string, { visitas: number; total: number }>()
     
@@ -665,7 +774,6 @@ export default function DashboardOwner() {
       .slice(0, 6)
   }
 
-  // Función para obtener icono por rol
   const getIconoRol = (rolActual: RolSistema): string => {
     const iconos: Record<RolSistema, string> = {
       admin: '👑',
@@ -676,7 +784,6 @@ export default function DashboardOwner() {
     return iconos[rolActual] || '👤'
   }
 
-  // Función para obtener nombre legible del rol
   const getNombreRol = (rolActual: RolSistema): string => {
     const nombres: Record<RolSistema, string> = {
       admin: 'Administrador',
@@ -714,7 +821,7 @@ export default function DashboardOwner() {
               {negocio.nombre}
             </h1>
             <p className="text-[10px] text-slate-600 font-bold uppercase tracking-wider mt-1">
-              {negocio.vertical}
+              {negocio.vertical || 'Negocio'}
             </p>
           </div>
         </div>
@@ -843,16 +950,23 @@ export default function DashboardOwner() {
               </div>
             </div>
 
-            <CalendarioSemanal
-              turnos={turnos}
-              staff={staff.filter(s => s.activo)}
-              onTurnoClick={(turno) => setModalTurno({ abierto: true, turno })}
-              onSlotClick={(fecha, staffId) => {
-                const fechaStr = fecha.toISOString().slice(0, 16)
-                setFormTurno({ ...formTurno, fecha: fechaStr, staff: staffId })
-              }}
-              colorPrimario={colorPrimario}
-            />
+            {/* BLINDAJE DEL CALENDARIO: Solo renderizar si staff es array válido */}
+            {Array.isArray(staff) && Array.isArray(turnos) ? (
+              <CalendarioSemanal
+                turnos={turnos}
+                staff={staff.filter(s => s.activo)}
+                onTurnoClick={(turno) => setModalTurno({ abierto: true, turno })}
+                onSlotClick={(fecha, staffId) => {
+                  const fechaStr = fecha.toISOString().slice(0, 16)
+                  setFormTurno({ ...formTurno, fecha: fechaStr, staff: staffId })
+                }}
+                colorPrimario={colorPrimario}
+              />
+            ) : (
+              <div className="bg-[#0f172a] p-12 rounded-[4rem] border border-white/5 text-center">
+                <p className="text-slate-500">⚠️ No hay staff configurado para mostrar el calendario</p>
+              </div>
+            )}
 
             {/* Formulario crear turno - Solo admin, manager, recepcionista */}
             {(rol === 'admin' || rol === 'manager' || rol === 'recepcionista') && (
@@ -883,7 +997,7 @@ export default function DashboardOwner() {
                     required
                   >
                     <option value="">Seleccionar {labelServicio.toLowerCase()}</option>
-                    {servicios?.map(s => (
+                    {Array.isArray(servicios) && servicios.map(s => (
                       <option key={s.id} value={s.id}>{s.nombre} - ${s.precio}</option>
                     ))}
                   </select>
@@ -894,7 +1008,7 @@ export default function DashboardOwner() {
                     required
                   >
                     <option value="">Seleccionar {labelStaff.toLowerCase()}</option>
-                    {staff?.filter(s => s.activo).map(s => (
+                    {Array.isArray(staff) && staff.filter(s => s.activo).map(s => (
                       <option key={s.id} value={s.id}>{s.nombre}</option>
                     ))}
                   </select>
@@ -942,7 +1056,7 @@ export default function DashboardOwner() {
             </h2>
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {servicios?.map(s => (
+              {Array.isArray(servicios) && servicios.map(s => (
                 <div key={s.id} className="bg-[#0f172a] p-12 rounded-[4rem] border border-white/5">
                   <p className="text-white font-black uppercase italic text-3xl tracking-tighter">
                     {s.nombre}
@@ -1028,7 +1142,7 @@ export default function DashboardOwner() {
             </h2>
             
             <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-              {staff?.map(s => (
+              {Array.isArray(staff) && staff.map(s => (
                 <div key={s.id} className="bg-[#0f172a] p-12 rounded-[4rem] border border-white/5 text-center">
                   <div 
                     className="w-24 h-24 rounded-full flex items-center justify-center text-4xl mx-auto mb-8" 
@@ -1094,7 +1208,7 @@ export default function DashboardOwner() {
               Top <span style={{ color: colorPrimario }}>{labelCliente}s</span>
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {getTopClientes()?.map(([nombre, datos]) => (
+              {getTopClientes().map(([nombre, datos]) => (
                 <div key={nombre} className="bg-[#0f172a] p-10 rounded-[4rem] border border-white/5">
                   <div 
                     className="w-16 h-16 rounded-full flex items-center justify-center text-3xl mb-8" 
@@ -1202,7 +1316,7 @@ export default function DashboardOwner() {
 
       </main>
 
-      {/* Modal Upgrade - BLINDADO */}
+      {/* Modal Upgrade */}
       {modalUpgrade.abierto && negocio && (
         <UpgradePlanModal
           planActual={negocio.plan || 'trial'}

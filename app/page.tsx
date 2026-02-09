@@ -64,13 +64,13 @@ export default function DashboardOwner() {
       if (negocioData) {
         setNegocio(negocioData)
 
-        // Cargar datos relacionados - CORRECCIÓN: usar .is en vez de .eq para booleanos
+        // Cargar datos relacionados - CORRECCIÓN: usar .eq() para booleanos
         const [serviciosRes, staffRes, turnosRes, egresosRes] = await Promise.all([
           supabase
             .from('Servicio')
             .select('*')
             .eq('negocio_id', negocioData.id)
-            .is('activo', true), // CAMBIO AQUÍ: usar .is() para booleanos
+            .eq('activo', true), // ✅ CORREGIDO: usar .eq() para valores booleanos
           supabase
             .from('Staff')
             .select('*')

@@ -17,55 +17,38 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          // Aquí especificamos explícitamente el valor para evitar el error de ámbito
-          request.cookies.set({
-            name,
-            value: value, 
-            ...options,
-          })
+          request.cookies.set({ name, value, ...options })
           response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
+            request: { headers: request.headers },
           })
-          response.cookies.set({
-            name,
-            value: value,
-            ...options,
-          })
+          response.cookies.set({ name, value, ...options })
         },
         remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: '', // Al remover, enviamos string vacío
-            ...options,
-          })
+          request.cookies.set({ name, value: '', ...options })
           response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
+            request: { headers: request.headers },
           })
-          response.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
+          response.cookies.set({ name, value: '', ...options })
         },
       },
     }
   )
 
-  // Esto refresca la sesión si es necesario
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { session } } = await supabase.auth.getSession()
 
-  // Lógica de redirección: Si no hay usuario y trata de entrar al dashboard
-  if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {
-    return NextResponse.redirect(new URL('/login', request.url))
+  // 🚨 LA REGLA DE ORO:
+  // Si no hay sesión y el usuario intenta entrar a cualquier ruta dentro de (owner), mandalo al login.
+  // Pero permitimos que vea la home o el mismo login sin trabas.
+  if (!session && request.nextUrl.pathname.includes('/dashboard')) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    return NextResponse.redirect(url)
   }
 
   return response
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*'],
+  // Solo vigilamos las rutas que empiezan con dashboard o setup
+  matcher: ['/dashboard/:path*', '/setup-negocio/:path*'],
 }

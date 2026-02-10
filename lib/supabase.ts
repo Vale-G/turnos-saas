@@ -1,16 +1,15 @@
 // ============================================================================
 // ARCHIVO: lib/supabase.ts
-// VERSIÓN: 2.0 - AUTH SESSION PERSISTENCE
+// VERSIÓN: 3.0 - GENERIC BUILD (Sin dependencias de database.types)
 // 
-// CONFIGURACIÓN CRÍTICA:
-// ✅ persistSession: true (mantiene sesión entre recargas)
-// ✅ autoRefreshToken: true (renueva tokens automáticamente)
-// ✅ Storage compatible con SSR/CSR
-// ✅ Detección automática de localStorage vs cookies
+// CONFIGURACIÓN:
+// ✅ Cliente genérico sin tipos específicos
+// ✅ persistSession y autoRefreshToken habilitados
+// ✅ Storage adapter con logs
+// ✅ Compatible con Vercel build
 // ============================================================================
 
 import { createClient } from '@supabase/supabase-js'
-import type { Database } from '@/types/database.types'
 
 // ============================================================================
 // VALIDACIÓN DE VARIABLES DE ENTORNO
@@ -77,44 +76,27 @@ const customStorageAdapter = {
 }
 
 // ============================================================================
-// CLIENTE DE SUPABASE
+// CLIENTE DE SUPABASE (GENÉRICO - SIN TIPOS ESPECÍFICOS)
 // ============================================================================
 
-export const supabase = createClient<Database>(
+export const supabase = createClient(
   supabaseUrl,
   supabaseAnonKey,
   {
     auth: {
-      // CRÍTICO: Persistir sesión entre recargas
       persistSession: true,
-      
-      // CRÍTICO: Auto-renovar tokens antes de que expiren
       autoRefreshToken: true,
-      
-      // CRÍTICO: Detectar cambios de sesión automáticamente
       detectSessionInUrl: true,
-      
-      // Storage personalizado con logs
       storage: customStorageAdapter,
-      
-      // Flow PKCE para mayor seguridad
       flowType: 'pkce',
-      
-      // Configuración de cookies para Next.js
       storageKey: 'sb-auth-token',
-      
-      // Debug mode (opcional, desactivar en producción)
       debug: process.env.NODE_ENV === 'development'
     },
-    
-    // Configuración global
     global: {
       headers: {
         'x-client-info': 'supabase-js-web'
       }
     },
-    
-    // Opciones de realtime (opcional)
     realtime: {
       params: {
         eventsPerSecond: 10
@@ -156,7 +138,7 @@ export const checkSession = async () => {
 }
 
 // ============================================================================
-// HELPER: Esperar a que la sesión esté lista
+// HELPER: Esperar a que la sesión esté lista (CON REINTENTOS)
 // ============================================================================
 
 export const waitForSession = async (maxAttempts = 5, delayMs = 500): Promise<any> => {
@@ -195,7 +177,6 @@ if (isClient) {
       timestamp: new Date().toISOString()
     })
     
-    // Sincronizar con localStorage adicional (opcional)
     if (event === 'SIGNED_IN' && session) {
       console.log('✅ [AUTH] Usuario logueado, sesión guardada')
     }

@@ -1,13 +1,9 @@
 // ============================================================================
 // ARCHIVO: app/login/page.tsx
-// VERSIÓN: 2.0 - AUTH SESSION SYNC
+// VERSIÓN: 3.0 - GENERIC BUILD
 // 
-// MEJORAS IMPLEMENTADAS:
-// ✅ Login con signInWithPassword
-// ✅ Espera a que la sesión se escriba en storage
-// ✅ Verificación de sesión antes de redirigir
-// ✅ Listener onAuthStateChange para sincronización
-// ✅ Logs detallados de cada paso
+// Sin dependencias de database.types
+// Compatible con Vercel build
 // ============================================================================
 
 'use client'
@@ -19,7 +15,6 @@ import { supabase, waitForSession } from '@/lib/supabase'
 export default function LoginPage() {
   const router = useRouter()
   
-  // Estados
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -64,9 +59,7 @@ export default function LoginPage() {
     setError('')
 
     try {
-      // -----------------------------------------------------------------------
       // PASO 1: Autenticar con Supabase
-      // -----------------------------------------------------------------------
       console.log('📡 [LOGIN] Enviando credenciales a Supabase...')
       
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
@@ -77,7 +70,6 @@ export default function LoginPage() {
       if (signInError) {
         console.error('❌ [LOGIN] Error de autenticación:', signInError)
         
-        // Mensajes de error legibles
         if (signInError.message.includes('Invalid login credentials')) {
           setError('Email o contraseña incorrectos')
         } else if (signInError.message.includes('Email not confirmed')) {
@@ -103,20 +95,13 @@ export default function LoginPage() {
         session_expires: new Date(data.session.expires_at! * 1000).toISOString()
       })
 
-      // -----------------------------------------------------------------------
-      // PASO 2: CRÍTICO - Esperar a que la sesión se escriba en storage
-      // -----------------------------------------------------------------------
+      // PASO 2: Esperar a que la sesión se escriba en storage
       console.log('⏳ [LOGIN] Esperando a que la sesión se guarde en localStorage...')
-      
-      // Esperar 300ms para dar tiempo al navegador
       await new Promise(resolve => setTimeout(resolve, 300))
       
-      // -----------------------------------------------------------------------
-      // PASO 3: Verificar que la sesión está disponible
-      // -----------------------------------------------------------------------
+      // PASO 3: Verificar disponibilidad con reintentos
       console.log('🔍 [LOGIN] Verificando disponibilidad de sesión...')
-      
-      const session = await waitForSession(3, 500) // 3 intentos, 500ms entre cada uno
+      const session = await waitForSession(3, 500)
       
       if (!session) {
         console.error('❌ [LOGIN] La sesión no está disponible después de esperar')
@@ -127,9 +112,7 @@ export default function LoginPage() {
 
       console.log('✅ [LOGIN] Sesión verificada y disponible')
 
-      // -----------------------------------------------------------------------
-      // PASO 4: Suscribirse a cambios de autenticación (opcional pero útil)
-      // -----------------------------------------------------------------------
+      // PASO 4: Suscribirse a cambios de autenticación
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
         console.log('🔔 [LOGIN] Auth state change:', event)
         
@@ -138,17 +121,12 @@ export default function LoginPage() {
         }
       })
 
-      // -----------------------------------------------------------------------
       // PASO 5: Redirigir al dashboard
-      // -----------------------------------------------------------------------
       console.log('🎯 [LOGIN] Redirigiendo a dashboard...')
-      
-      // IMPORTANTE: Pequeño delay adicional para asegurar sincronización
       await new Promise(resolve => setTimeout(resolve, 200))
       
       router.push('/dashboard')
       
-      // Limpiar suscripción después de redirigir
       setTimeout(() => subscription.unsubscribe(), 1000)
 
     } catch (error: any) {
@@ -159,7 +137,7 @@ export default function LoginPage() {
   }
 
   // ============================================================================
-  // HANDLER: Login con Google (opcional)
+  // HANDLER: Login con Google
   // ============================================================================
   
   const handleGoogleLogin = async () => {

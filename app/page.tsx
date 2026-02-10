@@ -1,13 +1,14 @@
 // ============================================================================
 // ARCHIVO: app/(owner)/dashboard/page.tsx
-// VERSIÓN: 6.0 - RESILIENT & FAST LOAD
+// VERSIÓN: 7.0 - RACE CONDITION PROOF & BULLETPROOF AUTH
 // 
 // CAMBIOS EN ESTA VERSIÓN:
-// ✅ Prioridad absoluta a la sesión (setLoadingAuth inmediato)
-// ✅ Logs detallados de estructura de perfil y negocio
-// ✅ Timeout de 3 segundos con botón de reintentar
-// ✅ Render progresivo (muestra sidebar sin esperar todo)
-// ✅ Menos checks agresivos, más permisivo
+// ✅ Delay de seguridad de 800ms antes de verificar auth
+// ✅ Sistema de bypass con localStorage como fallback
+// ✅ Logs detallados estilo Sherlock Holmes
+// ✅ 5 intentos antes de redireccionar al login
+// ✅ Pantalla "Sincronizando seguridad..." elegante
+// ✅ Recuperación de sesión desde localStorage
 // ============================================================================
 
 'use client'
@@ -193,7 +194,9 @@ export default function DashboardOwner() {
   const [perfil, setPerfil] = useState<Perfil | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [loadingAuth, setLoadingAuth] = useState(true)
+  const [sincronizandoSeguridad, setSincronizandoSeguridad] = useState(true)
   const [intentosRecuperacion, setIntentosRecuperacion] = useState(0)
+  const [mensajeDebug, setMensajeDebug] = useState<string>('Inicializando...')
   
   // ==========================================================================
   // ESTADO - Datos
@@ -255,14 +258,15 @@ export default function DashboardOwner() {
   // ==========================================================================
   
   const timeoutDatosRef = useRef<NodeJS.Timeout | null>(null)
+  const intentosRef = useRef(0)
 
   // ==========================================================================
-  // EFECTO: Verificar autenticación - PRIORIDAD A SESIÓN
+  // ✅ CAMBIO 1: DELAY DE SEGURIDAD + INICIO CONTROLADO
   // ==========================================================================
   
   useEffect(() => {
-    console.log('🚀 [DASHBOARD] Iniciando dashboard...')
-    verificarAutenticacion()
+    console.log('🚀 [DASHBOARD] Iniciando dashboard con protección anti-race-condition...')
+    iniciarDashboardSeguro()
 
     return () => {
       if (timeoutDatosRef.current) {
@@ -272,51 +276,211 @@ export default function DashboardOwner() {
   }, [])
 
   // ==========================================================================
-  // FUNCIÓN: Verificar autenticación - OPTIMIZADA
+  // ✅ FUNCIÓN: Iniciar Dashboard con delay de seguridad
+  // ==========================================================================
+  
+  const iniciarDashboardSeguro = async () => {
+    try {
+      setSincronizandoSeguridad(true)
+      setMensajeDebug('Esperando a que el navegador procese cookies...')
+      
+      // ✅ DELAY DE 800ms para evitar race condition
+      console.log('⏳ [SEGURIDAD] Aplicando delay de seguridad de 800ms...')
+      await new Promise(r => setTimeout(r, 800))
+      
+      setMensajeDebug('Verificando credenciales de acceso...')
+      console.log('✅ [SEGURIDAD] Delay completado, iniciando verificación')
+      
+      setSincronizandoSeguridad(false)
+      await verificarAutenticacion()
+      
+    } catch (error: any) {
+      console.error('💥 [DASHBOARD] Error en inicio seguro:', error)
+      setSincronizandoSeguridad(false)
+      setLoadingAuth(false)
+      setErrorCarga(`Error crítico: ${error.message}`)
+    }
+  }
+
+  // ==========================================================================
+  // ✅ CAMBIO 2 y 3: Verificación con Sherlock Holmes + Bypass de Emergencia
   // ==========================================================================
   
   const verificarAutenticacion = async () => {
     try {
-      console.log('🔐 [AUTH] Verificando autenticación...')
+      intentosRef.current += 1
+      const intentoActual = intentosRef.current
+      
+      console.log(`🔐 [AUTH - INTENTO ${intentoActual}/5] Verificando autenticación...`)
       setErrorCarga('')
 
-      // PASO 1: Intentar obtener sesión
-      console.log('⏳ [AUTH] Recuperando sesión de Supabase...')
+      // ========================================================================
+      // 🔍 SHERLOCK HOLMES: Investigación de evidencias
+      // ========================================================================
+      
+      console.log('🔍 [SHERLOCK] Iniciando investigación de credenciales...')
+      
+      // Investigar localStorage
+      let existeLocalStorage = false
+      let tokenLocalStorage = null
+      
+      try {
+        const keys = Object.keys(localStorage)
+        const authKeys = keys.filter(k => k.includes('sb-') && k.includes('auth-token'))
+        
+        console.log('🔍 [DEBUG] Claves en localStorage:', keys.length)
+        console.log('🔍 [DEBUG] Claves de auth encontradas:', authKeys)
+        
+        if (authKeys.length > 0) {
+          existeLocalStorage = true
+          const authKey = authKeys[0]
+          const rawToken = localStorage.getItem(authKey)
+          console.log(`🔍 [DEBUG] ¿Existe LocalStorage? ✅ SÍ (clave: ${authKey})`)
+          
+          try {
+            tokenLocalStorage = rawToken ? JSON.parse(rawToken) : null
+            console.log('🔍 [DEBUG] Token parseado exitosamente')
+          } catch (e) {
+            console.warn('⚠️ [DEBUG] Token no es JSON válido')
+          }
+        } else {
+          console.log('🔍 [DEBUG] ¿Existe LocalStorage? ❌ NO')
+        }
+      } catch (e) {
+        console.warn('⚠️ [DEBUG] No se pudo acceder a localStorage:', e)
+      }
+
+      // Investigar cookies (simulado - no podemos leer httpOnly cookies desde JS)
+      console.log('🔍 [DEBUG] ¿Existe cookie? 🔒 (httpOnly - no accesible desde JS)')
+      console.log('🔍 [DEBUG] Intentando validar sesión con Supabase...')
+
+      // ========================================================================
+      // PASO 1: Intentar obtener sesión normal
+      // ========================================================================
+      
+      console.log('⏳ [AUTH] Método 1: Obteniendo sesión vía getSession()...')
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       
-      if (sessionError) {
-        console.error('❌ [AUTH] Error al obtener sesión:', sessionError)
-        router.push('/login')
+      if (session && !sessionError) {
+        console.log('✅ [AUTH] ¡Sesión obtenida exitosamente vía getSession()!')
+        console.log('👤 [AUTH] Usuario:', {
+          user_id: session.user.id,
+          email: session.user.email
+        })
+        
+        // Resetear intentos
+        intentosRef.current = 0
+        setIntentosRecuperacion(0)
+        
+        setLoadingAuth(false)
+        setUserId(session.user.id)
+        
+        await cargarPerfilYNegocio(session.user.id)
         return
       }
 
-      if (!session) {
-        console.warn('⚠️ [AUTH] No hay sesión activa')
-        router.push('/login')
-        return
-      }
-
-      // ✅ CAMBIO 1: INMEDIATAMENTE después de detectar sesión, liberar loading
-      console.log('✅ [AUTH] Sesión detectada:', {
-        user_id: session.user.id,
-        email: session.user.email
-      })
+      // ========================================================================
+      // ✅ PASO 2: BYPASS DE EMERGENCIA - Recuperar desde localStorage
+      // ========================================================================
       
-      setLoadingAuth(false) // 🔥 PRIORIDAD: Liberar UI
-      setUserId(session.user.id)
+      if (sessionError || !session) {
+        console.warn('⚠️ [AUTH] getSession() falló o retornó null')
+        console.log(`🔍 [SHERLOCK] Error: ${sessionError?.message || 'Session is null'}`)
+        
+        if (existeLocalStorage && tokenLocalStorage) {
+          console.log('🆘 [BYPASS] ¡Encontré evidencia en localStorage! Intentando recuperación...')
+          
+          try {
+            // Intentar setear la sesión desde localStorage
+            const { data: recoveryData, error: recoveryError } = await supabase.auth.setSession({
+              access_token: tokenLocalStorage.access_token || tokenLocalStorage,
+              refresh_token: tokenLocalStorage.refresh_token || ''
+            })
 
-      // PASO 2: Cargar perfil (pero ya no bloquea la UI)
+            if (recoveryData.session && !recoveryError) {
+              console.log('✅ [BYPASS] ¡Recuperación exitosa! Sesión restaurada desde localStorage')
+              console.log('👤 [BYPASS] Usuario recuperado:', {
+                user_id: recoveryData.session.user.id,
+                email: recoveryData.session.user.email
+              })
+              
+              // Resetear intentos
+              intentosRef.current = 0
+              setIntentosRecuperacion(0)
+              
+              setLoadingAuth(false)
+              setUserId(recoveryData.session.user.id)
+              
+              await cargarPerfilYNegocio(recoveryData.session.user.id)
+              return
+            } else {
+              console.error('❌ [BYPASS] Falló la recuperación:', recoveryError?.message)
+            }
+          } catch (bypassError: any) {
+            console.error('💥 [BYPASS] Error en recuperación de emergencia:', bypassError.message)
+          }
+        } else {
+          console.log('🔍 [SHERLOCK] No hay evidencia en localStorage para bypass')
+        }
+      }
+
+      // ========================================================================
+      // PASO 3: Si llegamos aquí, verificar si debemos reintentar o redirigir
+      // ========================================================================
+      
+      console.warn(`⚠️ [AUTH] Intento ${intentoActual} falló`)
+      
+      if (intentoActual < 5) {
+        console.log(`🔄 [RETRY] Reintentando en 1 segundo... (${intentoActual}/5)`)
+        setIntentosRecuperacion(intentoActual)
+        setMensajeDebug(`Reintentando conexión (${intentoActual}/5)...`)
+        
+        setTimeout(() => {
+          verificarAutenticacion()
+        }, 1000)
+        return
+      }
+
+      // ========================================================================
+      // PASO 4: Después de 5 intentos, rendirse y redirigir
+      // ========================================================================
+      
+      console.error('❌ [AUTH] Fallaron todos los intentos de autenticación')
+      console.log('🚪 [AUTH] Redirigiendo al login después de 5 intentos fallidos')
+      
+      setLoadingAuth(false)
+      router.push('/login')
+
+    } catch (error: any) {
+      console.error('💥 [AUTH] Error crítico:', error)
+      
+      if (intentosRef.current < 5) {
+        console.log(`🔄 [RETRY] Error crítico, reintentando... (${intentosRef.current}/5)`)
+        setIntentosRecuperacion(intentosRef.current)
+        setTimeout(() => verificarAutenticacion(), 1000)
+      } else {
+        setLoadingAuth(false)
+        setLoading(false)
+        setErrorCarga(`Error de autenticación: ${error.message}`)
+      }
+    }
+  }
+
+  // ==========================================================================
+  // FUNCIÓN: Cargar perfil y negocio
+  // ==========================================================================
+  
+  const cargarPerfilYNegocio = async (userId: string) => {
+    try {
       console.log('📡 [PERFIL] Cargando perfil del usuario...')
       const { data: perfilData, error: perfilError } = await supabase
         .from('perfiles')
         .select('*')
-        .eq('id', session.user.id)
+        .eq('id', userId)
         .single()
 
       if (perfilError || !perfilData) {
         console.error('❌ [PERFIL] Error al cargar perfil:', perfilError)
-        
-        // ✅ CAMBIO 2: Logs de estructura
         console.log('🏗️ Estructura de Perfil:', perfilData)
         
         setLoading(false)
@@ -336,7 +500,6 @@ export default function DashboardOwner() {
       
       setPerfil(perfilData)
 
-      // PASO 3: Verificar negocio
       if (!perfilData.negocio_id && perfilData.rol !== 'staff') {
         console.warn('⚠️ [NEGOCIO] Usuario sin negocio asignado, redirigiendo a setup')
         setLoading(false)
@@ -344,7 +507,6 @@ export default function DashboardOwner() {
         return
       }
 
-      // PASO 4: Cargar datos del negocio con timeout
       if (perfilData.negocio_id) {
         cargarNegocioConTimeout(perfilData.negocio_id)
       } else {
@@ -352,15 +514,14 @@ export default function DashboardOwner() {
       }
 
     } catch (error: any) {
-      console.error('💥 [AUTH] Error crítico:', error)
-      setLoadingAuth(false)
+      console.error('💥 [PERFIL] Error crítico:', error)
       setLoading(false)
-      setErrorCarga(`Error de autenticación: ${error.message}`)
+      setErrorCarga(`Error al cargar perfil: ${error.message}`)
     }
   }
 
   // ==========================================================================
-  // ✅ CAMBIO 3: Cargar negocio CON TIMEOUT de 3 segundos
+  // FUNCIÓN: Cargar negocio CON TIMEOUT
   // ==========================================================================
   
   const cargarNegocioConTimeout = async (negocioId: string) => {
@@ -368,7 +529,6 @@ export default function DashboardOwner() {
     setCargandoDatos(true)
     setTimeoutDatos(false)
     
-    // Timeout de 3 segundos
     timeoutDatosRef.current = setTimeout(() => {
       console.warn('⏰ [TIMEOUT] Los datos tardaron más de 3 segundos')
       setTimeoutDatos(true)
@@ -378,7 +538,6 @@ export default function DashboardOwner() {
     try {
       await cargarNegocio(negocioId)
       
-      // Limpiar timeout si cargó antes de 3 seg
       if (timeoutDatosRef.current) {
         clearTimeout(timeoutDatosRef.current)
       }
@@ -429,7 +588,6 @@ export default function DashboardOwner() {
       
       setNegocio(negocioData)
 
-      // Cargar datos relacionados
       console.log('📊 [DATOS] Cargando servicios, staff, turnos y egresos...')
       const [serviciosRes, staffRes, turnosRes, egresosRes] = await Promise.all([
         supabase.from('Servicio').select('*').eq('negocio_id', negocioData.id),
@@ -463,7 +621,7 @@ export default function DashboardOwner() {
   }
 
   // ==========================================================================
-  // ✅ CAMBIO 4: Función de REINTENTAR carga de datos
+  // FUNCIÓN: Reintentar carga de datos
   // ==========================================================================
   
   const reintentarCargaDatos = () => {
@@ -756,6 +914,72 @@ export default function DashboardOwner() {
   }
 
   // ==========================================================================
+  // ✅ CAMBIO 4: PANTALLA "SINCRONIZANDO SEGURIDAD..." ELEGANTE
+  // ==========================================================================
+  
+  if (sincronizandoSeguridad) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#020617] via-[#0f172a] to-[#020617] flex flex-col items-center justify-center gap-8 relative overflow-hidden">
+        {/* Efecto de fondo animado */}
+        <div className="absolute inset-0 overflow-hidden opacity-20">
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#10b981] rounded-full blur-[120px] animate-pulse" />
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500 rounded-full blur-[120px] animate-pulse delay-1000" />
+        </div>
+
+        {/* Contenido */}
+        <div className="relative z-10 flex flex-col items-center gap-8">
+          {/* Ícono de candado animado */}
+          <div className="relative">
+            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-[#10b981] to-emerald-600 flex items-center justify-center shadow-2xl shadow-[#10b981]/50 animate-pulse">
+              <span className="text-6xl">🔐</span>
+            </div>
+            {/* Anillo giratorio */}
+            <div className="absolute inset-0 border-4 border-transparent border-t-[#10b981] rounded-full animate-spin" />
+          </div>
+
+          {/* Texto principal */}
+          <div className="text-center space-y-4">
+            <h2 className="text-5xl font-black text-white italic uppercase tracking-tighter">
+              Sincronizando
+              <span className="block text-[#10b981] mt-2">Seguridad</span>
+            </h2>
+            <p className="text-slate-400 text-lg font-medium max-w-md">
+              {mensajeDebug}
+            </p>
+          </div>
+
+          {/* Barra de progreso animada */}
+          <div className="w-80 h-2 bg-white/5 rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-[#10b981] via-emerald-400 to-[#10b981] rounded-full animate-[shimmer_2s_ease-in-out_infinite]" 
+                 style={{ width: '60%' }} />
+          </div>
+
+          {/* Indicador de intentos */}
+          {intentosRecuperacion > 0 && (
+            <div className="flex items-center gap-3 bg-yellow-500/10 border border-yellow-500/30 px-6 py-3 rounded-full">
+              <span className="text-yellow-500 text-2xl">⚡</span>
+              <span className="text-yellow-300 font-bold text-sm">
+                Intento {intentosRecuperacion}/5
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Puntos decorativos */}
+        <div className="absolute bottom-12 flex gap-3">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className="w-3 h-3 bg-[#10b981] rounded-full animate-bounce"
+              style={{ animationDelay: `${i * 150}ms` }}
+            />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // ==========================================================================
   // PANTALLA DE ERROR PERSISTENTE
   // ==========================================================================
   
@@ -792,14 +1016,19 @@ export default function DashboardOwner() {
       <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center gap-6">
         <div className="w-20 h-20 border-4 border-[#10b981]/10 border-t-[#10b981] rounded-full animate-spin" />
         <h2 className="text-[#10b981] font-black text-2xl uppercase tracking-[0.4em] animate-pulse">
-          Verificando Sesión
+          Verificando Credenciales
         </h2>
+        {intentosRecuperacion > 0 && (
+          <p className="text-slate-500 text-sm">
+            Intento {intentosRecuperacion}/5
+          </p>
+        )}
       </div>
     )
   }
 
   // ==========================================================================
-  // ✅ CAMBIO 5: TIMEOUT FALLBACK - Mostrar mensaje + botón reintentar
+  // TIMEOUT FALLBACK
   // ==========================================================================
   
   if (timeoutDatos && !negocio) {
@@ -829,7 +1058,7 @@ export default function DashboardOwner() {
   }
 
   // ==========================================================================
-  // ✅ CAMBIO 6: Render progresivo - Muestra sidebar aunque falte negocio
+  // RENDER PROGRESIVO
   // ==========================================================================
   
   if (!perfil) {
@@ -892,7 +1121,7 @@ export default function DashboardOwner() {
   return (
     <div className="min-h-screen bg-[#020617] text-slate-300 flex font-sans">
       
-      {/* ✅ SIDEBAR - Siempre visible si hay perfil */}
+      {/* SIDEBAR */}
       <aside className="w-80 border-r border-white/5 bg-[#020617] flex flex-col p-10 gap-10 sticky top-0 h-screen overflow-y-auto">
         
         {negocio ? (
@@ -1132,7 +1361,7 @@ export default function DashboardOwner() {
               </div>
             )}
 
-            {seccionActiva === 'servicios' && (
+{seccionActiva === 'servicios' && (
               <div className="space-y-12">
                 <h2 className="text-5xl font-black text-white italic uppercase tracking-tighter">
                   {labelServicio}s
@@ -1276,7 +1505,7 @@ export default function DashboardOwner() {
                         className="bg-[#0f172a] border border-white/5 p-5 rounded-2xl text-white text-sm" required />
                       <input type="number" placeholder="Monto" value={formEgreso.monto} 
                         onChange={e => setFormEgreso({ ...formEgreso, monto: e.target.value })} 
-                        className="bg-[#0f172a] border border-white/5 p-5 rounded-2xl text-sm" required />
+                        className="bg-[#0f172a] border border-white/5 p-5 rounded-2xl text-white text-sm" required />
                       <input type="date" value={formEgreso.fecha} 
                         onChange={e => setFormEgreso({ ...formEgreso, fecha: e.target.value })} 
                         className="bg-[#0f172a] border border-white/5 p-5 rounded-2xl text-white text-sm" required />

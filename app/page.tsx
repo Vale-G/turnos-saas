@@ -1134,3 +1134,103 @@ export default function DashboardOwner() {
     : 0
 
   const turnosHoy = turnos.filter(t => t.hora_inicio?.includes(filtroFecha))
+  {/* MODAL: ACCIONES DE TURNO */}
+      {modalAccionesTurno && turnoSeleccionado && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#0f172a] border border-white/10 rounded-[3rem] p-10 max-w-2xl w-full">
+            
+            <div className="flex items-center justify-between mb-8">
+              <h3 className="text-3xl font-black text-white italic uppercase">Gestionar Turno</h3>
+              <button
+                onClick={() => {
+                  setModalAccionesTurno(false)
+                  setTurnoSeleccionado(null)
+                }}
+                className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-slate-400"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="bg-[#020617] rounded-2xl p-6 mb-8 border border-white/5">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-slate-500 uppercase mb-1">Cliente</p>
+                  <p className="text-white font-bold">{turnoSeleccionado.nombre_cliente}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 uppercase mb-1">Servicio</p>
+                  <p className="text-white font-bold">{turnoSeleccionado.Servicio?.nombre || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 uppercase mb-1">Estado</p>
+                  <div className="flex items-center gap-2">
+                    <span>{getIconoEstado(turnoSeleccionado.estado || 'pendiente')}</span>
+                    <span className="text-sm font-black uppercase" style={{ color: getColorEstado(turnoSeleccionado.estado || 'pendiente') }}>
+                      {getNombreEstado(turnoSeleccionado.estado || 'pendiente')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4 mb-8">
+              <p className="text-xs text-slate-500 uppercase font-black mb-4">Cambiar Estado</p>
+              <div className="grid grid-cols-2 gap-4">
+                {(['pendiente', 'en_curso', 'finalizado', 'cancelado'] as EstadoTurno[]).map((estado) => (
+                  <button
+                    key={estado}
+                    onClick={() => cambiarEstadoTurno(turnoSeleccionado.id, estado)}
+                    disabled={turnoSeleccionado.estado === estado}
+                    className={`p-4 rounded-2xl border-2 flex items-center gap-3 font-bold text-sm uppercase transition-all ${
+                      turnoSeleccionado.estado === estado ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'
+                    }`}
+                    style={{
+                      borderColor: getColorEstado(estado),
+                      color: getColorEstado(estado),
+                      backgroundColor: `${getColorEstado(estado)}10`
+                    }}
+                  >
+                    <span className="text-2xl">{getIconoEstado(estado)}</span>
+                    {getNombreEstado(estado)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {!confirmacionEliminar ? (
+              <button
+                onClick={() => setConfirmacionEliminar(true)}
+                className="w-full p-5 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400 font-black uppercase text-sm"
+              >
+                🗑️ Eliminar Turno
+              </button>
+            ) : (
+              <div className="space-y-3">
+                <div className="bg-red-500/20 border border-red-500/40 rounded-2xl p-4">
+                  <p className="text-red-300 text-sm text-center font-bold">⚠️ ¿Estás seguro?</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setConfirmacionEliminar(false)}
+                    className="p-4 rounded-2xl bg-white/5 text-slate-400 font-bold uppercase text-xs"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => eliminarTurno(turnoSeleccionado.id)}
+                    className="p-4 rounded-2xl bg-red-500 text-white font-black uppercase text-xs"
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
+
+    </div>
+  )
+}

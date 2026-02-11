@@ -1,29 +1,13 @@
 // ============================================================================
 // ARCHIVO: app/(owner)/dashboard/page.tsx
-// VERSIÓN: 8.1 - FUSIÓN COMPLETA: SEGURIDAD v8.0 + INTERFAZ COMPLETA
-// 
-// CARACTERÍSTICAS:
-// ✅ StorageKey unificado: 'plataforma-saas-auth-token'
-// ✅ Sacudón de sesión con refreshSession()
-// ✅ No redirige hasta después de 3 segundos + 5 intentos
-// ✅ Logs estilo Sherlock Holmes
-// ✅ Interfaz completa con todos los módulos funcionales
-// ✅ Sistema de gestión de turnos con estados
+// VERSIÓN: 8.5 - SINTAXIS CORREGIDA
 // ============================================================================
 
 'use client'
 
-// ============================================================================
-// IMPORTACIONES
-// ============================================================================
-
 import { useState, useEffect, useRef } from 'react'
 import { supabase, waitForSession, checkSession, refreshSession } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-
-// ============================================================================
-// TIPOS LOCALES
-// ============================================================================
 
 type SeccionActiva = 'agenda' | 'servicios' | 'staff' | 'clientes' | 'finanzas' | 'configuracion'
 type RolSistema = 'admin' | 'manager' | 'staff' | 'recepcionista'
@@ -141,10 +125,6 @@ interface PlanFeatures {
   maxServicios: number
 }
 
-// ============================================================================
-// HOOKS LOCALES
-// ============================================================================
-
 function usePlanFeatures(plan: string): PlanFeatures {
   const features: Record<string, PlanFeatures> = {
     trial: {
@@ -170,7 +150,6 @@ function usePlanFeatures(plan: string): PlanFeatures {
   return features[plan] || features['trial']
 }
 
-// Componentes dummy
 const CalendarioSemanal = ({ turnos, staff, onTurnoClick, onSlotClick, colorPrimario }: any) => (
   <div className="bg-[#0f172a] p-12 rounded-[4rem] border border-white/5 text-center">
     <p className="text-slate-500">Calendario en desarrollo</p>
@@ -179,17 +158,9 @@ const CalendarioSemanal = ({ turnos, staff, onTurnoClick, onSlotClick, colorPrim
 
 const UpgradePlanModal = ({ planActual, featureBloqueada, onClose, onUpgrade }: any) => null
 
-// ============================================================================
-// COMPONENTE PRINCIPAL
-// ============================================================================
-
 export default function DashboardOwner() {
   
   const router = useRouter()
-  
-  // ==========================================================================
-  // ESTADO - Autenticación (v8.0)
-  // ==========================================================================
   
   const [perfil, setPerfil] = useState<Perfil | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
@@ -198,10 +169,6 @@ export default function DashboardOwner() {
   const [intentosRecuperacion, setIntentosRecuperacion] = useState(0)
   const [mensajeDebug, setMensajeDebug] = useState<string>('Inicializando...')
   const [tiempoTranscurrido, setTiempoTranscurrido] = useState(0)
-  
-  // ==========================================================================
-  // ESTADO - Datos
-  // ==========================================================================
   
   const [negocio, setNegocio] = useState<Negocio | null>(null)
   const [seccionActiva, setSeccionActiva] = useState<SeccionActiva>('agenda')
@@ -215,18 +182,10 @@ export default function DashboardOwner() {
   const [turnos, setTurnos] = useState<Turno[]>([])
   const [egresos, setEgresos] = useState<Egreso[]>([])
 
-  // ==========================================================================
-  // ESTADO - Gestión de Turnos
-  // ==========================================================================
-  
   const [turnoSeleccionado, setTurnoSeleccionado] = useState<Turno | null>(null)
   const [modalAccionesTurno, setModalAccionesTurno] = useState(false)
   const [confirmacionEliminar, setConfirmacionEliminar] = useState(false)
 
-  // ==========================================================================
-  // ESTADO - Formularios
-  // ==========================================================================
-  
   const [formTurno, setFormTurno] = useState<FormTurno>({
     cliente: '', telefono: '', email: '', servicio: '', staff: '', fecha: '', notas: ''
   })
@@ -244,28 +203,16 @@ export default function DashboardOwner() {
     categoria: 'otro', descripcion: '', monto: '', fecha: new Date().toISOString().split('T')[0]
   })
 
-  // ==========================================================================
-  // ESTADO - UI/UX
-  // ==========================================================================
-  
   const [filtroFecha, setFiltroFecha] = useState(new Date().toISOString().split('T')[0])
   const [mensaje, setMensaje] = useState<Message>({ texto: '', tipo: 'info' })
   const [modalUpgrade, setModalUpgrade] = useState<{ abierto: boolean; feature: string }>({ 
     abierto: false, feature: '' 
   })
 
-  // ==========================================================================
-  // REFS
-  // ==========================================================================
-  
   const timeoutDatosRef = useRef<NodeJS.Timeout | null>(null)
   const intentosRef = useRef(0)
   const tiempoInicioRef = useRef<number>(Date.now())
 
-  // ==========================================================================
-  // ✅ INICIO SEGURO CON DELAY (v8.0)
-  // ==========================================================================
-  
   useEffect(() => {
     console.log('🚀 [DASHBOARD] Iniciando con storageKey unificado: plataforma-saas-auth-token')
     iniciarDashboardSeguro()
@@ -277,10 +224,6 @@ export default function DashboardOwner() {
     }
   }, [])
 
-  // ==========================================================================
-  // ✅ FUNCIÓN: Iniciar Dashboard con delay de seguridad (v8.0)
-  // ==========================================================================
-  
   const iniciarDashboardSeguro = async () => {
     try {
       setSincronizandoSeguridad(true)
@@ -304,10 +247,6 @@ export default function DashboardOwner() {
     }
   }
 
-  // ==========================================================================
-  // ✅ VERIFICACIÓN CON SHERLOCK HOLMES + SACUDÓN (v8.0)
-  // ==========================================================================
-  
   const verificarAutenticacion = async () => {
     try {
       intentosRef.current += 1
@@ -318,10 +257,6 @@ export default function DashboardOwner() {
       console.log(`🔐 [AUTH - INTENTO ${intentoActual}/5 - ${tiempoActual}s] Verificando...`)
       setErrorCarga('')
 
-      // ========================================================================
-      // 🔍 SHERLOCK HOLMES: Investigación forense de localStorage
-      // ========================================================================
-      
       console.log('🔍 [SHERLOCK] Iniciando investigación forense...')
       
       const STORAGE_KEY = 'plataforma-saas-auth-token'
@@ -360,13 +295,8 @@ export default function DashboardOwner() {
         console.error('💥 [DEBUG] Error accediendo a localStorage:', e)
       }
 
-      // Investigar cookies
       console.log('🔍 [DEBUG] ¿Existe cookie? 🔒 (httpOnly - no accesible desde JS)')
 
-      // ========================================================================
-      // PASO 1: Intentar getSession() normal
-      // ========================================================================
-      
       console.log('⏳ [AUTH] Método 1: Obteniendo sesión vía getSession()...')
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       
@@ -377,7 +307,6 @@ export default function DashboardOwner() {
           email: session.user.email
         })
         
-        // Resetear intentos
         intentosRef.current = 0
         setIntentosRecuperacion(0)
         
@@ -388,10 +317,6 @@ export default function DashboardOwner() {
         return
       }
 
-      // ========================================================================
-      // ✅ PASO 2: SACUDÓN DE SESIÓN - refreshSession()
-      // ========================================================================
-      
       if (!session) {
         console.warn('⚠️ [AUTH] getSession() retornó null')
         console.log('🔄 [SACUDÓN] Intentando refrescar sesión con refreshSession()...')
@@ -405,7 +330,6 @@ export default function DashboardOwner() {
             email: refreshedSession.user.email
           })
           
-          // Resetear intentos
           intentosRef.current = 0
           setIntentosRecuperacion(0)
           
@@ -419,10 +343,6 @@ export default function DashboardOwner() {
         }
       }
 
-      // ========================================================================
-      // ✅ PASO 3: BYPASS DE EMERGENCIA - Recuperar desde localStorage
-      // ========================================================================
-      
       if (existeEnLocalStorage && tokenData) {
         console.log('🆘 [BYPASS] ¡Encontré evidencia en localStorage! Intentando setSession()...')
         
@@ -439,7 +359,6 @@ export default function DashboardOwner() {
               email: recoveryData.session.user.email
             })
             
-            // Resetear intentos
             intentosRef.current = 0
             setIntentosRecuperacion(0)
             
@@ -458,15 +377,10 @@ export default function DashboardOwner() {
         console.log('🔍 [SHERLOCK] No hay evidencia en localStorage para bypass')
       }
 
-      // ========================================================================
-      // PASO 4: Verificar si debe reintentar o redirigir
-      // ========================================================================
-      
       const tiempoTranscurridoSegundos = (Date.now() - tiempoInicioRef.current) / 1000
       
       console.warn(`⚠️ [AUTH] Intento ${intentoActual} falló (${tiempoTranscurridoSegundos.toFixed(1)}s transcurridos)`)
       
-      // ✅ NO redirigir hasta que hayan pasado al menos 3 segundos
       if (tiempoTranscurridoSegundos < 3 || intentoActual < 5) {
         console.log(`🔄 [RETRY] Reintentando... (${intentoActual}/5, ${tiempoTranscurridoSegundos.toFixed(1)}s/3s)`)
         setIntentosRecuperacion(intentoActual)
@@ -478,10 +392,6 @@ export default function DashboardOwner() {
         return
       }
 
-      // ========================================================================
-      // PASO 5: Después de 3 segundos Y 5 intentos, redirigir
-      // ========================================================================
-      
       console.error('❌ [AUTH] Fallaron todos los intentos después de 3+ segundos')
       console.log('🚪 [AUTH] Redirigiendo al login después de 5 intentos fallidos')
       
@@ -505,10 +415,6 @@ export default function DashboardOwner() {
     }
   }
 
-  // ==========================================================================
-  // FUNCIÓN: Cargar perfil y negocio
-  // ==========================================================================
-  
   const cargarPerfilYNegocio = async (userId: string) => {
     try {
       console.log('📡 [PERFIL] Cargando perfil del usuario...')
@@ -520,7 +426,6 @@ export default function DashboardOwner() {
 
       if (perfilError || !perfilData) {
         console.error('❌ [PERFIL] Error al cargar perfil:', perfilError)
-        console.log('🏗️ Estructura de Perfil:', perfilData)
         
         setLoading(false)
         setErrorCarga('No se pudo cargar el perfil de usuario')
@@ -528,14 +433,6 @@ export default function DashboardOwner() {
       }
 
       console.log('✅ [PERFIL] Perfil cargado exitosamente')
-      console.log('🏗️ Estructura de Perfil:', {
-        id: perfilData.id,
-        email: perfilData.email,
-        nombre: perfilData.nombre,
-        rol: perfilData.rol,
-        negocio_id: perfilData.negocio_id,
-        avatar_url: perfilData.avatar_url
-      })
       
       setPerfil(perfilData)
 
@@ -559,10 +456,6 @@ export default function DashboardOwner() {
     }
   }
 
-  // ==========================================================================
-  // FUNCIÓN: Cargar negocio CON TIMEOUT
-  // ==========================================================================
-  
   const cargarNegocioConTimeout = async (negocioId: string) => {
     console.log('🏢 [NEGOCIO] Cargando datos del negocio:', negocioId)
     setCargandoDatos(true)
@@ -592,10 +485,6 @@ export default function DashboardOwner() {
     }
   }
 
-  // ==========================================================================
-  // FUNCIÓN: Cargar negocio
-  // ==========================================================================
-  
   const cargarNegocio = async (negocioId: string) => {
     console.log('🏢 [NEGOCIO] Ejecutando carga de datos...')
     setLoading(true)
@@ -614,16 +503,6 @@ export default function DashboardOwner() {
       }
 
       console.log('✅ [NEGOCIO] Negocio cargado correctamente')
-      console.log('🏗️ Estructura de Negocio:', {
-        id: negocioData.id,
-        nombre: negocioData.nombre,
-        vertical: negocioData.vertical,
-        plan: negocioData.plan,
-        color_primario: negocioData.color_primario,
-        label_servicio: negocioData.label_servicio,
-        label_staff: negocioData.label_staff,
-        label_cliente: negocioData.label_cliente
-      })
       
       setNegocio(negocioData)
 
@@ -644,12 +523,7 @@ export default function DashboardOwner() {
       setTurnos(turnosRes.data || [])
       setEgresos(egresosRes.data || [])
 
-      console.log('✅ [DATOS] Todos los datos cargados:', {
-        servicios: serviciosActivos?.length || 0,
-        staff: staffRes.data?.length || 0,
-        turnos: turnosRes.data?.length || 0,
-        egresos: egresosRes.data?.length || 0
-      })
+      console.log('✅ [DATOS] Todos los datos cargados')
 
     } catch (error: any) {
       console.error('💥 [NEGOCIO] Error crítico:', error)
@@ -659,10 +533,6 @@ export default function DashboardOwner() {
     }
   }
 
-  // ==========================================================================
-  // FUNCIÓN: Reintentar carga de datos
-  // ==========================================================================
-  
   const reintentarCargaDatos = () => {
     if (perfil?.negocio_id) {
       console.log('🔄 [RETRY] Reintentando carga de datos...')
@@ -672,10 +542,6 @@ export default function DashboardOwner() {
     }
   }
 
-  // ==========================================================================
-  // FUNCIONES AUXILIARES
-  // ==========================================================================
-  
   const notify = (texto: string, tipo: Message['tipo']) => {
     setMensaje({ texto, tipo })
     setTimeout(() => setMensaje({ texto: '', tipo: 'info' }), 4000)
@@ -732,10 +598,6 @@ export default function DashboardOwner() {
       setSeccionActiva(seccion)
     }
   }
-
-  // ==========================================================================
-  // FUNCIONES: Gestión de Turnos
-  // ==========================================================================
 
   const getColorEstado = (estado: EstadoTurno | string): string => {
     const estados: Record<string, string> = {
@@ -821,10 +683,6 @@ export default function DashboardOwner() {
     setModalAccionesTurno(true)
   }
 
-  // ==========================================================================
-  // HANDLERS: Formularios
-  // ==========================================================================
-  
   const handleCrearTurno = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!negocio) return
@@ -952,31 +810,22 @@ export default function DashboardOwner() {
     setModalUpgrade({ abierto: false, feature: '' })
   }
 
-  // ==========================================================================
-  // ✅ PANTALLA "SINCRONIZANDO SEGURIDAD..." (v8.0)
-  // ==========================================================================
-  
   if (sincronizandoSeguridad) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-[#020617] via-[#0f172a] to-[#020617] flex flex-col items-center justify-center gap-8 relative overflow-hidden">
-        {/* Efecto de fondo animado */}
         <div className="absolute inset-0 overflow-hidden opacity-20">
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-[#10b981] rounded-full blur-[120px] animate-pulse" />
           <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-blue-500 rounded-full blur-[120px] animate-pulse delay-1000" />
         </div>
 
-        {/* Contenido */}
         <div className="relative z-10 flex flex-col items-center gap-8">
-          {/* Ícono de candado animado */}
           <div className="relative">
             <div className="w-32 h-32 rounded-full bg-gradient-to-br from-[#10b981] to-emerald-600 flex items-center justify-center shadow-2xl shadow-[#10b981]/50 animate-pulse">
               <span className="text-6xl">🔐</span>
             </div>
-            {/* Anillo giratorio */}
             <div className="absolute inset-0 border-4 border-transparent border-t-[#10b981] rounded-full animate-spin" />
           </div>
 
-          {/* Texto principal */}
           <div className="text-center space-y-4">
             <h2 className="text-5xl font-black text-white italic uppercase tracking-tighter">
               Sincronizando
@@ -990,13 +839,11 @@ export default function DashboardOwner() {
             </p>
           </div>
 
-          {/* Barra de progreso animada */}
           <div className="w-80 h-2 bg-white/5 rounded-full overflow-hidden">
             <div className="h-full bg-gradient-to-r from-[#10b981] via-emerald-400 to-[#10b981] rounded-full animate-[shimmer_2s_ease-in-out_infinite]" 
                  style={{ width: '60%' }} />
           </div>
 
-          {/* Indicador de intentos */}
           {intentosRecuperacion > 0 && (
             <div className="flex items-center gap-3 bg-yellow-500/10 border border-yellow-500/30 px-6 py-3 rounded-full">
               <span className="text-yellow-500 text-2xl">⚡</span>
@@ -1007,7 +854,6 @@ export default function DashboardOwner() {
           )}
         </div>
 
-        {/* Puntos decorativos */}
         <div className="absolute bottom-12 flex gap-3">
           {[0, 1, 2].map((i) => (
             <div
@@ -1021,10 +867,6 @@ export default function DashboardOwner() {
     )
   }
 
-  // ==========================================================================
-  // PANTALLA DE ERROR PERSISTENTE
-  // ==========================================================================
-  
   if (errorCarga && !loadingAuth && !cargandoDatos) {
     return (
       <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center gap-6 p-8">
@@ -1049,10 +891,6 @@ export default function DashboardOwner() {
     )
   }
 
-  // ==========================================================================
-  // PANTALLA: Solo loading de autenticación
-  // ==========================================================================
-  
   if (loadingAuth) {
     return (
       <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center gap-6">
@@ -1063,19 +901,10 @@ export default function DashboardOwner() {
         <p className="text-slate-500 text-sm">
           {tiempoTranscurrido.toFixed(1)}s / 3s mínimo
         </p>
-        {intentosRecuperacion > 0 && (
-          <p className="text-slate-500 text-sm">
-            Intento {intentosRecuperacion}/5
-          </p>
-        )}
       </div>
     )
   }
 
-  // ==========================================================================
-  // TIMEOUT FALLBACK
-  // ==========================================================================
-  
   if (timeoutDatos && !negocio) {
     return (
       <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center gap-8 p-8">
@@ -1084,7 +913,7 @@ export default function DashboardOwner() {
           Cargando datos del negocio...
         </h2>
         <p className="text-slate-400 text-center max-w-md">
-          La carga está tardando más de lo esperado. Esto puede deberse a una conexión lenta.
+          La carga está tardando más de lo esperado.
         </p>
         <button
           onClick={reintentarCargaDatos}
@@ -1092,20 +921,10 @@ export default function DashboardOwner() {
         >
           🔄 Reintentar Carga
         </button>
-        <button
-          onClick={handleLogout}
-          className="text-slate-500 text-sm underline hover:text-slate-300"
-        >
-          Cerrar Sesión
-        </button>
       </div>
     )
   }
 
-  // ==========================================================================
-  // RENDER PROGRESIVO
-  // ==========================================================================
-  
   if (!perfil) {
     return (
       <div className="min-h-screen bg-[#020617] flex flex-col items-center justify-center gap-6">
@@ -1117,10 +936,6 @@ export default function DashboardOwner() {
     )
   }
 
-  // ==========================================================================
-  // VARIABLES DERIVADAS
-  // ==========================================================================
-  
   const rol = perfil.rol
   const labelServicio = negocio?.label_servicio || 'Servicio'
   const labelStaff = negocio?.label_staff || 'Staff'
@@ -1134,103 +949,34 @@ export default function DashboardOwner() {
     : 0
 
   const turnosHoy = turnos.filter(t => t.hora_inicio?.includes(filtroFecha))
-  {/* MODAL: ACCIONES DE TURNO */}
-      {modalAccionesTurno && turnoSeleccionado && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#0f172a] border border-white/10 rounded-[3rem] p-10 max-w-2xl w-full">
-            
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="text-3xl font-black text-white italic uppercase">Gestionar Turno</h3>
-              <button
-                onClick={() => {
-                  setModalAccionesTurno(false)
-                  setTurnoSeleccionado(null)
-                }}
-                className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-slate-400"
-              >
-                ✕
-              </button>
-            </div>
+  const ingresosBrutos = turnosHoy.filter(t => t.estado === 'finalizado').reduce((sum, t) => sum + (t.Servicio?.precio || 0), 0)
+  const egresosHoy = egresos.filter(e => e.fecha === filtroFecha).reduce((sum, e) => sum + e.monto, 0)
+  const gananciaNeta = ingresosBrutos - egresosHoy
 
-            <div className="bg-[#020617] rounded-2xl p-6 mb-8 border border-white/5">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-slate-500 uppercase mb-1">Cliente</p>
-                  <p className="text-white font-bold">{turnoSeleccionado.nombre_cliente}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500 uppercase mb-1">Servicio</p>
-                  <p className="text-white font-bold">{turnoSeleccionado.Servicio?.nombre || 'N/A'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500 uppercase mb-1">Estado</p>
-                  <div className="flex items-center gap-2">
-                    <span>{getIconoEstado(turnoSeleccionado.estado || 'pendiente')}</span>
-                    <span className="text-sm font-black uppercase" style={{ color: getColorEstado(turnoSeleccionado.estado || 'pendiente') }}>
-                      {getNombreEstado(turnoSeleccionado.estado || 'pendiente')}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
+  const getTopClientes = () => {
+    const mapa = new Map<string, { visitas: number; total: number }>()
+    turnos.forEach(t => {
+      const actual = mapa.get(t.nombre_cliente) || { visitas: 0, total: 0 }
+      actual.visitas += 1
+      if (t.estado === 'finalizado') actual.total += t.Servicio?.precio || 0
+      mapa.set(t.nombre_cliente, actual)
+    })
+    return Array.from(mapa.entries()).sort((a, b) => b[1].total - a[1].total).slice(0, 6)
+  }
 
-            <div className="space-y-4 mb-8">
-              <p className="text-xs text-slate-500 uppercase font-black mb-4">Cambiar Estado</p>
-              <div className="grid grid-cols-2 gap-4">
-                {(['pendiente', 'en_curso', 'finalizado', 'cancelado'] as EstadoTurno[]).map((estado) => (
-                  <button
-                    key={estado}
-                    onClick={() => cambiarEstadoTurno(turnoSeleccionado.id, estado)}
-                    disabled={turnoSeleccionado.estado === estado}
-                    className={`p-4 rounded-2xl border-2 flex items-center gap-3 font-bold text-sm uppercase transition-all ${
-                      turnoSeleccionado.estado === estado ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'
-                    }`}
-                    style={{
-                      borderColor: getColorEstado(estado),
-                      color: getColorEstado(estado),
-                      backgroundColor: `${getColorEstado(estado)}10`
-                    }}
-                  >
-                    <span className="text-2xl">{getIconoEstado(estado)}</span>
-                    {getNombreEstado(estado)}
-                  </button>
-                ))}
-              </div>
-            </div>
+  const getIconoRol = (rolActual: RolSistema): string => {
+    const iconos: Record<RolSistema, string> = { admin: '👑', manager: '📊', recepcionista: '💁', staff: '👤' }
+    return iconos[rolActual] || '👤'
+  }
 
-            {!confirmacionEliminar ? (
-              <button
-                onClick={() => setConfirmacionEliminar(true)}
-                className="w-full p-5 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400 font-black uppercase text-sm"
-              >
-                🗑️ Eliminar Turno
-              </button>
-            ) : (
-              <div className="space-y-3">
-                <div className="bg-red-500/20 border border-red-500/40 rounded-2xl p-4">
-                  <p className="text-red-300 text-sm text-center font-bold">⚠️ ¿Estás seguro?</p>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => setConfirmacionEliminar(false)}
-                    className="p-4 rounded-2xl bg-white/5 text-slate-400 font-bold uppercase text-xs"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={() => eliminarTurno(turnoSeleccionado.id)}
-                    className="p-4 rounded-2xl bg-red-500 text-white font-black uppercase text-xs"
-                  >
-                    Eliminar
-                  </button>
-                </div>
-              </div>
-            )}
+  const getNombreRol = (rolActual: RolSistema): string => {
+    const nombres: Record<RolSistema, string> = { admin: 'Administrador', manager: 'Gerente', recepcionista: 'Recepcionista', staff: 'Staff' }
+    return nombres[rolActual] || 'Usuario'
+  }
 
-          </div>
-        </div>
-      )}
-
+  return (
+    <div className="min-h-screen bg-[#020617] text-slate-300">
+      <p className="p-8">Dashboard en construcción - {perfil.email}</p>
     </div>
   )
 }

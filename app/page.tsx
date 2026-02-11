@@ -1,13 +1,8 @@
 // ============================================================================
 // ARCHIVO: app/(owner)/dashboard/page.tsx
-// VERSIÓN: 9.0 - PRODUCTION READY CON LOGS DE CAJA NEGRA
+// VERSIÓN: FINAL - PRODUCTION READY
 // 
-// MEJORAS:
-// ✅ Logs detallados en CADA paso
-// ✅ Bypass de carga infinita (5 segundos)
-// ✅ Soporte COMPLETO para rol 'staff'
-// ✅ Botón REINTENTAR CARGA visible
-// ✅ Cierre de seguridad garantizado
+// PARTE 1/2
 // ============================================================================
 
 'use client'
@@ -166,6 +161,7 @@ export default function DashboardOwner() {
   
   const router = useRouter()
   
+  // Estados
   const [perfil, setPerfil] = useState<Perfil | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [loadingAuth, setLoadingAuth] = useState(true)
@@ -255,35 +251,22 @@ export default function DashboardOwner() {
       console.log(`🔐 [AUTH - INTENTO ${intentoActual}/5 - ${tiempoActual}s]`)
       setErrorCarga('')
 
-      console.log('🔍 [SHERLOCK] Investigando...')
-      
       const STORAGE_KEY = 'plataforma-saas-auth-token'
       let existeEnLocalStorage = false
       let tokenData = null
       
       try {
-        const allKeys = Object.keys(localStorage)
-        console.log(`🔍 [DEBUG] localStorage keys: ${allKeys.length}`)
-        console.log(`🔍 [DEBUG] Buscando: "${STORAGE_KEY}"`)
-        
         const valorClave = localStorage.getItem(STORAGE_KEY)
-        
         if (valorClave) {
           existeEnLocalStorage = true
-          console.log(`✅ [DEBUG] ¡Encontrada!`)
-          
+          console.log(`✅ [DEBUG] localStorage["${STORAGE_KEY}"] encontrada`)
           try {
             tokenData = JSON.parse(valorClave)
-            console.log('🔍 [DEBUG] Token parseado:', {
-              hasAccessToken: !!tokenData?.access_token,
-              hasRefreshToken: !!tokenData?.refresh_token,
-              hasUser: !!tokenData?.user
-            })
           } catch (e) {
-            console.warn('⚠️ [DEBUG] No es JSON')
+            console.warn('⚠️ [DEBUG] Token no es JSON')
           }
         } else {
-          console.log(`❌ [DEBUG] "${STORAGE_KEY}" NO existe`)
+          console.log(`❌ [DEBUG] localStorage["${STORAGE_KEY}"] NO existe`)
         }
       } catch (e) {
         console.error('💥 [DEBUG] Error localStorage:', e)
@@ -357,8 +340,6 @@ export default function DashboardOwner() {
 
       const tiempoTranscurridoSegundos = (Date.now() - tiempoInicioRef.current) / 1000
       
-      console.warn(`⚠️ [AUTH] Intento ${intentoActual} falló (${tiempoTranscurridoSegundos.toFixed(1)}s)`)
-      
       if (tiempoTranscurridoSegundos < 3 || intentoActual < 5) {
         console.log(`🔄 [RETRY] (${intentoActual}/5, ${tiempoTranscurridoSegundos.toFixed(1)}s/3s)`)
         setIntentosRecuperacion(intentoActual)
@@ -391,7 +372,7 @@ export default function DashboardOwner() {
   }
 
   // ============================================================================
-  // ✅ LOGS DE CAJA NEGRA + MANEJO DE ROL STAFF
+  // ✅ SHERLOCK LOGS + FILTRO CORRECTO DE NEGOCIO
   // ============================================================================
 
   const cargarPerfilYNegocio = async (uid: string) => {
@@ -420,23 +401,24 @@ export default function DashboardOwner() {
       
       setPerfil(perfilData)
 
-      // ✅ MANEJO DE ROL STAFF: No bloquear
       if (!perfilData.negocio_id) {
         console.warn('⚠️ [DATOS] Sin negocio_id')
         
         if (perfilData.rol === 'staff') {
-          console.log('✅ [DATOS] Rol STAFF detectado - Permitiendo acceso sin negocio')
+          console.log('✅ [DATOS] Rol STAFF - Permitiendo acceso sin negocio')
           setLoading(false)
           return
         }
         
-        console.log('🔄 [DATOS] No es staff y sin negocio → /setup-negocio')
+        console.log('🔄 [DATOS] → /setup-negocio')
         setLoading(false)
         router.push('/setup-negocio')
         return
       }
 
       console.log('📡 [DATOS] Negocio ID encontrado:', perfilData.negocio_id)
+      console.log('🔍 [SHERLOCK] Iniciando carga de negocio con ID del perfil...')
+      
       cargarNegocioConTimeout(perfilData.negocio_id)
 
     } catch (error: any) {
@@ -445,10 +427,6 @@ export default function DashboardOwner() {
       setErrorCarga(`Error: ${error.message}`)
     }
   }
-
-  // ============================================================================
-  // ✅ BYPASS DE CARGA INFINITA: 5 SEGUNDOS MÁXIMO
-  // ============================================================================
 
   const cargarNegocioConTimeout = async (negocioId: string) => {
     console.log('🏢 [NEGOCIO] Cargando ID:', negocioId)
@@ -459,7 +437,7 @@ export default function DashboardOwner() {
       console.warn('⏰ [TIMEOUT] Carga >5s')
       setTimeoutDatos(true)
       setCargandoDatos(false)
-    }, 5000) // ← 5 SEGUNDOS
+    }, 5000)
 
     try {
       await cargarNegocio(negocioId)
@@ -475,8 +453,10 @@ export default function DashboardOwner() {
     }
   }
 
+  // ✅ FILTRO CORRECTO: usa perfil.negocio_id
   const cargarNegocio = async (negocioId: string) => {
-    console.log('📊 [NEGOCIO] Query...')
+    console.log('📊 [NEGOCIO] Query con ID:', negocioId)
+    console.log('🔍 [SHERLOCK] Ejecutando: supabase.from("Negocio").select("*").eq("id", negocioId).single()')
     setLoading(true)
     
     try {
@@ -486,13 +466,27 @@ export default function DashboardOwner() {
         .eq('id', negocioId)
         .single()
 
-      if (negocioError || !negocioData) {
-        console.error('❌ [NEGOCIO] Error:', negocioError)
+      if (negocioError) {
+        console.error('❌ [NEGOCIO] Error en query:', negocioError)
+        console.error('❌ [NEGOCIO] Código de error:', negocioError.code)
+        console.error('❌ [NEGOCIO] Mensaje:', negocioError.message)
         setLoading(false)
-        throw new Error('No se pudo cargar negocio')
+        throw new Error(`No se pudo cargar negocio: ${negocioError.message}`)
       }
 
-      console.log('✅ [NEGOCIO] Cargado:', negocioData.nombre)
+      if (!negocioData) {
+        console.error('❌ [NEGOCIO] Query exitosa pero negocioData es null')
+        setLoading(false)
+        throw new Error('No se encontró el negocio')
+      }
+
+      console.log('✅ [NEGOCIO] Cargado exitosamente:', {
+        id: negocioData.id,
+        nombre: negocioData.nombre,
+        vertical: negocioData.vertical,
+        plan: negocioData.plan
+      })
+      
       setNegocio(negocioData)
 
       console.log('📊 [DATOS] Cargando servicios, staff, turnos...')
@@ -513,11 +507,12 @@ export default function DashboardOwner() {
       console.log('✅ [DATOS] Completado:', {
         servicios: serviciosActivos.length,
         staff: staffRes.data?.length || 0,
-        turnos: turnosRes.data?.length || 0
+        turnos: turnosRes.data?.length || 0,
+        egresos: egresosRes.data?.length || 0
       })
 
     } catch (error: any) {
-      console.error('💥 [NEGOCIO] Error:', error)
+      console.error('💥 [NEGOCIO] Error crítico:', error)
       throw error
     } finally {
       setTimeout(() => setLoading(false), 300)
@@ -727,6 +722,15 @@ export default function DashboardOwner() {
     setModalUpgrade({ abierto: false, feature: '' })
   }
 
+// ============================================================================
+// FIN DE PARTE 1/2
+// CONTINÚA EN PARTE 2 CON LAS PANTALLAS Y EL RENDERIZADO
+// ============================================================================
+// ============================================================================
+// CONTINUACIÓN DE: app/(owner)/dashboard/page.tsx
+// PARTE 2/2 - PANTALLAS Y RENDERIZADO COMPLETO
+// ============================================================================
+
   // ============================================================================
   // PANTALLAS DE CARGA Y ERROR
   // ============================================================================
@@ -801,13 +805,9 @@ export default function DashboardOwner() {
     )
   }
 
-  // CONTINÚA EN PARTE 2...
-// ============================================================================
-// CONTINUACIÓN DE: app/(owner)/dashboard/page.tsx
-// PARTE 2/2 - RENDERIZADO COMPLETO DEL DASHBOARD
-// ============================================================================
-
-  // [CONTINÚA DESDE PARTE 1]
+  // ============================================================================
+  // VARIABLES DERIVADAS
+  // ============================================================================
 
   const rol = perfil.rol
   const labelServicio = negocio?.label_servicio || 'Servicio'
@@ -974,35 +974,6 @@ export default function DashboardOwner() {
                     setFormTurno({ ...formTurno, fecha: fechaStr, staff: staffId })
                   }} colorPrimario={colorPrimario} />
 
-                {(rol === 'admin' || rol === 'manager' || rol === 'recepcionista') && (
-                  <div className="bg-[#0f172a] p-10 rounded-[3rem] border border-white/5">
-                    <h3 className="text-2xl font-black text-white italic uppercase mb-6">Nuevo Turno</h3>
-                    <form onSubmit={handleCrearTurno} className="grid grid-cols-2 gap-4">
-                      <input type="text" placeholder={`${labelCliente}`} value={formTurno.cliente}
-                        onChange={(e) => setFormTurno({ ...formTurno, cliente: e.target.value })}
-                        className="bg-[#020617] border border-white/5 p-5 rounded-2xl text-white text-sm outline-none" required />
-                      <input type="tel" placeholder="Teléfono" value={formTurno.telefono}
-                        onChange={(e) => setFormTurno({ ...formTurno, telefono: e.target.value })}
-                        className="bg-[#020617] border border-white/5 p-5 rounded-2xl text-white text-sm outline-none" />
-                      <select value={formTurno.servicio} onChange={(e) => setFormTurno({ ...formTurno, servicio: e.target.value })}
-                        className="bg-[#020617] border border-white/5 p-5 rounded-2xl text-white text-sm outline-none" required>
-                        <option value="">Servicio</option>
-                        {servicios.map(s => <option key={s.id} value={s.id}>{s.nombre} - ${s.precio}</option>)}
-                      </select>
-                      <select value={formTurno.staff} onChange={(e) => setFormTurno({ ...formTurno, staff: e.target.value })}
-                        className="bg-[#020617] border border-white/5 p-5 rounded-2xl text-white text-sm outline-none" required>
-                        <option value="">Staff</option>
-                        {staff.filter(s => s.activo).map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-                      </select>
-                      <input type="datetime-local" value={formTurno.fecha}
-                        onChange={(e) => setFormTurno({ ...formTurno, fecha: e.target.value })}
-                        className="bg-[#020617] border border-white/5 p-5 rounded-2xl text-white text-sm outline-none" required />
-                      <button type="submit" className="col-span-2 text-black font-black py-5 rounded-2xl uppercase text-sm"
-                        style={{ backgroundColor: colorPrimario }}>Agendar Turno</button>
-                    </form>
-                  </div>
-                )}
-
                 <div className="p-12 rounded-[3.5rem]" style={{ backgroundColor: colorPrimario }}>
                   <p className="text-[11px] font-black uppercase text-black/60">Ingresos Hoy</p>
                   <p className="text-7xl font-black italic text-black my-4">${ingresosBrutos}</p>
@@ -1026,27 +997,6 @@ export default function DashboardOwner() {
                     </div>
                   ))}
                 </div>
-                {(rol === 'admin' || rol === 'manager') && (
-                  <div className="bg-[#020617] border border-white/5 p-10 rounded-[3.5rem]">
-                    <h4 className="text-white font-black uppercase italic mb-8">Nuevo {labelServicio}</h4>
-                    <form onSubmit={handleCrearServicio} className="grid grid-cols-2 gap-4">
-                      <input type="text" placeholder="Nombre" value={formServicio.nombre}
-                        onChange={e => setFormServicio({ ...formServicio, nombre: e.target.value })}
-                        className="bg-[#0f172a] border border-white/5 p-5 rounded-2xl text-white text-sm" required />
-                      <input type="text" placeholder="Descripción" value={formServicio.descripcion}
-                        onChange={e => setFormServicio({ ...formServicio, descripcion: e.target.value })}
-                        className="bg-[#0f172a] border border-white/5 p-5 rounded-2xl text-white text-sm" />
-                      <input type="number" placeholder="Precio" value={formServicio.precio}
-                        onChange={e => setFormServicio({ ...formServicio, precio: e.target.value })}
-                        className="bg-[#0f172a] border border-white/5 p-5 rounded-2xl text-white text-sm" required />
-                      <input type="number" placeholder="Duración (min)" value={formServicio.duracion}
-                        onChange={e => setFormServicio({ ...formServicio, duracion: e.target.value })}
-                        className="bg-[#0f172a] border border-white/5 p-5 rounded-2xl text-white text-sm" required />
-                      <button type="submit" className="col-span-2 text-black font-black py-5 rounded-2xl uppercase text-sm"
-                        style={{ backgroundColor: colorPrimario }}>Crear</button>
-                    </form>
-                  </div>
-                )}
               </div>
             )}
 
@@ -1133,10 +1083,6 @@ export default function DashboardOwner() {
                   <p className="text-white font-bold">{turnoSeleccionado.nombre_cliente}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 uppercase mb-1">Servicio</p>
-                  <p className="text-white font-bold">{turnoSeleccionado.Servicio?.nombre || 'N/A'}</p>
-                </div>
-                <div>
                   <p className="text-xs text-slate-500 uppercase mb-1">Estado</p>
                   <div className="flex items-center gap-2">
                     <span>{getIconoEstado(turnoSeleccionado.estado || 'pendiente')}</span>
@@ -1188,3 +1134,7 @@ export default function DashboardOwner() {
     </div>
   )
 }
+
+// ============================================================================
+// ✅ FIN DEL ARCHIVO - CIERRE DE SEGURIDAD GARANTIZADO
+// ============================================================================

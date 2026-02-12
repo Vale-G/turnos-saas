@@ -2,67 +2,85 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [negocio, setNegocio] = useState<any>(null)
-  const [color, setColor] = useState('#10b981')
+  const [rol, setRol] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
   const pathname = usePathname()
+  const router = useRouter()
 
   useEffect(() => {
-    async function loadBranding() {
+    async function loadData() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: perfil } = await supabase.from('perfiles').select('negocio_id').eq('id', user.id).single()
-        if (perfil?.negocio_id) {
-          const { data } = await supabase.from('Negocio').select('nombre, logo_url, color_primario').eq('id', perfil.negocio_id).single()
-          if (data) {
-            setNegocio(data)
-            if (data.color_primario) setColor(data.color_primario)
-          }
-        }
+      if (!user) {
+        router.push('/login')
+        return
       }
-    }
-    loadBranding()
-  }, [])
 
-  const links = [
-    { name: '🏠 Inicio', href: '/dashboard' },
-    { name: '📅 Agenda', href: '/dashboard/agenda' },
-    { name: '✂️ Servicios', href: '/dashboard/servicios' },
-    { name: '👥 Personal', href: '/dashboard/personal' },
-    { name: '⚙️ Configuración', href: '/dashboard/configuracion' },
-  ]
+      // Intentar traer perfil y negocio
+      const { data: perfil } = await supabase.from('perfiles').select('rol, negocio_id').eq('id', user.id).single()
+      setRol(perfil?.rol || 'usuario')
+
+      if (perfil?.negocio_id) {
+        const { data: neg } = await supabase.from('Negocio').select('nombre, color_primario, logo_url').eq('id', perfil.negocio_id).single()
+        setNegocio(neg)
+      }
+      setLoading(false)
+    }
+    loadData()
+  }, [pathname, router])
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
+  const color = negocio?.color_primario || '#10b981'
 
   return (
     <div className="flex min-h-screen bg-[#020617] text-white">
-      <aside className="w-64 border-r border-slate-800 bg-slate-900/50 p-6 flex flex-col gap-6">
-        {/* LOGO Y NOMBRE DINÁMICOS */}
-        <div className="flex items-center gap-3 px-2">
-          {negocio?.logo_url ? (
-            <img src={negocio.logo_url} alt="logo" className="w-10 h-10 rounded-lg object-cover" />
-          ) : (
-            <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center font-black">B</div>
-          )}
-          <span className="font-black text-sm uppercase truncate" style={{ color: color }}>
-            {negocio?.nombre || 'BARBER-SAAS'}
-          </span>
+      <aside className="w-64 border-r border-slate-800 bg-slate-900/50 p-6 flex flex-col justify-between">
+        <div className="space-y-8">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded bg-emerald-500 flex-shrink-0" />
+            <span className="font-black uppercase tracking-tighter truncate">
+              {negocio?.nombre || 'BARBER-SAAS'}
+            </span>
+          </div>
+
+          <nav className="flex flex-col gap-2">
+            <Link href="/dashboard" className={`p-3 rounded-xl text-sm font-bold ${pathname === '/dashboard' ? 'bg-slate-800 text-white' : 'text-slate-500 hover:text-white'}`}>🏠 Inicio</Link>
+            
+            {/* Si es Superadmin, mostramos su panel */}
+            {rol === 'superadmin' && (
+              <Link href="/dashboard/superadmin" className={`p-3 rounded-xl text-sm font-bold ${pathname === '/dashboard/superadmin' ? 'bg-emerald-500 text-black' : 'text-emerald-500/50 hover:text-emerald-400'}`}>👑 Superadmin</Link>
+            )}
+
+            {/* Opciones normales de Dueño */}
+            {rol !== 'superadmin' && (
+              <>
+                <Link href="/dashboard/agenda" className="p-3 text-slate-500 font-bold text-sm">📅 Agenda</Link>
+                <Link href="/dashboard/servicios" className="p-3 text-slate-500 font-bold text-sm">✂️ Servicios</Link>
+                <Link href="/dashboard/configuracion" className="p-3 text-slate-500 font-bold text-sm">⚙️ Configuración</Link>
+              </>
+            )}
+          </nav>
         </div>
-        
-        <nav className="flex flex-col gap-2">
-          {links.map((link) => (
-            <Link key={link.href} href={link.href}
-              className={`px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-                pathname === link.href ? 'text-black' : 'text-slate-400 hover:bg-slate-800'
-              }`}
-              style={pathname === link.href ? { backgroundColor: color } : {}}
-            >
-              {link.name}
-            </Link>
-          ))}
-        </nav>
+
+        {/* BOTÓN DE CERRAR SESIÓN (SIEMPRE VISIBLE) */}
+        <button 
+          onClick={handleLogout}
+          className="p-4 text-left text-xs font-black uppercase tracking-widest text-slate-500 hover:text-red-500 transition-colors border-t border-slate-800"
+        >
+          🚪 Cerrar Sesión
+        </button>
       </aside>
-      <main className="flex-1 p-8 overflow-y-auto">{children}</main>
+
+      <main className="flex-1 p-8 overflow-y-auto">
+        {children}
+      </main>
     </div>
   )
 }

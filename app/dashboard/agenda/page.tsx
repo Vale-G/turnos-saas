@@ -5,37 +5,38 @@ import { supabase } from '@/lib/supabase'
 export default function AgendaPage() {
   const [turnos, setTurnos] = useState<any[]>([])
 
-  useEffect(() => {
-    async function loadTurnos() {
-      const { data: { user } } = await supabase.auth.getUser()
-      const { data: perfil } = await supabase.from('perfiles').select('negocio_id').eq('id', user?.id).single()
-      if (perfil?.negocio_id) {
-        const { data } = await supabase.from('Turno').select('*, Servicio(nombre), Personal(nombre)').eq('negocio_id', perfil.negocio_id)
-        setTurnos(data || [])
-      }
+  const load = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: perfil } = await supabase.from('perfiles').select('negocio_id').eq('id', user?.id).single()
+    
+    if (perfil?.negocio_id) {
+      const { data } = await supabase.from('Turno')
+        .select('*, Servicio(nombre)')
+        .eq('negocio_id', perfil.negocio_id)
+        .order('created_at', { ascending: false })
+      setTurnos(data || [])
     }
-    loadTurnos()
-  }, [])
+  }
+
+  useEffect(() => { load() }, [])
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-black uppercase italic text-white">Agenda de Hoy</h1>
-      <div className="bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden">
-        {turnos.length === 0 ? (
-          <div className="p-10 text-center text-slate-500 italic">No hay turnos agendados para hoy.</div>
-        ) : (
-          <div className="divide-y divide-slate-800">
-            {turnos.map(t => (
-              <div key={t.id} className="p-5 flex justify-between items-center hover:bg-slate-800/50">
-                <div>
-                  <p className="text-white font-bold">{t.cliente_nombre}</p>
-                  <p className="text-xs text-slate-500 uppercase font-black">{t.hora} - {t.Servicio?.nombre}</p>
-                </div>
-                <div className="text-emerald-500 font-bold text-sm">Con {t.Personal?.nombre}</div>
-              </div>
-            ))}
+      <h1 className="text-3xl font-black uppercase italic text-white tracking-tighter">Agenda</h1>
+      <div className="grid gap-3">
+        {turnos.length === 0 && <p className="text-slate-600 italic">No hay reservas todavía.</p>}
+        {turnos.map(t => (
+          <div key={t.id} className="bg-slate-900 p-6 rounded-3xl border border-slate-800 flex justify-between items-center shadow-xl">
+            <div>
+              <p className="text-white font-bold text-lg">{t.cliente_nombre}</p>
+              <p className="text-emerald-500 font-black text-xs uppercase">{t.Servicio?.nombre} - {t.hora}hs</p>
+            </div>
+            <div className="text-right">
+              <span className="text-slate-500 text-[10px] font-black uppercase">WhatsApp</span>
+              <p className="text-white font-mono text-sm">{t.cliente_whatsapp}</p>
+            </div>
           </div>
-        )}
+        ))}
       </div>
     </div>
   )

@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export default function ServiciosPage() {
@@ -8,100 +8,87 @@ export default function ServiciosPage() {
   const [form, setForm] = useState({ id: '', nombre: '', precio: '', duracion: '30' })
   const [editando, setEditando] = useState(false)
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true)
-    const { data: { user } } = await supabase.auth.getUser()
-    const { data: perfil } = await supabase.from('perfiles').select('negocio_id').eq('id', user?.id).single()
+    const { data: { session } } = await supabase.auth.getSession()
     
-    if (perfil?.negocio_id) {
-      const { data, error } = await supabase.from('Servicio')
-        .select('*')
-        .eq('negocio_id', perfil.negocio_id)
-        .order('created_at', { ascending: false })
+    if (session?.user) {
+      const { data: perfil } = await supabase.from('perfiles').select('negocio_id').eq('id', session.user.id).single()
       
-      if (data) {
-        // Normalizamos los datos para que el código siempre vea "duracion"
-        const normalizados = data.map(s => ({
-          ...s,
-          duracion: s.duracion || s.duracion_minutos || 30
-        }))
-        setServicios(normalizados)
+      if (perfil?.negocio_id) {
+        const { data, error } = await supabase.from('Servicio')
+          .select('*')
+          .eq('negocio_id', perfil.negocio_id)
+        
+        if (error) {
+          console.error("Error de Supabase:", error.message)
+        } else {
+          setServicios(data || [])
+        }
       }
     }
     setLoading(false)
-  }
+  }, [])
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [load])
 
   const handleSubmit = async (e: any) => {
     e.preventDefault()
     const { data: { user } } = await supabase.auth.getUser()
     const { data: perfil } = await supabase.from('perfiles').select('negocio_id').eq('id', user?.id).single()
     
-    // Mandamos ambos nombres por las dudas para que la DB elija el que existe
-    const payload: any = { 
+    const payload = { 
       nombre: form.nombre, 
       precio: parseFloat(form.precio),
+      duracion: parseInt(form.duracion),
       negocio_id: perfil?.negocio_id
     }
-    
-    // Intentamos llenar ambos posibles nombres de columna
-    payload.duracion = parseInt(form.duracion)
-    payload.duracion_minutos = parseInt(form.duracion)
 
-    if (editando) {
-      await supabase.from('Servicio').update(payload).eq('id', form.id)
+    const { error } = editando 
+      ? await supabase.from('Servicio').update(payload).eq('id', form.id)
+      : await supabase.from('Servicio').insert([payload])
+    
+    if (error) {
+      alert("Error: " + error.message)
     } else {
-      await supabase.from('Servicio').insert([payload])
-    }
-    
-    setForm({ id: '', nombre: '', precio: '', duracion: '30' })
-    setEditando(false)
-    load()
-  }
-
-  const handleDelete = async (id: string) => {
-    if (confirm('¿Eliminar servicio?')) {
-      await supabase.from('Servicio').delete().eq('id', id)
-      load()
+      setForm({ id: '', nombre: '', precio: '', duracion: '30' })
+      setEditando(false)
+      setTimeout(load, 500) // Un pequeño delay para que la DB se asiente
     }
   }
-
-  if (loading) return <div className="p-10 text-slate-500 font-black animate-pulse uppercase">Sincronizando...</div>
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-3xl font-black uppercase italic text-white tracking-tighter">
-        {editando ? '📝 Editando' : '✂️ Servicios'}
-      </h1>
-
-      <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-4 gap-3 bg-slate-900/50 p-6 rounded-3xl border border-slate-800 shadow-2xl">
-        <input placeholder="Nombre" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 text-white outline-none focus:border-emerald-500" required />
-        <input placeholder="Precio" type="number" value={form.precio} onChange={e => setForm({...form, precio: e.target.value})} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 text-white outline-none focus:border-emerald-500" required />
-        <input placeholder="Minutos" type="number" value={form.duracion} onChange={e => setForm({...form, duracion: e.target.value})} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 text-white outline-none focus:border-emerald-500" required />
-        <button className={`h-[58px] rounded-2xl font-black uppercase italic transition-all ${editando ? 'bg-blue-500 text-white' : 'bg-emerald-500 text-black'}`}>
+    <div className="p-4 space-y-6">
+      <h1 className="text-3xl font-black text-white italic uppercase">Servicios</h1>
+      
+      <form onSubmit={handleSubmit} className="bg-slate-900 p-6 rounded-3xl border border-slate-800 grid gap-4 md:grid-cols-4 items-end">
+        <input placeholder="Nombre" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-white" required />
+        <input placeholder="Precio" type="number" value={form.precio} onChange={e => setForm({...form, precio: e.target.value})} className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-white" required />
+        <input placeholder="Minutos" type="number" value={form.duracion} onChange={e => setForm({...form, duracion: e.target.value})} className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-white" required />
+        <button className="bg-emerald-500 text-black font-bold p-3 rounded-xl uppercase hover:scale-105 transition-all">
           {editando ? 'Actualizar' : 'Guardar'}
         </button>
       </form>
-      
-      <div className="grid gap-4">
-        {servicios.map(s => (
-          <div key={s.id} className="bg-slate-900 p-6 rounded-3xl border border-slate-800 flex justify-between items-center group shadow-xl">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 font-black text-xs">
-                {s.duracion}'
-              </div>
+
+      <div className="grid gap-3 mt-8">
+        {loading ? (
+          <p className="text-slate-500 animate-pulse font-bold uppercase italic">Buscando servicios...</p>
+        ) : servicios.length === 0 ? (
+          <p className="text-slate-600 italic">No se encontraron servicios cargados.</p>
+        ) : (
+          servicios.map(s => (
+            <div key={s.id} className="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex justify-between items-center group">
               <div>
-                <p className="font-bold text-white text-lg">{s.nombre}</p>
-                <p className="font-black text-emerald-500 tracking-tighter text-xl">${s.precio}</p>
+                <p className="font-bold text-white">{s.nombre}</p>
+                <p className="text-emerald-500 font-black">${s.precio} - {s.duracion} min</p>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => { setForm({id: s.id, nombre: s.nombre, precio: s.precio.toString(), duracion: s.duracion.toString()}); setEditando(true); }} className="p-2 bg-blue-500/20 text-blue-400 rounded-lg">✏️</button>
+                <button onClick={async () => { await supabase.from('Servicio').delete().eq('id', s.id); load(); }} className="p-2 bg-red-500/20 text-red-400 rounded-lg">🗑️</button>
               </div>
             </div>
-            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-all">
-              <button onClick={() => { setForm({id: s.id, nombre: s.nombre, precio: s.precio.toString(), duracion: s.duracion.toString()}); setEditando(true); }} className="p-3 bg-blue-500/10 text-blue-500 rounded-2xl hover:bg-blue-500 hover:text-white transition-all">✏️</button>
-              <button onClick={() => handleDelete(s.id)} className="p-3 bg-red-500/10 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all">🗑️</button>
-            </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     </div>
   )

@@ -1,20 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { createClient } from '@supabase/supabase-js';
-
-// ─────────────────────────────────────────────────────────────
-// Supabase client — usa las variables de entorno del proyecto
-// ─────────────────────────────────────────────────────────────
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  {
-    auth: {
-      storageKey: 'plataforma-saas-auth-token',
-    },
-  }
-);
+// Cambiamos esto para usar tu cliente unificado
+import { supabase } from '@/lib/supabase';
 
 // ─────────────────────────────────────────────────────────────
 // Tipos

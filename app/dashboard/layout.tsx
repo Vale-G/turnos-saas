@@ -62,6 +62,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {rol !== 'superadmin' && (
               <>
                 <Link href="/dashboard/agenda" className="p-3 text-slate-500 font-bold text-sm">📅 Agenda</Link>
+                <Link href="/dashboard/staff" className="p-3 text-slate-500 font-bold text-sm text-white">👥 Equipo</Link>
                 <Link href="/dashboard/servicios" className="p-3 text-slate-500 font-bold text-sm">✂️ Servicios</Link>
                 <Link href="/dashboard/configuracion" className="p-3 text-slate-500 font-bold text-sm">⚙️ Configuración</Link>
               </>

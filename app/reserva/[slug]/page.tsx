@@ -32,8 +32,9 @@ export default function ReservaPublica() {
     load()
   }, [slug])
 
+  // ESTA ES LA PARTE CLAVE: El filtro de disponibilidad
   useEffect(() => {
-    if (barbero && negocio) {
+    if (barbero && negocio && paso === 3) {
       async function checkAvailability() {
         const hoy = new Date().toISOString().split('T')[0]
         const { data } = await supabase
@@ -43,15 +44,20 @@ export default function ReservaPublica() {
           .eq('barbero_nombre', barbero.nombre)
           .eq('fecha', hoy)
         
-        // Limpiamos los segundos (:00) para que coincida con nuestro array
-        const ocupados = data?.map(t => t.hora.substring(0, 5)) || []
+        // Normalizamos: "10:00:00" -> "10:00" | "10:00" -> "10:00"
+        const ocupados = data?.map(t => {
+          const partes = t.hora.split(':')
+          return `${partes[0].padStart(2, '0')}:${partes[1].padStart(2, '0')}`
+        }) || []
+        
+        console.log("Horas bloqueadas para " + barbero.nombre + ":", ocupados)
         setTurnosOcupados(ocupados)
       }
       checkAvailability()
     }
   }, [barbero, negocio, paso])
 
-  const horariosBase = ['09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '12:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30']
+  const horariosBase = ['09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00', '19:30']
 
   const confirmarTurno = async () => {
     const { error } = await supabase.from('Turno').insert([{
@@ -61,19 +67,19 @@ export default function ReservaPublica() {
       negocio_id: negocio.id,
       barbero_nombre: barbero.nombre,
       fecha: new Date().toISOString().split('T')[0],
-      hora: hora
+      hora: hora // Guardamos "HH:mm"
     }])
     if (!error) setConfirmado(true)
     else alert("Error al reservar")
   }
 
-  if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-white italic">Cargando disponibilidad...</div>
+  if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-white font-black italic">Sincronizando...</div>
   
   if (confirmado) return (
     <div className="min-h-screen bg-[#020617] text-white flex flex-col items-center justify-center p-6 text-center">
       <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center text-4xl mb-6 text-black shadow-lg">✓</div>
-      <h1 className="text-3xl font-black uppercase italic tracking-tighter">¡Turno Confirmado!</h1>
-      <p className="text-slate-400 mt-2 font-bold uppercase text-[10px]">Agendado con {barbero.nombre} a las {hora} hs</p>
+      <h1 className="text-3xl font-black uppercase italic tracking-tighter">¡Reservado!</h1>
+      <p className="text-slate-400 mt-2 font-bold uppercase text-[10px]">Con {barbero.nombre} a las {hora} hs</p>
     </div>
   )
 
@@ -84,11 +90,11 @@ export default function ReservaPublica() {
 
         {paso === 1 && (
           <div className="space-y-4">
-            <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest text-center">1. Servicio</p>
+            <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest text-center">1. Elegí Servicio</p>
             {servicios.map(s => (
-              <button key={s.id} onClick={() => { setSeleccion(s); setPaso(2); }} className="w-full bg-slate-900 p-6 rounded-[2rem] border border-slate-800 flex justify-between items-center shadow-xl">
-                <span className="font-bold">{s.nombre}</span>
-                <span className="font-black text-emerald-500">${s.precio}</span>
+              <button key={s.id} onClick={() => { setSeleccion(s); setPaso(2); }} className="w-full bg-slate-900 p-6 rounded-[2rem] border border-slate-800 flex justify-between items-center active:scale-95 transition-all">
+                <span className="font-bold text-lg">{s.nombre}</span>
+                <span className="font-black text-xl text-emerald-500">${s.precio}</span>
               </button>
             ))}
           </div>
@@ -96,9 +102,9 @@ export default function ReservaPublica() {
 
         {paso === 2 && (
           <div className="space-y-4">
-            <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest text-center">2. Barbero</p>
+            <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest text-center">2. ¿Quién te atiende?</p>
             {staff.map(st => (
-              <button key={st.id} onClick={() => { setBarbero(st); setPaso(3); }} className="w-full bg-slate-900 p-6 rounded-[2rem] border border-slate-800 flex items-center gap-4">
+              <button key={st.id} onClick={() => { setBarbero(st); setPaso(3); }} className="w-full bg-slate-900 p-6 rounded-[2rem] border border-slate-800 flex items-center gap-4 active:scale-95 transition-all">
                 <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center italic font-black text-emerald-500">{st.nombre[0]}</div>
                 <span className="font-bold text-lg">{st.nombre}</span>
               </button>
@@ -108,22 +114,23 @@ export default function ReservaPublica() {
 
         {paso === 3 && (
           <div className="space-y-6">
-            <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest text-center">3. Horario</p>
+            <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest text-center">3. ¿A qué hora?</p>
             <div className="grid grid-cols-3 gap-2">
               {horariosBase.map(h => {
-                const ocupado = turnosOcupados.includes(h);
+                // Comparamos contra el array de ocupados
+                const estaOcupado = turnosOcupados.includes(h);
                 return (
                   <button 
                     key={h} 
-                    disabled={ocupado}
+                    disabled={estaOcupado}
                     onClick={() => { setHora(h); setPaso(4); }} 
                     className={`p-4 rounded-2xl border font-bold transition-all ${
-                      ocupado 
-                      ? 'bg-slate-950 border-transparent text-slate-800 cursor-not-allowed opacity-30' 
+                      estaOcupado 
+                      ? 'bg-black/50 border-transparent text-slate-900 cursor-not-allowed pointer-events-none' 
                       : 'bg-slate-900 border-slate-800 hover:border-emerald-500 text-white'
                     }`}
                   >
-                    {h}
+                    <span className={estaOcupado ? 'opacity-20 strike-through' : ''}>{h}</span>
                   </button>
                 )
               })}
@@ -140,7 +147,7 @@ export default function ReservaPublica() {
             </div>
             <input placeholder="Nombre" value={datos.nombre} onChange={e => setDatos({...datos, nombre: e.target.value})} className="w-full bg-slate-950 p-4 rounded-2xl border border-slate-800 outline-none text-white font-bold" />
             <input placeholder="WhatsApp" value={datos.whatsapp} onChange={e => setDatos({...datos, whatsapp: e.target.value})} className="w-full bg-slate-950 p-4 rounded-2xl border border-slate-800 outline-none text-white font-mono" />
-            <button onClick={confirmarTurno} className="w-full py-5 rounded-2xl font-black uppercase italic text-lg" style={{ backgroundColor: negocio.color_primario, color: '#000' }}>Confirmar Turno</button>
+            <button onClick={confirmarTurno} className="w-full py-5 rounded-2xl font-black uppercase italic text-lg shadow-xl" style={{ backgroundColor: negocio.color_primario, color: '#000' }}>Confirmar Turno</button>
           </div>
         )}
       </div>

@@ -1,50 +1,56 @@
 'use client'
-import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
 import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname()
-  const router = useRouter()
-  const [rol, setRol] = useState<string | null>(null)
+  const [negocio, setNegocio] = useState<any>(null)
   const [color, setColor] = useState('#10b981')
+  const pathname = usePathname()
 
   useEffect(() => {
-    async function getDatos() {
+    async function loadBranding() {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        const { data: perfil } = await supabase.from('perfiles').select('rol, negocio_id').eq('id', user.id).single()
-        setRol(perfil?.rol || 'usuario')
+        const { data: perfil } = await supabase.from('perfiles').select('negocio_id').eq('id', user.id).single()
         if (perfil?.negocio_id) {
-          const { data: negocio } = await supabase.from('Negocio').select('color_primario').eq('id', perfil.negocio_id).single()
-          if (negocio?.color_primario) setColor(negocio.color_primario)
+          const { data } = await supabase.from('Negocio').select('nombre, logo_url, color_primario').eq('id', perfil.negocio_id).single()
+          if (data) {
+            setNegocio(data)
+            if (data.color_primario) setColor(data.color_primario)
+          }
         }
       }
     }
-    getDatos()
-  }, [pathname])
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
-  }
+    loadBranding()
+  }, [])
 
   const links = [
-    { name: '🏠 Inicio', href: '/dashboard', show: true },
-    { name: '📅 Agenda', href: '/dashboard/agenda', show: rol !== 'superadmin' },
-    { name: '✂️ Servicios', href: '/dashboard/servicios', show: rol !== 'superadmin' },
-    { name: '👥 Personal', href: '/dashboard/personal', show: rol !== 'superadmin' },
-    { name: '⚙️ Configuración', href: '/dashboard/configuracion', show: rol !== 'superadmin' },
-    { name: '👑 Superadmin', href: '/dashboard/superadmin', show: rol === 'superadmin' },
+    { name: '🏠 Inicio', href: '/dashboard' },
+    { name: '📅 Agenda', href: '/dashboard/agenda' },
+    { name: '✂️ Servicios', href: '/dashboard/servicios' },
+    { name: '👥 Personal', href: '/dashboard/personal' },
+    { name: '⚙️ Configuración', href: '/dashboard/configuracion' },
   ]
 
   return (
     <div className="flex min-h-screen bg-[#020617] text-white">
-      <aside className="w-64 border-r border-slate-800 bg-slate-900/50 p-6 flex flex-col">
-        <div className="font-black text-2xl italic mb-10" style={{ color: color }}>BARBER-SAAS</div>
-        <nav className="flex flex-col gap-2 flex-1">
-          {links.filter(l => l.show).map((link) => (
+      <aside className="w-64 border-r border-slate-800 bg-slate-900/50 p-6 flex flex-col gap-6">
+        {/* LOGO Y NOMBRE DINÁMICOS */}
+        <div className="flex items-center gap-3 px-2">
+          {negocio?.logo_url ? (
+            <img src={negocio.logo_url} alt="logo" className="w-10 h-10 rounded-lg object-cover" />
+          ) : (
+            <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center font-black">B</div>
+          )}
+          <span className="font-black text-sm uppercase truncate" style={{ color: color }}>
+            {negocio?.nombre || 'BARBER-SAAS'}
+          </span>
+        </div>
+        
+        <nav className="flex flex-col gap-2">
+          {links.map((link) => (
             <Link key={link.href} href={link.href}
               className={`px-4 py-3 rounded-xl text-sm font-bold transition-all ${
                 pathname === link.href ? 'text-black' : 'text-slate-400 hover:bg-slate-800'
@@ -55,11 +61,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </Link>
           ))}
         </nav>
-        <button onClick={handleLogout} className="mt-auto px-4 py-3 text-left text-slate-500 text-sm font-bold hover:text-red-400 transition-colors border-t border-slate-800 pt-6">
-          🚪 Cerrar Sesión
-        </button>
       </aside>
-      <main className="flex-1 overflow-y-auto p-8">{children}</main>
+      <main className="flex-1 p-8 overflow-y-auto">{children}</main>
     </div>
   )
 }

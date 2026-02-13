@@ -20,7 +20,12 @@ export default function ReservaPublica() {
   const [confirmado, setConfirmado] = useState(false)
 
   // Generar próximos 7 días
-  const proximosDias = Array.from({ length: 7 }, (_, i) => {
+  const diasValidos = negocio.dias_atencion.split(',');
+  const proximosDias = Array.from({ length: 14 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    return { full: d.toISOString().split('T')[0], label: i === 0 ? 'Hoy' : d.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric' }), dayNum: d.getDay().toString() };
+  }).filter(d => diasValidos.includes(d.dayNum)).slice(0, 7);
     const d = new Date()
     d.setDate(d.getDate() + i)
     return {

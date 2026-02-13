@@ -1,94 +1,72 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
-export default function ServiciosPage() {
+export default function GestionServicios() {
   const [servicios, setServicios] = useState<any[]>([])
+  const [nuevo, setNuevo] = useState({ nombre: '', precio: '', duracion: 30 })
   const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState({ id: '', nombre: '', precio: '', duracion: '30' })
-  const [editando, setEditando] = useState(false)
 
-  const load = useCallback(async () => {
-    setLoading(true)
-    const { data: { session } } = await supabase.auth.getSession()
-    
-    if (session?.user) {
-      const { data: perfil } = await supabase.from('perfiles').select('negocio_id').eq('id', session.user.id).single()
-      
-      if (perfil?.negocio_id) {
-        const { data, error } = await supabase.from('Servicio')
-          .select('*')
-          .eq('negocio_id', perfil.negocio_id)
-        
-        if (error) {
-          console.error("Error de Supabase:", error.message)
-        } else {
-          setServicios(data || [])
-        }
-      }
-    }
+  const load = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: perfil } = await supabase.from('perfiles').select('negocio_id').eq('id', user?.id).single()
+    const { data } = await supabase.from('Servicio').select('*').eq('negocio_id', perfil?.negocio_id)
+    setServicios(data || [])
     setLoading(false)
-  }, [])
+  }
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { load() }, [])
 
-  const handleSubmit = async (e: any) => {
+  const agregar = async (e: any) => {
     e.preventDefault()
     const { data: { user } } = await supabase.auth.getUser()
     const { data: perfil } = await supabase.from('perfiles').select('negocio_id').eq('id', user?.id).single()
-    
-    const payload = { 
-      nombre: form.nombre, 
-      precio: parseFloat(form.precio),
-      duracion: parseInt(form.duracion),
-      negocio_id: perfil?.negocio_id
-    }
+    await supabase.from('Servicio').insert([{ ...nuevo, negocio_id: perfil?.negocio_id }])
+    setNuevo({ nombre: '', precio: '', duracion: 30 })
+    load()
+  }
 
-    const { error } = editando 
-      ? await supabase.from('Servicio').update(payload).eq('id', form.id)
-      : await supabase.from('Servicio').insert([payload])
-    
-    if (error) {
-      alert("Error: " + error.message)
-    } else {
-      setForm({ id: '', nombre: '', precio: '', duracion: '30' })
-      setEditando(false)
-      setTimeout(load, 500) // Un pequeño delay para que la DB se asiente
+  const borrar = async (id: string) => {
+    if(confirm('¿Borrar este servicio?')) {
+      await supabase.from('Servicio').delete().eq('id', id)
+      load()
     }
   }
 
-  return (
-    <div className="p-4 space-y-6">
-      <h1 className="text-3xl font-black text-white italic uppercase">Servicios</h1>
-      
-      <form onSubmit={handleSubmit} className="bg-slate-900 p-6 rounded-3xl border border-slate-800 grid gap-4 md:grid-cols-4 items-end">
-        <input placeholder="Nombre" value={form.nombre} onChange={e => setForm({...form, nombre: e.target.value})} className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-white" required />
-        <input placeholder="Precio" type="number" value={form.precio} onChange={e => setForm({...form, precio: e.target.value})} className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-white" required />
-        <input placeholder="Minutos" type="number" value={form.duracion} onChange={e => setForm({...form, duracion: e.target.value})} className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-white" required />
-        <button className="bg-emerald-500 text-black font-bold p-3 rounded-xl uppercase hover:scale-105 transition-all">
-          {editando ? 'Actualizar' : 'Guardar'}
-        </button>
-      </form>
+  if (loading) return <div className="p-10 text-white italic animate-pulse">CARGANDO SERVICIOS...</div>
 
-      <div className="grid gap-3 mt-8">
-        {loading ? (
-          <p className="text-slate-500 animate-pulse font-bold uppercase italic">Buscando servicios...</p>
-        ) : servicios.length === 0 ? (
-          <p className="text-slate-600 italic">No se encontraron servicios cargados.</p>
-        ) : (
-          servicios.map(s => (
-            <div key={s.id} className="bg-slate-900 p-5 rounded-2xl border border-slate-800 flex justify-between items-center group">
-              <div>
-                <p className="font-bold text-white">{s.nombre}</p>
-                <p className="text-emerald-500 font-black">${s.precio} - {s.duracion} min</p>
-              </div>
-              <div className="flex gap-2">
-                <button onClick={() => { setForm({id: s.id, nombre: s.nombre, precio: s.precio.toString(), duracion: s.duracion.toString()}); setEditando(true); }} className="p-2 bg-blue-500/20 text-blue-400 rounded-lg">✏️</button>
-                <button onClick={async () => { await supabase.from('Servicio').delete().eq('id', s.id); load(); }} className="p-2 bg-red-500/20 text-red-400 rounded-lg">🗑️</button>
-              </div>
+  return (
+    <div className="space-y-8 pb-20">
+      <h1 className="text-3xl font-black uppercase italic text-white tracking-tighter text-emerald-500">Servicios Barbucho</h1>
+      <form onSubmit={agregar} className="bg-slate-900 p-6 rounded-[2rem] border border-slate-800 grid grid-cols-1 md:grid-cols-4 gap-4 items-end shadow-2xl">
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-slate-500 uppercase ml-1">Nombre</label>
+          <input value={nuevo.nombre} onChange={e => setNuevo({...nuevo, nombre: e.target.value})} className="w-full bg-black p-4 rounded-xl text-white border border-slate-800 outline-none focus:border-emerald-500" placeholder="Ej: Corte Pro" required />
+        </div>
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-slate-500 uppercase ml-1">Precio ($)</label>
+          <input type="number" value={nuevo.precio} onChange={e => setNuevo({...nuevo, precio: e.target.value})} className="w-full bg-black p-4 rounded-xl text-white border border-slate-800 outline-none focus:border-emerald-500" placeholder="12000" required />
+        </div>
+        <div className="space-y-2">
+          <label className="text-[10px] font-black text-slate-500 uppercase ml-1">Duración</label>
+          <select value={nuevo.duracion} onChange={e => setNuevo({...nuevo, duracion: parseInt(e.target.value)})} className="w-full bg-black p-4 rounded-xl text-white border border-slate-800 outline-none">
+            <option value={30}>30 MIN</option>
+            <option value={60}>1 HORA</option>
+            <option value={90}>1:30 HS</option>
+          </select>
+        </div>
+        <button className="bg-emerald-500 text-black py-4 rounded-xl font-black uppercase italic hover:scale-105 active:scale-95 transition-all shadow-lg shadow-emerald-500/20">Agregar</button>
+      </form>
+      <div className="grid gap-4">
+        {servicios.map(s => (
+          <div key={s.id} className="bg-slate-900/50 p-6 rounded-[1.5rem] border border-slate-800 flex justify-between items-center group hover:border-emerald-500/50 transition-all">
+            <div>
+              <p className="font-black text-xl text-white uppercase italic">{s.nombre}</p>
+              <p className="text-slate-500 font-bold text-xs uppercase tracking-widest">${s.precio} • {s.duracion} MINUTOS</p>
             </div>
-          ))
-        )}
+            <button onClick={() => borrar(s.id)} className="p-4 bg-red-500/10 text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white">🗑️</button>
+          </div>
+        ))}
       </div>
     </div>
   )

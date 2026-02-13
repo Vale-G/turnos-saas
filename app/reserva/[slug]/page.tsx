@@ -10,29 +10,13 @@ export default function ReservaPublica() {
   const [staff, setStaff] = useState<any[]>([])
   const [turnosOcupados, setTurnosOcupados] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
-  
-  const [paso, setPaso] = useState(1) // 1: Servicio, 2: Fecha, 3: Barbero, 4: Horario, 5: Datos
+  const [paso, setPaso] = useState(1)
   const [seleccion, setSeleccion] = useState<any>(null)
   const [fecha, setFecha] = useState(new Date().toISOString().split('T')[0])
   const [barbero, setBarbero] = useState<any>(null)
   const [hora, setHora] = useState('')
   const [datos, setDatos] = useState({ nombre: '', whatsapp: '' })
   const [confirmado, setConfirmado] = useState(false)
-
-  // Generar próximos 7 días
-  const diasValidos = negocio.dias_atencion.split(',');
-  const proximosDias = Array.from({ length: 14 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    return { full: d.toISOString().split('T')[0], label: i === 0 ? 'Hoy' : d.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric' }), dayNum: d.getDay().toString() };
-  }).filter(d => diasValidos.includes(d.dayNum)).slice(0, 7);
-    const d = new Date()
-    d.setDate(d.getDate() + i)
-    return {
-      full: d.toISOString().split('T')[0],
-      label: i === 0 ? 'Hoy' : i === 1 ? 'Mañana' : d.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric' })
-    }
-  })
 
   useEffect(() => {
     async function load() {
@@ -49,6 +33,17 @@ export default function ReservaPublica() {
     load()
   }, [slug])
 
+  // Filtrar los próximos 7 días que el negocio SÍ atiende
+  const proximosDias = Array.from({ length: 14 }, (_, i) => {
+    const d = new Date()
+    d.setDate(d.getDate() + i)
+    return {
+      full: d.toISOString().split('T')[0],
+      label: i === 0 ? 'Hoy' : d.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric' }),
+      dayNum: d.getDay().toString()
+    }
+  }).filter(d => negocio?.dias_atencion?.split(',').includes(d.dayNum)).slice(0, 7)
+
   useEffect(() => {
     if (barbero && negocio && paso === 4) {
       async function checkAvailability() {
@@ -59,7 +54,10 @@ export default function ReservaPublica() {
           .eq('barbero_nombre', barbero.nombre)
           .eq('fecha', fecha)
         
-        const ocupados = data?.map(t => t.hora.substring(0, 5)) || []
+        const ocupados = data?.map(t => {
+          const partes = t.hora.split(':')
+          return `${partes[0].padStart(2, '0')}:${partes[1].padStart(2, '0')}`
+        }) || []
         setTurnosOcupados(ocupados)
       }
       checkAvailability()
@@ -79,102 +77,86 @@ export default function ReservaPublica() {
       hora: hora
     }])
     if (!error) setConfirmado(true)
-    else alert("Error al reservar")
+    else alert("Error: Probablemente este turno ya fue tomado. Intenta con otro horario.")
   }
 
-  if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-white italic">Cargando agenda...</div>
+  if (loading) return <div className="min-h-screen bg-black flex items-center justify-center text-white italic">Cargando...</div>
   if (confirmado) return (
-    <div className="min-h-screen bg-[#020617] text-white flex flex-col items-center justify-center p-6 text-center">
-      <div className="w-20 h-20 bg-emerald-500 rounded-full flex items-center justify-center text-4xl mb-6 text-black shadow-lg">✓</div>
-      <h1 className="text-3xl font-black uppercase italic tracking-tighter">¡Turno Confirmado!</h1>
-      <p className="text-slate-400 mt-2 font-bold uppercase text-[10px]">{fecha} - {hora} hs con {barbero.nombre}</p>
+    <div className="min-h-screen bg-[#020617] text-white flex flex-col items-center justify-center p-6 text-center text-emerald-500 font-black italic">
+      <h1 className="text-4xl uppercase">¡LISTO!</h1>
+      <p className="text-white mt-2">Te esperamos el {fecha} a las {hora} hs.</p>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white p-6 font-sans">
+    <div className="min-h-screen bg-[#020617] text-white p-6">
       <div className="max-w-md mx-auto space-y-8 py-10">
-        <h1 className="text-4xl font-black uppercase italic text-center tracking-tighter" style={{ color: negocio?.color_primario }}>{negocio?.nombre}</h1>
+        <h1 className="text-4xl font-black uppercase italic text-center text-emerald-500 tracking-tighter">{negocio?.nombre}</h1>
 
-        {/* PASO 1: SERVICIO */}
         {paso === 1 && (
           <div className="space-y-4">
-            <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest text-center italic">¿Qué servicio buscás?</p>
+            <p className="text-[10px] font-black uppercase text-slate-500 text-center tracking-widest">1. SERVICIO</p>
             {servicios.map(s => (
-              <button key={s.id} onClick={() => { setSeleccion(s); setPaso(2); }} className="w-full bg-slate-900 p-6 rounded-[2rem] border border-slate-800 flex justify-between items-center shadow-xl">
-                <span className="font-bold text-lg">{s.nombre}</span>
-                <span className="font-black text-xl text-emerald-500">${s.precio}</span>
+              <button key={s.id} onClick={() => { setSeleccion(s); setPaso(2); }} className="w-full bg-slate-900 p-6 rounded-[2rem] border border-slate-800 flex justify-between items-center active:scale-95 transition-all">
+                <span className="font-bold">{s.nombre}</span>
+                <span className="font-black text-emerald-500">${s.precio}</span>
               </button>
             ))}
           </div>
         )}
 
-        {/* PASO 2: FECHA */}
         {paso === 2 && (
           <div className="space-y-4">
-            <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest text-center italic">¿Para qué día?</p>
+            <p className="text-[10px] font-black uppercase text-slate-500 text-center tracking-widest">2. DÍA</p>
             <div className="grid grid-cols-2 gap-3">
               {proximosDias.map(d => (
-                <button key={d.full} onClick={() => { setFecha(d.full); setPaso(3); }} className="bg-slate-900 p-5 rounded-2xl border border-slate-800 font-bold hover:border-emerald-500 transition-all text-sm uppercase">
+                <button key={d.full} onClick={() => { setFecha(d.full); setPaso(3); }} className="bg-slate-900 p-5 rounded-2xl border border-slate-800 font-bold uppercase text-xs">
                   {d.label}
                 </button>
               ))}
             </div>
-            <button onClick={() => setPaso(1)} className="w-full text-[10px] font-black text-slate-600 uppercase">Atrás</button>
+            <button onClick={() => setPaso(1)} className="w-full text-[10px] text-slate-600 uppercase font-black">Atrás</button>
           </div>
         )}
 
-        {/* PASO 3: BARBERO */}
         {paso === 3 && (
           <div className="space-y-4">
-            <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest text-center italic">Elegí tu barbero</p>
+            <p className="text-[10px] font-black uppercase text-slate-500 text-center tracking-widest">3. BARBERO</p>
             {staff.map(st => (
               <button key={st.id} onClick={() => { setBarbero(st); setPaso(4); }} className="w-full bg-slate-900 p-6 rounded-[2rem] border border-slate-800 flex items-center gap-4">
-                <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center italic font-black text-emerald-500 uppercase">{st.nombre[0]}</div>
-                <span className="font-bold text-lg">{st.nombre}</span>
+                <div className="w-10 h-10 bg-emerald-500 rounded-full flex items-center justify-center font-black text-black uppercase">{st.nombre[0]}</div>
+                <span className="font-bold">{st.nombre}</span>
               </button>
             ))}
-            <button onClick={() => setPaso(2)} className="w-full text-[10px] font-black text-slate-600 uppercase">Atrás</button>
           </div>
         )}
 
-        {/* PASO 4: HORARIO */}
         {paso === 4 && (
           <div className="space-y-6">
-            <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest text-center italic">Disponibilidad para el {fecha}</p>
+            <p className="text-[10px] font-black uppercase text-slate-500 text-center tracking-widest">4. HORARIO</p>
             <div className="grid grid-cols-3 gap-2">
               {horariosBase.map(h => {
-                const isOccupied = turnosOcupados.includes(h);
+                const ocupado = turnosOcupados.includes(h);
                 return (
-                  <button 
-                    key={h} 
-                    disabled={isOccupied}
-                    onClick={() => { setHora(h); setPaso(5); }} 
-                    className={`p-4 rounded-2xl border font-bold transition-all ${
-                      isOccupied 
-                      ? 'bg-black border-transparent text-slate-800 cursor-not-allowed opacity-20' 
-                      : 'bg-slate-900 border-slate-800 hover:border-emerald-500 text-white active:scale-95'
-                    }`}
-                  >
+                  <button key={h} disabled={ocupado} onClick={() => { setHora(h); setPaso(5); }} 
+                    className={`p-4 rounded-2xl border font-bold ${ocupado ? 'opacity-10 border-transparent' : 'bg-slate-900 border-slate-800 text-white'}`}>
                     {h}
                   </button>
                 )
               })}
             </div>
-            <button onClick={() => setPaso(3)} className="w-full text-[10px] font-black text-slate-600 uppercase tracking-widest">Cambiar Barbero</button>
           </div>
         )}
 
-        {/* PASO 5: DATOS FINALES */}
         {paso === 5 && (
-          <div className="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 space-y-6 shadow-2xl">
-            <div className="text-center">
-              <p className="text-emerald-500 font-black text-2xl italic">{hora} HS</p>
-              <p className="text-slate-500 text-[10px] uppercase font-bold tracking-widest">Día: {fecha} | Con {barbero.nombre}</p>
+          <div className="bg-slate-900 p-8 rounded-[2.5rem] border border-slate-800 space-y-6">
+            <div className="text-center font-black italic">
+              <p className="text-emerald-500 text-2xl">{hora} HS</p>
+              <p className="text-slate-500 text-[10px] uppercase">Día: {fecha} | {barbero?.nombre}</p>
             </div>
-            <input placeholder="Tu Nombre" value={datos.nombre} onChange={e => setDatos({...datos, nombre: e.target.value})} className="w-full bg-slate-950 p-4 rounded-2xl border border-slate-800 outline-none text-white font-bold" />
-            <input placeholder="WhatsApp" value={datos.whatsapp} onChange={e => setDatos({...datos, whatsapp: e.target.value})} className="w-full bg-slate-950 p-4 rounded-2xl border border-slate-800 outline-none text-white font-mono" />
-            <button onClick={confirmarTurno} className="w-full py-5 rounded-2xl font-black uppercase italic text-lg shadow-lg active:scale-95 transition-all" style={{ backgroundColor: negocio.color_primario, color: '#000' }}>Confirmar Reserva</button>
+            <input placeholder="Nombre" value={datos.nombre} onChange={e => setDatos({...datos, nombre: e.target.value})} className="w-full bg-slate-950 p-4 rounded-2xl border border-slate-800 text-white font-bold" />
+            <input placeholder="WhatsApp" value={datos.whatsapp} onChange={e => setDatos({...datos, whatsapp: e.target.value})} className="w-full bg-slate-950 p-4 rounded-2xl border border-slate-800 text-white" />
+            <button onClick={confirmarTurno} className="w-full py-5 rounded-2xl font-black bg-emerald-500 text-black uppercase italic">Confirmar Reserva</button>
           </div>
         )}
       </div>

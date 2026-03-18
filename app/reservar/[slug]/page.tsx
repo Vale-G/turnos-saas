@@ -76,7 +76,7 @@ export default function ReservaPro() {
       .eq('cliente_id', userId)
       .order('fecha', { ascending: false })
       .limit(8)
-    setMisTurnos((data as Turno[]) ?? [])
+    setMisTurnos((data as unknown as Turno[]) ?? [])
   }, [])
 
   useEffect(() => {

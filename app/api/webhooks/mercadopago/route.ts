@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
 export async function POST(req: NextRequest) {
   try {
+    // Crear cliente adentro del handler — nunca en el módulo raíz
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
     const body = await req.json()
     const { type, data } = body
     if (type !== 'payment') return NextResponse.json({ ok: true })
@@ -22,8 +23,6 @@ export async function POST(req: NextRequest) {
 
     const pago = await mpRes.json()
     const turnoId = pago.external_reference
-    const estado = pago.status
-
     if (!turnoId) return NextResponse.json({ ok: true })
 
     const estadoTurno: Record<string, string> = {
@@ -35,7 +34,7 @@ export async function POST(req: NextRequest) {
 
     await supabaseAdmin
       .from('Turno')
-      .update({ estado: estadoTurno[estado] ?? 'pendiente', pago_id: String(paymentId), pago_estado: estado })
+      .update({ estado: estadoTurno[pago.status] ?? 'pendiente', pago_id: String(paymentId), pago_estado: pago.status })
       .eq('id', turnoId)
 
     return NextResponse.json({ ok: true })

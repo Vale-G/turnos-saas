@@ -447,7 +447,7 @@ export default function ReservaPro() {
                 <button onClick={confirmarConPago} disabled={confirmando}
                   className="w-full py-5 rounded-[1.75rem] font-black italic text-lg text-black transition-all hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-3"
                   style={{ backgroundColor: colorP }}>
-                  {confirmando ? 'Confirmando... : 'Confirmar Turno ✓'}
+                  {confirmando ? 'Confirmando...' : 'Confirmar Turno ✓'}
                 </button>
                 <p className="text-[9px] text-slate-600 text-center font-bold uppercase tracking-widest">🔒 Pago seguro · El turno se reserva al confirmar</p>
               </div>

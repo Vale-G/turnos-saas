@@ -219,11 +219,16 @@ export const PLANES: FeaturesPlanes = {
  */
 export const usePlanFeatures = (plan: string) => {
   // Definimos qué tiene cada plan por si la base de datos falla
-  const planes: any = {
+  type PlanData = {
+    secciones_disponibles: string[]
+    servicios_ilimitados: boolean
+  }
+
+  const planes: Record<string, PlanData> = {
     trial: { secciones_disponibles: ['agenda', 'servicios', 'staff'], servicios_ilimitados: false },
     basico: { secciones_disponibles: ['agenda', 'servicios', 'staff'], servicios_ilimitados: false },
     pro: { secciones_disponibles: ['agenda', 'servicios', 'staff', 'clientes', 'finanzas'], servicios_ilimitados: true }
-  };
+  }
 
   // Si el plan no existe en nuestra lista, usamos 'trial' por defecto
   const planData = planes[plan] || planes['trial'];

@@ -2,8 +2,8 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Staff, Servicio } from '@/types/database.types'
-import { format, addDays, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, isBefore, startOfDay } from 'date-fns'
+import { Servicio } from '@/types/database.types'
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, isBefore, startOfDay } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 interface HorarioDisponible {
@@ -13,7 +13,6 @@ interface HorarioDisponible {
 
 interface CalendarioPublicoProps {
   servicioSeleccionado: Servicio | null
-  staffSeleccionado: Staff | null
   horariosOcupados: string[] // Array de ISO timestamps
   onSeleccionarFecha: (fecha: Date, hora: string) => void
   colorPrimario?: string
@@ -23,7 +22,6 @@ interface CalendarioPublicoProps {
 
 export default function CalendarioPublico({
   servicioSeleccionado,
-  staffSeleccionado,
   horariosOcupados,
   onSeleccionarFecha,
   colorPrimario = '#10b981',
@@ -45,8 +43,7 @@ export default function CalendarioPublico({
     if (!diaSeleccionado || !servicioSeleccionado) return []
 
     const slots: HorarioDisponible[] = []
-    const duracion = servicioSeleccionado.duracion_minutos
-    
+
     for (let hora = horaApertura; hora < horaCierre; hora++) {
       for (let minuto = 0; minuto < 60; minuto += 30) {
         const horaStr = `${hora.toString().padStart(2, '0')}:${minuto.toString().padStart(2, '0')}`

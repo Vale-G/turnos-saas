@@ -100,7 +100,9 @@ export const checkSession = async () => {
 // HELPER: Esperar a que la sesión esté lista (CON REINTENTOS)
 // ============================================================================
 
-export const waitForSession = async (maxAttempts = 5, delayMs = 500): Promise<any> => {
+import type { Session } from '@supabase/supabase-js'
+
+export const waitForSession = async (maxAttempts = 5, delayMs = 500): Promise<Session | null> => {
   console.log(`⏳ [SESSION] Esperando sesión (máximo ${maxAttempts} intentos)...`)
   
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -146,8 +148,8 @@ export const refreshSession = async () => {
     console.warn('⚠️ [REFRESH] No se pudo refrescar la sesión')
     return null
     
-  } catch (error: any) {
-    console.error('💥 [REFRESH] Error crítico:', error.message)
+  } catch (error: unknown) {
+    console.error('💥 [REFRESH] Error crítico:', error)
     return null
   }
 }

@@ -1,8 +1,8 @@
 // components/dashboard/CalendarioSemanal.tsx
 'use client'
 
-import { useState, useMemo } from 'react'
-import { Turno, Staff, Servicio } from '@/types/database.types'
+import { Fragment, useState, useMemo } from 'react'
+import { Turno, Staff } from '@/types/database.types'
 import { format, addDays, startOfWeek, isSameDay, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -38,7 +38,9 @@ export default function CalendarioSemanal({
     }
     return slots
   }, [])
-  
+
+  const activeStaff = useMemo(() => staff.filter(s => s.activo), [staff])
+
   // Obtener turnos de un slot específico
   const getTurnosEnSlot = (fecha: Date, staffId: string, hora: string) => {
     return turnos.filter(turno => {
@@ -128,12 +130,12 @@ export default function CalendarioSemanal({
           ))}
 
           {/* Filas por cada miembro del staff */}
-          {staff.filter(s => s.activo).map(miembroStaff => (
-            <>
+          {activeStaff.map((miembroStaff, staffIndex) => (
+            <Fragment key={miembroStaff.id}>
               {horarios.map((hora, horaIdx) => (
-                <>
+                <Fragment key={`${miembroStaff.id}-${hora}`}>
                   {/* Columna de horario (solo una vez por fila) */}
-                  {miembroStaff === staff.filter(s => s.activo)[0] && (
+                  {staffIndex === 0 && (
                     <div
                       key={`hora-${hora}`}
                       className="sticky left-0 bg-[#0f172a] z-10 border-r border-b border-white/5 p-3 flex items-center justify-end"
@@ -145,7 +147,7 @@ export default function CalendarioSemanal({
                   )}
                   
                   {/* Celdas de cada día */}
-                  {miembroStaff === staff.filter(s => s.activo)[0] && diasSemana.map((dia, diaIdx) => {
+                  {staffIndex === 0 && diasSemana.map((dia, diaIdx) => {
                     const turnosEnSlot = getTurnosEnSlot(dia, miembroStaff.id, hora)
                     const hayTurno = turnosEnSlot.length > 0
                     
@@ -181,25 +183,23 @@ export default function CalendarioSemanal({
                       </div>
                     )
                   })}
-                </>
+                </Fragment>
               ))}
               
               {/* Separador entre staff members */}
-              {staff.filter(s => s.activo).indexOf(miembroStaff) < staff.filter(s => s.activo).length - 1 && (
-                <>
-                  <div className="col-span-8 border-t-2 border-white/10 bg-[#020617]">
-                    <div className="p-3 flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-sm">
-                        👤
-                      </div>
-                      <span className="text-xs font-black text-slate-400 uppercase tracking-wider">
-                        {staff.filter(s => s.activo)[staff.filter(s => s.activo).indexOf(miembroStaff) + 1]?.nombre}
-                      </span>
+              {staffIndex < activeStaff.length - 1 && (
+                <div className="col-span-8 border-t-2 border-white/10 bg-[#020617]">
+                  <div className="p-3 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-sm">
+                      👤
                     </div>
+                    <span className="text-xs font-black text-slate-400 uppercase tracking-wider">
+                      {activeStaff[staffIndex + 1]?.nombre}
+                    </span>
                   </div>
-                </>
+                </div>
               )}
-            </>
+            </Fragment>
           ))}
         </div>
       </div>

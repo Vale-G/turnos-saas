@@ -1,17 +1,21 @@
 'use client'
+import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getThemeColor } from '@/lib/theme'
 import { useRouter } from 'next/navigation'
 
-const TEMAS: any = {
-  emerald: '#10b981',
-  rose: '#f43f5e',
-  blue: '#3b82f6',
-  amber: '#f59e0b',
+type NegocioDashboard = {
+  id: string
+  nombre: string
+  tema?: string
+  logo_url?: string
+  suscripcion_tipo?: string
+  slug?: string
 }
 
 export default function DashboardPrincipal() {
-  const [negocio, setNegocio] = useState<any>(null)
+  const [negocio, setNegocio] = useState<NegocioDashboard | null>(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
@@ -34,7 +38,7 @@ export default function DashboardPrincipal() {
 
   if (loading) return <div className="min-h-screen bg-black text-white flex items-center justify-center font-black uppercase italic">Cargando...</div>
 
-  const colorPrincipal = TEMAS[negocio?.tema || 'emerald']
+  const colorPrincipal = getThemeColor(negocio?.tema)
 
   return (
     <div className="min-h-screen bg-[#020617] text-white p-8">
@@ -44,7 +48,14 @@ export default function DashboardPrincipal() {
         <header className="flex justify-between items-end mb-12 border-b border-white/5 pb-8">
           <div className="flex items-center gap-6">
             {negocio?.logo_url ? (
-              <img src={negocio.logo_url} alt="Logo" className="w-20 h-20 object-contain rounded-2xl bg-white/5 p-2 border border-white/10" />
+              <Image
+                src={negocio.logo_url}
+                alt="Logo"
+                width={80}
+                height={80}
+                unoptimized
+                className="w-20 h-20 object-contain rounded-2xl bg-white/5 p-2 border border-white/10"
+              />
             ) : (
               <div className="w-20 h-20 bg-white/5 rounded-2xl border border-dashed border-white/20 flex items-center justify-center text-[10px] text-slate-500 uppercase font-black text-center p-2">Sin Logo</div>
             )}

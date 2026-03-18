@@ -3,8 +3,15 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
+type ServicioItem = {
+  id: string
+  nombre: string
+  precio: number
+  duracion: number
+}
+
 export default function GestionServicios() {
-  const [servicios, setServicios] = useState<any[]>([])
+  const [servicios, setServicios] = useState<ServicioItem[]>([])
   const [nombre, setNombre] = useState('')
   const [precio, setPrecio] = useState('')
   const [duracion, setDuracion] = useState('')
@@ -15,32 +22,51 @@ export default function GestionServicios() {
   const cargarServicios = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+
     const { data } = await supabase
       .from('Servicio')
       .select('*')
       .eq('negocio_id', user.id)
       .order('created_at', { ascending: false })
-    if (data) setServicios(data)
+
+    setServicios(data || [])
     setLoading(false)
   }
 
-  useEffect(() => { cargarServicios() }, [])
+  useEffect(() => {
+    let mounted = true
+    void (async () => {
+      await cargarServicios()
+      if (!mounted) return
+    })()
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   const agregarServicio = async (e: React.FormEvent) => {
     e.preventDefault()
     const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
     const { error } = await supabase.from('Servicio').insert([
-      { nombre, precio: parseFloat(precio), duracion: parseInt(duracion), negocio_id: user?.id }
+      { nombre, precio: parseFloat(precio), duracion: parseInt(duracion), negocio_id: user.id }
     ])
+
     if (error) alert(error.message)
-    else { setNombre(''); setPrecio(''); setDuracion(''); cargarServicios() }
+    else {
+      setNombre('')
+      setPrecio('')
+      setDuracion('')
+      await cargarServicios()
+    }
   }
 
   const borrarServicio = async (id: string) => {
     if (confirm("¿Seguro que quieres borrar este servicio?")) {
       const { error } = await supabase.from('Servicio').delete().eq('id', id)
       if (error) alert(error.message)
-      else cargarServicios()
+      else await cargarServicios()
     }
   }
 
@@ -49,8 +75,18 @@ export default function GestionServicios() {
       .update({ nombre: n, precio: parseFloat(p), duracion: parseInt(d) })
       .eq('id', id)
     if (error) alert(error.message)
-    else { setEditandoId(null); cargarServicios() }
+    else {
+      setEditandoId(null)
+      await cargarServicios()
+    }
   }
+
+  if (loading)
+    return (
+      <div className="min-h-screen bg-[#020617] flex items-center justify-center text-white font-black uppercase italic">
+        Cargando servicios...
+      </div>
+    )
 
   return (
     <div className="min-h-screen bg-[#020617] text-white p-8 font-sans">

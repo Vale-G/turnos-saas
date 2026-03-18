@@ -3,8 +3,14 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
+type StaffItem = {
+  id: string
+  nombre: string
+  activo: boolean
+}
+
 export default function GestionStaff() {
-  const [staff, setStaff] = useState<any[]>([])
+  const [staff, setStaff] = useState<StaffItem[]>([])
   const [nombre, setNombre] = useState('')
   const [loading, setLoading] = useState(true)
   const router = useRouter()
@@ -12,32 +18,48 @@ export default function GestionStaff() {
   const cargarStaff = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+
     const { data } = await supabase
       .from('Staff')
       .select('*')
       .eq('negocio_id', user.id)
       .order('created_at', { ascending: false })
-    if (data) setStaff(data)
+
+    setStaff(data || [])
     setLoading(false)
   }
 
-  useEffect(() => { cargarStaff() }, [])
+  useEffect(() => {
+    let mounted = true
+    void (async () => {
+      await cargarStaff()
+      if (!mounted) return
+    })()
+    return () => {
+      mounted = false
+    }
+  }, [])
 
   const agregarBarbero = async (e: React.FormEvent) => {
     e.preventDefault()
     const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
     const { error } = await supabase.from('Staff').insert([
-      { nombre, negocio_id: user?.id, activo: true }
+      { nombre, negocio_id: user.id, activo: true }
     ])
     if (error) alert(error.message)
-    else { setNombre(''); cargarStaff() }
+    else {
+      setNombre('')
+      await cargarStaff()
+    }
   }
 
   const borrarStaff = async (id: string) => {
     if (confirm("¿Quitar a este barbero del equipo?")) {
       const { error } = await supabase.from('Staff').delete().eq('id', id)
       if (error) alert(error.message)
-      else cargarStaff()
+      else await cargarStaff()
     }
   }
 
@@ -46,8 +68,15 @@ export default function GestionStaff() {
       .update({ activo: !estadoActual })
       .eq('id', id)
     if (error) alert(error.message)
-    else cargarStaff()
+    else await cargarStaff()
   }
+
+  if (loading)
+    return (
+      <div className="min-h-screen bg-[#020617] flex items-center justify-center text-white font-black uppercase italic">
+        Cargando equipo...
+      </div>
+    )
 
   return (
     <div className="min-h-screen bg-[#020617] text-white p-8 font-sans">

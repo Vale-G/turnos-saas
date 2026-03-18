@@ -34,7 +34,7 @@ export default function UpgradePlanModal({
             Función <span className="text-[#10b981]">Premium</span>
           </h2>
           <p className="text-slate-400 text-lg">
-            <span className="font-bold text-white">"{featureBloqueada}"</span> está disponible en el Plan {datosRecomendado.nombre}
+            <span className="font-bold text-white">&quot;{featureBloqueada}&quot;</span> está disponible en el Plan {datosRecomendado.nombre}
           </p>
         </div>
 

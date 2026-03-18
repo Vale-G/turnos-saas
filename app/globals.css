@@ -24,3 +24,22 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+/* Para que el selector de fecha y hora sea elegante en modo dark */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1); /* Hace que el icono sea blanco */
+  cursor: pointer;
+  opacity: 0.5;
+  transition: 0.3s;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover,
+input[type="time"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  transform: scale(1.2);
+}
+
+/* Quita el diseño nativo aburrido */
+input[type="date"], input[type="time"] {
+  color-scheme: dark;
+}

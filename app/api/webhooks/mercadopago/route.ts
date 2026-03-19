@@ -45,5 +45,5 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET() {
-  return NextResponse.json({ status: 'Barbucho MP Webhook activo' })
+  return NextResponse.json({ status: 'Turnly MP Webhook activo' })
 }

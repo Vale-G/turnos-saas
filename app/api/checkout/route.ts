@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
         : preferencia.sandbox_init_point,
     })
   } catch (err) {
-    console.error('[Barbucho] Error checkout:', err)
+    console.error('[Turnly] Error checkout:', err)
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Error interno' },
       { status: 500 }

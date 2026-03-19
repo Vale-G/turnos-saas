@@ -166,7 +166,7 @@ export default function ReservaPro() {
           hora: sel.hora,
           negocioNombre: negocio.nombre,
         })
-        sessionStorage.setItem('barbucho_wa_' + data.id, waUrl)
+        sessionStorage.setItem('turnly_wa_' + data.id, waUrl)
       }
       setPaso(6)
     } catch (err) {
@@ -208,7 +208,7 @@ export default function ReservaPro() {
           hora: sel.hora,
           negocioNombre: negocio.nombre,
         })
-        sessionStorage.setItem('barbucho_wa_' + data.id, waUrl)
+        sessionStorage.setItem('turnly_wa_' + data.id, waUrl)
       }
 
       setPaso(6)
@@ -516,7 +516,7 @@ export default function ReservaPro() {
 
             {negocio.whatsapp && turnoId && (() => {
               const waUrl = typeof window !== 'undefined'
-                ? sessionStorage.getItem('barbucho_wa_' + turnoId)
+                ? sessionStorage.getItem('turnly_wa_' + turnoId)
                 : null
               return waUrl ? (
                 <a href={waUrl} target="_blank" rel="noopener noreferrer"

@@ -189,10 +189,10 @@ export default function DashboardPrincipal() {
             <p className="text-slate-500 text-sm mt-0.5">Pegalo en tu Instagram.</p>
           </div>
           <button
-            onClick={() => negocio?.slug && navigator.clipboard.writeText('https://barbucho.app/' + negocio.slug)}
+            onClick={() => negocio?.slug && navigator.clipboard.writeText('https://turnly.app/' + negocio.slug)}
             className="bg-black/50 px-5 py-3 rounded-xl border border-white/10 font-mono text-sm hover:border-white/25 transition-colors flex items-center gap-3 group"
             style={{ color: colorPrincipal }}>
-            {'barbucho.app/' + negocio?.slug}
+            {'turnly.app/' + negocio?.slug}
             <span className="text-[9px] text-slate-600 group-hover:text-white font-black uppercase transition-colors">
               copiar
             </span>

@@ -200,14 +200,14 @@ export default function SuperAdmin() {
               <div>
                 <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest block mb-1">Nombre del negocio</label>
                 <input type="text" value={nuevoNombre} onChange={e => handleNombreChange(e.target.value)}
-                  placeholder="Ej: Barbucho Shop"
+                  placeholder="Ej: Turnly Shop"
                   className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 transition-colors"
                   required />
               </div>
               <div>
                 <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest block mb-1">Slug (URL)</label>
                 <input type="text" value={nuevoSlug} onChange={e => setNuevoSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                  placeholder="barbucho-shop"
+                  placeholder="turnly-shop"
                   className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm font-mono text-emerald-400 outline-none focus:border-emerald-500 transition-colors"
                   required />
               </div>

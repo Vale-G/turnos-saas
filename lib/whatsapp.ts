@@ -30,7 +30,7 @@ export function buildWhatsAppConfirmacion({
     `📅 Fecha: ${fechaFormateada}`,
     `🕐 Hora: ${hora} hs`,
     ``,
-    `_Reservado desde barbucho.app_`,
+    `_Reservado desde turnly.app_`,
   ].join('\n')
 
   const numeroLimpio = telefono.replace(/\D/g, '')

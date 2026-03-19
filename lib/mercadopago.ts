@@ -27,7 +27,7 @@ export async function crearPreferenciaMercadoPago(input: MPPreferenciaInput): Pr
       back_urls: input.backUrls,
       auto_return: 'approved',
       notification_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/mercadopago`,
-      statement_descriptor: 'BARBUCHO',
+      statement_descriptor: 'TURNLY',
     }),
   })
 

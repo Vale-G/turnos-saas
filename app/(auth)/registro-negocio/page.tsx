@@ -63,7 +63,7 @@ export default function RegistroNegocio() {
           {/* Nombre del negocio */}
           <input 
             type="text" 
-            placeholder="Nombre de tu negocio (ej: Barbucho)" 
+            placeholder="Nombre de tu negocio (ej: Turnly)" 
             className="w-full bg-black/50 border border-slate-800 p-4 rounded-2xl focus:border-emerald-500 outline-none transition-all"
             onChange={(e) => setNombreNegocio(e.target.value)}
             required

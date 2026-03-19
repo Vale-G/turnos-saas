@@ -14,7 +14,7 @@ export default function Sidebar() {
 
   return (
     <div className="w-64 bg-slate-900 h-screen p-6 border-r border-slate-800 flex flex-col gap-8">
-      <div className="text-emerald-500 font-black italic text-2xl tracking-tighter">BARBUCHO PRO</div>
+      <div className="text-emerald-500 font-black italic text-2xl tracking-tighter">TURNLY PRO</div>
       
       <nav className="flex flex-col gap-2">
         {menu.map((item) => (

@@ -65,24 +65,42 @@ export default function DashboardPrincipal() {
       desc: 'Gestioná tus citas.',
       href: '/turnos',
       badge: null,
+      proOnly: false,
+    },
+    {
+      label: 'Clientes',
+      desc: 'Historial y notas.',
+      href: '/clientes',
+      badge: null,
+      proOnly: false,
     },
     {
       label: 'Servicios',
       desc: esPro ? 'Sin límite' : serviciosCount + ' / ' + limites.maxServicios,
       href: '/servicios',
       badge: !esPro && serviciosCount >= limites.maxServicios ? 'LÍMITE' : null,
+      proOnly: false,
     },
     {
       label: 'Staff',
       desc: esPro ? 'Sin límite' : staffCount + ' / ' + limites.maxStaff,
       href: '/staff',
       badge: !esPro && staffCount >= limites.maxStaff ? 'LÍMITE' : null,
+      proOnly: false,
+    },
+    {
+      label: 'Informes',
+      desc: esPro ? 'Estadísticas PRO' : 'Solo plan Pro',
+      href: esPro ? '/informes' : '#',
+      badge: esPro ? null : 'PRO',
+      proOnly: true,
     },
     {
       label: 'Ajustes',
       desc: 'Marca y estilo.',
       href: '/ajustes',
       badge: null,
+      proOnly: false,
     },
   ]
 

@@ -82,7 +82,7 @@ function UpgradeContent() {
             </span>
             <div className="mt-4">
               <span className="text-5xl font-black" style={{ color: colorPrincipal }}>
-                ${PRECIO.toLocaleString('es-AR')}
+                ${precios.pro.toLocaleString('es-AR')}
               </span>
               <span className="text-slate-400 text-sm ml-2">ARS / mes</span>
             </div>

@@ -1,6 +1,3 @@
-// lib/permisos.ts
-// Define qué puede hacer cada plan
-
 export const LIMITES = {
   normal: {
     maxStaff: 2,
@@ -9,17 +6,23 @@ export const LIMITES = {
     estadisticas: false,
   },
   pro: {
-    maxStaff: Infinity,
-    maxServicios: Infinity,
+    maxStaff: 999,
+    maxServicios: 999,
     mercadopago: true,
     estadisticas: true,
   },
 }
 
+export const PLANES = LIMITES
+
 export type Plan = keyof typeof LIMITES
 
-export function puedeAgregar(plan: Plan, tipo: 'staff' | 'servicios', cantidadActual: number): boolean {
-  return cantidadActual < LIMITES[plan][`max${tipo.charAt(0).toUpperCase() + tipo.slice(1)}` as keyof typeof LIMITES[Plan]]
+export function puedeAgregarStaff(plan: Plan, cantidadActual: number): boolean {
+  return cantidadActual < LIMITES[plan].maxStaff
+}
+
+export function puedeAgregarServicio(plan: Plan, cantidadActual: number): boolean {
+  return cantidadActual < LIMITES[plan].maxServicios
 }
 
 export function tieneMercadoPago(plan: Plan): boolean {
@@ -29,6 +32,3 @@ export function tieneMercadoPago(plan: Plan): boolean {
 export function tieneEstadisticas(plan: Plan): boolean {
   return LIMITES[plan].estadisticas
 }
-
-// Alias para compatibilidad con UpgradePlanModal existente
-export const PLANES = LIMITES

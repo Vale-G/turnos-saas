@@ -135,6 +135,47 @@ export default function ReservaPro() {
     options: { redirectTo: getOAuthRedirectUrl('/reservar/' + slug) },
   })
 
+  const [guestNombre, setGuestNombre] = useState('')
+  const [guestTel, setGuestTel] = useState('')
+
+  const confirmarTurnoGuest = async (gNombre?: string, gTel?: string) => {
+    if (!negocio || !sel.servicio || !sel.barbero || !guestNombre.trim()) return
+    setConfirmando(true)
+    setErrorMsg(null)
+    try {
+      const { data, error } = await supabase.from('Turno').insert({
+        negocio_id: negocio.id,
+        servicio_id: sel.servicio.id,
+        staff_id: sel.barbero.id,
+        fecha: sel.fecha,
+        hora: sel.hora + ':00',
+        cliente_id: null,
+        cliente_nombre: (gNombre ?? guestNombre).trim() + (gTel ?? guestTel ? ' · ' + (gTel ?? guestTel) : ''),
+        estado: 'pendiente',
+        pago_estado: 'pendiente',
+      }).select('id').single()
+      if (error || !data) throw new Error(error?.message ?? 'Error')
+      setTurnoId(data.id)
+      if (negocio.whatsapp) {
+        const waUrl = buildWhatsAppConfirmacion({
+          telefono: negocio.whatsapp,
+          clienteNombre: (gNombre ?? guestNombre),
+          servicio: sel.servicio.nombre,
+          barbero: sel.barbero.nombre,
+          fecha: sel.fecha,
+          hora: sel.hora,
+          negocioNombre: negocio.nombre,
+        })
+        sessionStorage.setItem('barbucho_wa_' + data.id, waUrl)
+      }
+      setPaso(6)
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Error')
+    } finally {
+      setConfirmando(false)
+    }
+  }
+
   const confirmarTurno = async () => {
     if (!user || !negocio || !sel.servicio || !sel.barbero) return
     setConfirmando(true)
@@ -447,29 +488,15 @@ export default function ReservaPro() {
               </p>
             )}
 
-            {!user ? (
-              <div className="space-y-3 text-center">
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-                  Identificate para confirmar
-                </p>
-                <button onClick={loginGoogle}
-                  className="w-full py-4 bg-white text-black font-black italic uppercase rounded-2xl flex items-center justify-center gap-3 hover:bg-gray-100 transition-colors">
-                  <GoogleIcon />
-                  Continuar con Google
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <p className="text-[10px] text-slate-500 text-center">
-                  Reservando como <span className="text-white/60 font-bold">{user.email}</span>
-                </p>
-                <button onClick={confirmarTurno} disabled={confirmando}
-                  className="w-full py-5 rounded-[1.75rem] font-black italic text-lg text-black transition-all hover:opacity-90 disabled:opacity-50"
-                  style={{ backgroundColor: colorP }}>
-                  {confirmando ? 'Reservando...' : 'Confirmar Turno'}
-                </button>
-              </div>
-            )}
+            <ConfirmarOGuest
+              user={user}
+              colorP={colorP}
+              confirmando={confirmando}
+              errorMsg={errorMsg}
+              onConfirmar={confirmarTurno}
+              onConfirmarGuest={confirmarTurnoGuest}
+              onLoginGoogle={loginGoogle}
+            />
           </section>
         )}
 
@@ -509,6 +536,88 @@ export default function ReservaPro() {
           </section>
         )}
       </div>
+    </div>
+  )
+}
+
+function ConfirmarOGuest({
+  user, colorP, confirmando, errorMsg, onConfirmar, onConfirmarGuest, onLoginGoogle
+}: {
+  user: { email?: string } | null
+  colorP: string
+  confirmando: boolean
+  errorMsg: string | null
+  onConfirmar: () => void
+  onConfirmarGuest: (nombre: string, tel: string) => void
+  onLoginGoogle: () => void
+}) {
+  const [modo, setModo] = useState<'google' | 'guest'>('google')
+  const [nombre, setNombre] = useState('')
+  const [tel, setTel] = useState('')
+
+  if (user) return (
+    <div className="space-y-3">
+      <p className="text-[10px] text-slate-500 text-center">
+        Reservando como <span className="text-white/60 font-bold">{user.email}</span>
+      </p>
+      {errorMsg && <p className="bg-red-500/10 border border-red-500/20 rounded-2xl px-4 py-3 text-red-400 text-sm font-bold">{errorMsg}</p>}
+      <button onClick={onConfirmar} disabled={confirmando}
+        className="w-full py-5 rounded-[1.75rem] font-black italic text-lg text-black transition-all hover:opacity-90 disabled:opacity-50"
+        style={{ backgroundColor: colorP }}>
+        {confirmando ? 'Reservando...' : 'Confirmar Turno'}
+      </button>
+    </div>
+  )
+
+  return (
+    <div className="space-y-4">
+      {/* Tabs */}
+      <div className="flex gap-2 bg-white/5 border border-white/8 p-1 rounded-2xl">
+        <button onClick={() => setModo('google')}
+          className={'flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ' +
+            (modo === 'google' ? 'text-black' : 'text-slate-400 hover:text-white')}
+          style={modo === 'google' ? { backgroundColor: colorP } : {}}>
+          Con Google
+        </button>
+        <button onClick={() => setModo('guest')}
+          className={'flex-1 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ' +
+            (modo === 'guest' ? 'text-black' : 'text-slate-400 hover:text-white')}
+          style={modo === 'guest' ? { backgroundColor: colorP } : {}}>
+          Sin cuenta
+        </button>
+      </div>
+
+      {modo === 'google' ? (
+        <button onClick={onLoginGoogle}
+          className="w-full py-4 bg-white text-black font-black italic uppercase rounded-2xl flex items-center justify-center gap-3 hover:bg-gray-100 transition-colors">
+          <GoogleIcon />
+          Continuar con Google
+        </button>
+      ) : (
+        <div className="space-y-3">
+          <div>
+            <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest block mb-1">Tu nombre</label>
+            <input type="text" value={nombre} onChange={e => { setNombre(e.target.value) }}
+              placeholder="Ej: Juan Perez"
+              className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-white/25 transition-colors" />
+          </div>
+          <div>
+            <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest block mb-1">Teléfono (opcional)</label>
+            <input type="tel" value={tel} onChange={e => setTel(e.target.value)}
+              placeholder="Ej: 11 1234-5678"
+              className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-white/25 transition-colors" />
+          </div>
+          {errorMsg && <p className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-2 text-red-400 text-sm">{errorMsg}</p>}
+          <button
+            onClick={() => { onConfirmarGuest(nombre, tel) }}
+            disabled={confirmando || !nombre.trim()}
+            className="w-full py-4 rounded-2xl font-black italic text-lg text-black transition-all hover:opacity-90 disabled:opacity-50"
+            style={{ backgroundColor: colorP }}>
+            {confirmando ? 'Reservando...' : 'Confirmar sin cuenta'}
+          </button>
+          <p className="text-[9px] text-slate-600 text-center">No necesitas crear una cuenta para reservar.</p>
+        </div>
+      )}
     </div>
   )
 }

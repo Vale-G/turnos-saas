@@ -148,7 +148,8 @@ export default function DashboardPrincipal() {
 
         {/* Banner upgrade si es plan normal */}
         {!esPro && (
-          <div className="mb-8 p-5 rounded-2xl border border-amber-400/20 bg-amber-400/5 flex items-center justify-between gap-4">
+          <div className="mb-8 p-5 rounded-2xl border border-amber-400/20 bg-amber-400/5 flex items-center justify-between gap-4 cursor-pointer hover:bg-amber-400/8 transition-colors"
+            onClick={() => router.push('/upgrade')}>
             <div>
               <p className="font-black uppercase text-sm text-amber-400">Plan Normal</p>
               <p className="text-slate-400 text-xs mt-0.5">
@@ -156,8 +157,8 @@ export default function DashboardPrincipal() {
                 Upgrade a Pro para desbloquear todo.
               </p>
             </div>
-            <span className="text-[10px] font-black uppercase text-amber-400/50 border border-amber-400/20 px-3 py-1.5 rounded-xl">
-              Plan Pro
+            <span className="text-[10px] font-black uppercase text-black bg-amber-400 px-3 py-1.5 rounded-xl hover:opacity-90 transition-opacity">
+              Upgrade a Pro
             </span>
           </div>
         )}

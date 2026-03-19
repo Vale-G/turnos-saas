@@ -1,12 +1,12 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
 
 const PRECIO = 15000
 
-export default function UpgradePro() {
+function UpgradeContent() {
   const [loading, setLoading] = useState(false)
   const [negocio, setNegocio] = useState<{ nombre: string; tema?: string; suscripcion_tipo?: string } | null>(null)
   const [colorPrincipal, setColorPrincipal] = useState('#6366F1')
@@ -19,7 +19,6 @@ export default function UpgradePro() {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
-
       let neg = null
       const { data: byOwner } = await supabase.from('Negocio').select('nombre, tema, suscripcion_tipo').eq('owner_id', user.id).single()
       if (byOwner) neg = byOwner
@@ -60,7 +59,7 @@ export default function UpgradePro() {
         {estado === 'ok' && (
           <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-5 text-center">
             <p className="text-emerald-400 font-black text-lg uppercase italic">Pago aprobado</p>
-            <p className="text-slate-400 text-sm mt-1">Tu plan Pro se activara en segundos.</p>
+            <p className="text-slate-400 text-sm mt-1">Tu plan Pro se activa en segundos.</p>
           </div>
         )}
         {estado === 'error' && (
@@ -76,11 +75,8 @@ export default function UpgradePro() {
           </div>
         )}
 
-        {/* Card principal */}
         <div className="bg-white/4 border border-white/8 rounded-[2.5rem] overflow-hidden">
-          {/* Header PRO */}
-          <div className="p-8 text-center border-b border-white/8"
-            style={{ background: 'linear-gradient(135deg, #6366F108, #6366F115)' }}>
+          <div className="p-8 text-center border-b border-white/8">
             <span className="bg-amber-400 text-black text-[10px] font-black uppercase px-3 py-1 rounded-full">
               Plan Pro
             </span>
@@ -93,7 +89,6 @@ export default function UpgradePro() {
             <p className="text-slate-400 text-sm mt-2">Para {negocio?.nombre ?? 'tu negocio'}</p>
           </div>
 
-          {/* Features */}
           <div className="p-6 space-y-3">
             {[
               'Staff y servicios ilimitados',
@@ -113,7 +108,6 @@ export default function UpgradePro() {
             ))}
           </div>
 
-          {/* CTA */}
           <div className="px-6 pb-6">
             {error && (
               <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-4">
@@ -125,7 +119,7 @@ export default function UpgradePro() {
               disabled={loading}
               className="w-full py-5 rounded-2xl font-black italic text-lg text-black transition-all hover:opacity-90 disabled:opacity-50"
               style={{ backgroundColor: colorPrincipal }}>
-              {loading ? 'Redirigiendo a MercadoPago...' : 'Activar Plan Pro con MercadoPago'}
+              {loading ? 'Redirigiendo a MercadoPago...' : 'Activar Plan Pro'}
             </button>
             <p className="text-[10px] text-slate-600 text-center mt-3">
               Pago seguro via MercadoPago. Podes cancelar cuando quieras.
@@ -139,5 +133,17 @@ export default function UpgradePro() {
         </button>
       </div>
     </div>
+  )
+}
+
+export default function UpgradePro() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#020617] flex items-center justify-center">
+        <div className="text-slate-500 font-black italic uppercase animate-pulse">Cargando...</div>
+      </div>
+    }>
+      <UpgradeContent />
+    </Suspense>
   )
 }

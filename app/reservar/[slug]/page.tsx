@@ -114,9 +114,24 @@ export default function ReservaPro() {
     if (!negocio?.hora_apertura || !negocio?.hora_cierre || !sel.servicio) return []
     const lista: string[] = []
     let act = negocio.hora_apertura
+
+    // Hora actual en Argentina (UTC-3) — no mostrar horas que ya pasaron si es hoy
+    const ahora = new Date()
+    const offsetAR = -3 * 60
+    const localAR = new Date(ahora.getTime() + (offsetAR - ahora.getTimezoneOffset()) * 60000)
+    const horaActualStr = String(localAR.getHours()).padStart(2, '0') + ':' + String(localAR.getMinutes()).padStart(2, '0')
+    const esHoy = sel.fecha === localAR.toISOString().split('T')[0]
+
     while (act < negocio.hora_cierre) {
       const hF = act.slice(0, 5)
-      if (!ocupados.includes(hF)) lista.push(hF)
+      // Si es hoy, filtrar horas que ya pasaron (con 15 min de margen)
+      const [hh, mm] = hF.split(':').map(Number)
+      const [ha, ma] = horaActualStr.split(':').map(Number)
+      const minutosHora = hh * 60 + mm
+      const minutosAhora = ha * 60 + ma + 15
+      const yaPaso = esHoy && minutosHora <= minutosAhora
+
+      if (!ocupados.includes(hF) && !yaPaso) lista.push(hF)
       let [h, m] = act.split(':').map(Number)
       m += sel.servicio.duracion
       if (m >= 60) { h += Math.floor(m / 60); m %= 60 }

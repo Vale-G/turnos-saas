@@ -212,7 +212,7 @@ export default function SuperAdmin() {
                   rel="noopener noreferrer"
                   className="px-4 py-2 rounded-xl text-xs font-black uppercase bg-white/5 text-slate-400 hover:bg-white/10 border border-white/10 transition-all"
                 >
-                  Ver →
+                  Ver &#8594;
                 </a>
 
                 {/* Eliminar */}

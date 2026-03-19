@@ -29,3 +29,6 @@ export function tieneMercadoPago(plan: Plan): boolean {
 export function tieneEstadisticas(plan: Plan): boolean {
   return LIMITES[plan].estadisticas
 }
+
+// Alias para compatibilidad con UpgradePlanModal existente
+export const PLANES = LIMITES

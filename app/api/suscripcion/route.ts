@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
-const PRECIO_PRO_ARS = 15000
-
 export async function POST(req: NextRequest) {
   try {
+    const body = await req.json().catch(() => ({}))
+    const plan = (body.plan ?? 'pro') as 'basico' | 'pro'
+
     const cookieStore = await cookies()
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -24,7 +25,18 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
 
-    // Buscar el negocio
+    // Leer precio desde la DB (configurable por superadmin)
+    const { data: configs } = await supabase
+      .from('Config').select('clave, valor')
+      .in('clave', ['precio_basico', 'precio_pro'])
+
+    const precioMap: Record<string, number> = {}
+    configs?.forEach(c => { precioMap[c.clave] = Number(c.valor) })
+    const precio = plan === 'pro'
+      ? (precioMap.precio_pro ?? 25000)
+      : (precioMap.precio_basico ?? 5000)
+
+    // Buscar negocio
     let neg = null
     const { data: byOwner } = await supabase.from('Negocio').select('id, nombre, slug').eq('owner_id', user.id).single()
     if (byOwner) neg = byOwner
@@ -35,26 +47,26 @@ export async function POST(req: NextRequest) {
     if (!neg) return NextResponse.json({ error: 'Negocio no encontrado' }, { status: 404 })
 
     const origin = req.headers.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+    const planNombre = plan === 'pro' ? 'Pro' : 'Basico'
 
-    // Crear preferencia en MP
     const mpBody = {
       items: [{
-        title: 'Turnly Pro — 1 mes',
-        description: 'Plan Pro para ' + neg.nombre,
+        title: 'Turnly ' + planNombre + ' — 1 mes',
+        description: 'Plan ' + planNombre + ' para ' + neg.nombre,
         quantity: 1,
-        unit_price: PRECIO_PRO_ARS,
+        unit_price: precio,
         currency_id: 'ARS',
       }],
       payer: { email: user.email },
-      external_reference: neg.id,
+      external_reference: neg.id + '|' + plan,
       back_urls: {
-        success: origin + '/dashboard?suscripcion=ok',
-        failure: origin + '/dashboard?suscripcion=error',
-        pending: origin + '/dashboard?suscripcion=pendiente',
+        success: origin + '/upgrade?suscripcion=ok',
+        failure: origin + '/upgrade?suscripcion=error',
+        pending: origin + '/upgrade?suscripcion=pendiente',
       },
       auto_return: 'approved',
       notification_url: origin + '/api/webhooks/suscripcion',
-      statement_descriptor: 'TURNLY PRO',
+      statement_descriptor: 'TURNLY',
     }
 
     const mpRes = await fetch('https://api.mercadopago.com/checkout/preferences', {
@@ -66,33 +78,21 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(mpBody),
     })
 
-    if (!mpRes.ok) {
-      const err = await mpRes.text()
-      throw new Error('MP error: ' + err)
-    }
-
+    if (!mpRes.ok) throw new Error('MP error: ' + await mpRes.text())
     const preferencia = await mpRes.json()
 
-    // Guardar suscripcion pendiente
     await supabase.from('Suscripcion').insert({
-      negocio_id: neg.id,
-      plan: 'pro',
-      estado: 'pendiente',
-      mp_preference_id: preferencia.id,
-      monto: PRECIO_PRO_ARS,
+      negocio_id: neg.id, plan, estado: 'pendiente',
+      mp_preference_id: preferencia.id, monto: precio,
     })
 
     return NextResponse.json({
       url: process.env.NODE_ENV === 'production'
         ? preferencia.init_point
         : preferencia.sandbox_init_point,
-      preferencia_id: preferencia.id,
     })
   } catch (err) {
     console.error('[Turnly] Error suscripcion:', err)
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Error interno' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Error' }, { status: 500 })
   }
 }

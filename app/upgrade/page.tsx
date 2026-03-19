@@ -4,7 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
 
-const PRECIO = 15000
+// Precio se carga desde la DB via Config
 
 function UpgradeContent() {
   const [loading, setLoading] = useState(false)

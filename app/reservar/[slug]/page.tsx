@@ -1,9 +1,8 @@
 'use client'
-
 import Image from 'next/image'
 import type { User } from '@supabase/supabase-js'
 import { useEffect, useMemo, useState, useCallback } from 'react'
-import { useParams, useSearchParams } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { supabase, getOAuthRedirectUrl } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
 import { buildWhatsAppConfirmacion } from '@/lib/whatsapp'
@@ -18,7 +17,7 @@ type Staff    = { id: string; nombre: string; avatar_url?: string | null }
 type Turno    = { id: string; fecha: string; hora: string; estado: string; Servicio?: { nombre: string; precio: number } }
 type Sel      = { servicio: Servicio | null; barbero: Staff | null; fecha: string; hora: string }
 
-const PASO_LABELS = ['Servicio', 'Barbero', 'Día', 'Hora', 'Pago']
+const PASO_LABELS = ['Servicio', 'Barbero', 'Día', 'Hora', 'Confirmar']
 const ESTADO_BADGE: Record<string, { bg: string; label: string }> = {
   pendiente:  { bg: 'bg-amber-500',   label: 'Pendiente'  },
   confirmado: { bg: 'bg-emerald-500', label: 'Confirmado' },
@@ -28,8 +27,6 @@ const ESTADO_BADGE: Record<string, { bg: string; label: string }> = {
 
 export default function ReservaPro() {
   const { slug } = useParams()
-  const searchParams = useSearchParams()
-
   const [negocio,     setNegocio]     = useState<Negocio | null>(null)
   const [servicios,   setServicios]   = useState<Servicio[]>([])
   const [staffList,   setStaffList]   = useState<Staff[]>([])
@@ -40,19 +37,11 @@ export default function ReservaPro() {
   const [paso,        setPaso]        = useState(1)
   const [sel,         setSel]         = useState<Sel>({ servicio: null, barbero: null, fecha: '', hora: '' })
   const [confirmando, setConfirmando] = useState(false)
-  const [turnoCreado, setTurnoCreado] = useState<{ id: string } | null>(null)
-  const [verPerfil,   setVerPerfil]   = useState(false)
-  const [pagoStatus,  setPagoStatus]  = useState<'idle'|'loading'|'ok'|'error'|'pendiente'>('idle')
+  const [turnoId,     setTurnoId]     = useState<string | null>(null)
   const [errorMsg,    setErrorMsg]    = useState<string | null>(null)
+  const [verPerfil,   setVerPerfil]   = useState(false)
 
-  useEffect(() => {
-    const pago = searchParams.get('pago')
-    const turnoId = searchParams.get('turno')
-    if (pago === 'ok' && turnoId)        { setPagoStatus('ok');       setTurnoCreado({ id: turnoId }); setPaso(6) }
-    else if (pago === 'error')           { setPagoStatus('error');    setErrorMsg('El pago fue rechazado. Podés intentarlo de nuevo.') }
-    else if (pago === 'pendiente')       { setPagoStatus('pendiente'); setTurnoCreado({ id: turnoId ?? '' }); setPaso(6) }
-  }, [searchParams])
-
+  // Cargar negocio
   useEffect(() => {
     async function init() {
       const { data: neg } = await supabase.from('Negocio').select('*').eq('slug', slug).single()
@@ -69,6 +58,7 @@ export default function ReservaPro() {
     init()
   }, [slug])
 
+  // Auth
   const cargarMisTurnos = useCallback(async (userId: string) => {
     const { data } = await supabase
       .from('Turno')
@@ -90,13 +80,15 @@ export default function ReservaPro() {
     return () => listener.subscription.unsubscribe()
   }, [cargarMisTurnos])
 
+  // Horarios ocupados
   useEffect(() => {
     if (!sel.barbero || !sel.fecha) return
     supabase.from('Turno').select('hora')
       .eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha).not('estado', 'eq', 'cancelado')
-      .then(({ data }) => setOcupados((data ?? []).map((t: any) => t.hora.slice(0, 5))))
+      .then(({ data }) => setOcupados((data ?? []).map((t: { hora: string }) => t.hora.slice(0, 5))))
   }, [sel.barbero, sel.fecha])
 
+  // Métricas
   const metricas = useMemo(() => {
     if (!misTurnos.length) return null
     const completados = misTurnos.filter(t => t.estado === 'completado')
@@ -116,6 +108,7 @@ export default function ReservaPro() {
   }, [misTurnos])
 
   const colorP = getThemeColor(negocio?.tema)
+  const progress = ({ 1: 20, 2: 40, 3: 60, 4: 80, 5: 100, 6: 100 } as Record<number, number>)[paso] ?? 0
 
   const generarHoras = (): string[] => {
     if (!negocio?.hora_apertura || !negocio?.hora_cierre || !sel.servicio) return []
@@ -127,60 +120,43 @@ export default function ReservaPro() {
       let [h, m] = act.split(':').map(Number)
       m += sel.servicio.duracion
       if (m >= 60) { h += Math.floor(m / 60); m %= 60 }
-      act = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:00`
+      act = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0') + ':00'
     }
     return lista
   }
 
   const etiquetaDia = (date: Date) => {
     const dia = date.toLocaleDateString('es-ES', { weekday: 'short' })
-    return `${dia.charAt(0).toUpperCase()}${dia.slice(1)} ${date.getDate()}`
+    return dia.charAt(0).toUpperCase() + dia.slice(1) + ' ' + date.getDate()
   }
 
-  const loginGoogle = () =>
-    supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: getOAuthRedirectUrl(`/reservar/${slug}`) },
-    })
+  const loginGoogle = () => supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: getOAuthRedirectUrl('/reservar/' + slug) },
+  })
 
-  const progress = { 1: 20, 2: 40, 3: 60, 4: 80, 5: 100, 6: 100 }[paso] ?? 0
-
-  const confirmarConPago = async () => {
+  const confirmarTurno = async () => {
     if (!user || !negocio || !sel.servicio || !sel.barbero) return
     setConfirmando(true)
     setErrorMsg(null)
     try {
-      const { data: turnoData, error: turnoError } = await supabase
-        .from('Turno')
-        .insert({
-          negocio_id: negocio.id,
-          servicio_id: sel.servicio.id,
-          staff_id: sel.barbero.id,
-          fecha: sel.fecha,
-          hora: sel.hora + ':00',
-          cliente_id: user.id,
-          cliente_nombre: user.user_metadata?.full_name ?? user.email,
-          estado: 'pendiente',
-        })
-        .select('id')
-        .single()
+      const { data, error } = await supabase.from('Turno').insert({
+        negocio_id: negocio.id,
+        servicio_id: sel.servicio.id,
+        staff_id: sel.barbero.id,
+        fecha: sel.fecha,
+        hora: sel.hora + ':00',
+        cliente_id: user.id,
+        cliente_nombre: user.user_metadata?.full_name ?? user.email,
+        estado: 'pendiente',
+        pago_estado: 'pendiente',
+      }).select('id').single()
 
-      if (turnoError || !turnoData) throw new Error(turnoError?.message ?? 'Error creando turno')
+      if (error || !data) throw new Error(error?.message ?? 'Error creando turno')
 
-      const res = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          turnoId: turnoData.id,
-          servicioNombre: sel.servicio.nombre,
-          precio: sel.servicio.precio,
-          negocioSlug: negocio.slug,
-        }),
-      })
+      setTurnoId(data.id)
 
-      if (!res.ok) { const err = await res.json(); throw new Error(err.error ?? 'Error al iniciar el pago') }
-      const { url } = await res.json()
-
+      // Guardar link de WhatsApp para mostrar en éxito
       if (negocio.whatsapp) {
         const waUrl = buildWhatsAppConfirmacion({
           telefono: negocio.whatsapp,
@@ -191,34 +167,40 @@ export default function ReservaPro() {
           hora: sel.hora,
           negocioNombre: negocio.nombre,
         })
-        sessionStorage.setItem(`barbucho_wa_${turnoData.id}`, waUrl)
+        sessionStorage.setItem('barbucho_wa_' + data.id, waUrl)
       }
 
-      window.location.href = url
+      setPaso(6)
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Error inesperado')
+    } finally {
       setConfirmando(false)
     }
   }
 
   if (loading) return (
     <div className="min-h-screen bg-[#020617] flex items-center justify-center">
-      <span className="font-black italic uppercase text-lg animate-pulse" style={{ color: getThemeColor() }}>Barbucho...</span>
+      <span className="font-black italic uppercase animate-pulse" style={{ color: getThemeColor() }}>
+        Cargando...
+      </span>
     </div>
   )
   if (!negocio) return (
-    <div className="min-h-screen bg-[#020617] flex items-center justify-center text-slate-500 font-bold">Negocio no encontrado.</div>
+    <div className="min-h-screen bg-[#020617] flex items-center justify-center text-slate-500 font-bold">
+      Negocio no encontrado.
+    </div>
   )
 
   return (
     <div className="min-h-screen bg-[#020617] text-white font-sans">
       <div className="max-w-md mx-auto px-5 pb-16">
 
+        {/* HEADER */}
         <header className="sticky top-0 z-40 bg-[#020617]/80 backdrop-blur-xl border-b border-white/8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-base border border-white/10"
-                style={{ background: `${colorP}18`, color: colorP }}>
+                style={{ background: colorP + '18', color: colorP }}>
                 {negocio.nombre.charAt(0)}
               </div>
               <div>
@@ -230,26 +212,29 @@ export default function ReservaPro() {
               <button onClick={() => setVerPerfil(true)}
                 className="flex items-center gap-2 rounded-full border border-white/10 px-2 py-1 bg-white/5 hover:bg-white/10 transition">
                 {user.user_metadata?.avatar_url ? (
-                  <Image src={user.user_metadata.avatar_url} alt="av" width={26} height={26} unoptimized className="w-6 h-6 rounded-full" />
+                  <Image src={user.user_metadata.avatar_url} alt="av" width={24} height={24} unoptimized
+                    className="w-6 h-6 rounded-full" />
                 ) : (
-                  <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-black" style={{ color: colorP }}>
+                  <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-[10px] font-black"
+                    style={{ color: colorP }}>
                     {(user.user_metadata?.full_name ?? user.email ?? 'U')[0].toUpperCase()}
                   </div>
                 )}
-                <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Mis turnos</span>
+                <span className="text-[10px] font-black uppercase tracking-widest text-white/50">Mis turnos</span>
               </button>
             ) : (
               <button onClick={loginGoogle}
-                className="rounded-full border border-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest bg-white/5 hover:bg-white/15 transition">
+                className="rounded-full border border-white/10 px-3 py-1.5 text-[10px] font-black uppercase bg-white/5 hover:bg-white/15 transition">
                 Entrar
               </button>
             )}
           </div>
+
           {paso < 6 && (
             <>
               <div className="mt-3 h-0.5 w-full rounded-full bg-white/8">
                 <div className="h-full rounded-full transition-all duration-500"
-                  style={{ width: `${progress}%`, background: `linear-gradient(90deg, ${colorP}, ${colorP}99)` }} />
+                  style={{ width: progress + '%', background: 'linear-gradient(90deg,' + colorP + ',' + colorP + '99)' }} />
               </div>
               <div className="flex gap-1 mt-2">
                 {PASO_LABELS.map((label, i) => (
@@ -263,15 +248,18 @@ export default function ReservaPro() {
           )}
         </header>
 
+        {/* MODAL PERFIL */}
         {verPerfil && user && (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/75">
             <div className="w-full max-w-md bg-[#020617] border border-white/10 border-b-0 rounded-t-[2.5rem] p-6 shadow-2xl">
-              <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-3">
                   {user.user_metadata?.avatar_url ? (
-                    <Image src={user.user_metadata.avatar_url} alt="av" width={40} height={40} unoptimized className="w-10 h-10 rounded-full border border-white/10" />
+                    <Image src={user.user_metadata.avatar_url} alt="av" width={40} height={40} unoptimized
+                      className="w-10 h-10 rounded-full border border-white/10" />
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center font-black" style={{ color: colorP }}>
+                    <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center font-black"
+                      style={{ color: colorP }}>
                       {(user.user_metadata?.full_name ?? user.email ?? 'U')[0]}
                     </div>
                   )}
@@ -280,11 +268,11 @@ export default function ReservaPro() {
                     <p className="text-slate-500 text-[10px]">{user.email}</p>
                   </div>
                 </div>
-                <button onClick={() => setVerPerfil(false)} className="text-slate-500 hover:text-white text-xs font-black">✕</button>
+                <button onClick={() => setVerPerfil(false)} className="text-slate-500 hover:text-white text-xs font-black">X</button>
               </div>
 
               {metricas && (
-                <div className="grid grid-cols-3 gap-3 mb-6">
+                <div className="grid grid-cols-3 gap-2 mb-5">
                   <div className="bg-white/5 border border-white/8 rounded-2xl p-3 text-center">
                     <p className="font-black italic text-2xl" style={{ color: colorP }}>{metricas.totalVisitas}</p>
                     <p className="text-[9px] text-slate-500 font-black uppercase mt-0.5">Visitas</p>
@@ -294,54 +282,61 @@ export default function ReservaPro() {
                     <p className="text-[9px] text-slate-500 font-black uppercase mt-0.5">Gastado</p>
                   </div>
                   <div className="bg-white/5 border border-white/8 rounded-2xl p-3 text-center overflow-hidden">
-                    <p className="font-black text-xs truncate" style={{ color: colorP }}>{metricas.favorito ?? '—'}</p>
+                    <p className="font-black text-xs truncate" style={{ color: colorP }}>{metricas.favorito ?? '-'}</p>
                     <p className="text-[9px] text-slate-500 font-black uppercase mt-0.5">Favorito</p>
                   </div>
                 </div>
               )}
 
               {metricas?.proximoTurno && (
-                <div className="rounded-2xl p-4 mb-4 border" style={{ background: `${colorP}10`, borderColor: `${colorP}30` }}>
-                  <p className="text-[9px] font-black uppercase tracking-widest mb-1" style={{ color: colorP }}>Próximo turno</p>
-                  <p className="font-black text-base">{metricas.proximoTurno.Servicio?.nombre ?? 'Servicio'}</p>
-                  <p className="text-slate-400 text-xs mt-0.5">{metricas.proximoTurno.fecha} a las {metricas.proximoTurno.hora.slice(0,5)} hs</p>
+                <div className="rounded-2xl p-4 mb-4 border"
+                  style={{ background: colorP + '10', borderColor: colorP + '30' }}>
+                  <p className="text-[9px] font-black uppercase tracking-widest mb-1" style={{ color: colorP }}>Proximo turno</p>
+                  <p className="font-black">{metricas.proximoTurno.Servicio?.nombre ?? 'Servicio'}</p>
+                  <p className="text-slate-400 text-xs mt-0.5">
+                    {metricas.proximoTurno.fecha} a las {metricas.proximoTurno.hora.slice(0, 5)} hs
+                  </p>
                 </div>
               )}
 
               <p className="text-[9px] font-black uppercase text-slate-500 mb-3 tracking-widest">Historial</p>
               <div className="space-y-2 max-h-[35vh] overflow-y-auto pr-1 pb-4">
                 {misTurnos.length === 0 ? (
-                  <p className="text-slate-500 text-xs text-center py-4">Aún no tenés turnos.</p>
-                ) : misTurnos.map((t) => {
+                  <p className="text-slate-500 text-xs text-center py-4">Aun no tenes turnos.</p>
+                ) : misTurnos.map(t => {
                   const badge = ESTADO_BADGE[t.estado] ?? { bg: 'bg-slate-500', label: t.estado }
                   return (
-                    <div key={t.id} className="flex items-center justify-between bg-white/4 border border-white/8 rounded-xl px-4 py-3">
+                    <div key={t.id}
+                      className="flex items-center justify-between bg-white/4 border border-white/8 rounded-xl px-4 py-3">
                       <div>
-                        <p className="text-xs font-black">{t.Servicio?.nombre ?? '—'}</p>
-                        <p className="text-[10px] text-slate-500">{t.fecha} · {t.hora.slice(0,5)} hs</p>
+                        <p className="text-xs font-black">{t.Servicio?.nombre ?? '-'}</p>
+                        <p className="text-[10px] text-slate-500">{t.fecha} · {t.hora.slice(0, 5)} hs</p>
                       </div>
-                      <span className={`${badge.bg} text-[9px] font-black uppercase px-2 py-1 rounded-full text-black`}>{badge.label}</span>
+                      <span className={badge.bg + ' text-[9px] font-black uppercase px-2 py-1 rounded-full text-black'}>
+                        {badge.label}
+                      </span>
                     </div>
                   )
                 })}
               </div>
               <button onClick={() => { supabase.auth.signOut(); setVerPerfil(false) }}
                 className="mt-4 w-full text-[10px] text-slate-600 hover:text-red-400 font-black uppercase transition-colors">
-                Cerrar sesión
+                Cerrar sesion
               </button>
             </div>
           </div>
         )}
 
+        {/* PASO 1: SERVICIO */}
         {paso === 1 && (
           <section className="pt-8 space-y-3">
-            <h2 className="text-2xl font-black italic uppercase tracking-tight mb-4">¿Qué servicio querés?</h2>
-            {servicios.map((s) => (
+            <h2 className="text-2xl font-black italic uppercase tracking-tight mb-4">Que servicio queres?</h2>
+            {servicios.map(s => (
               <button key={s.id} onClick={() => { setSel({ ...sel, servicio: s }); setPaso(2) }}
-                className="w-full bg-white/4 border border-white/8 hover:border-white/20 p-5 rounded-[1.75rem] flex justify-between items-center transition-all active:scale-[0.98] group">
+                className="w-full bg-white/4 border border-white/8 hover:border-white/20 p-5 rounded-[1.75rem] flex justify-between items-center transition-all active:scale-[0.98]">
                 <div className="text-left">
-                  <h3 className="font-black italic uppercase text-lg leading-tight">{s.nombre}</h3>
-                  <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-1">{s.duracion} min</p>
+                  <h3 className="font-black italic uppercase text-lg">{s.nombre}</h3>
+                  <p className="text-slate-500 text-[10px] font-bold uppercase mt-1">{s.duracion} min</p>
                 </div>
                 <span className="font-black italic text-xl" style={{ color: colorP }}>${s.precio.toLocaleString('es-AR')}</span>
               </button>
@@ -349,19 +344,23 @@ export default function ReservaPro() {
           </section>
         )}
 
+        {/* PASO 2: STAFF */}
         {paso === 2 && (
           <section className="pt-8 space-y-4">
-            <button onClick={() => setPaso(1)} className="text-[10px] font-black text-slate-500 italic hover:text-white transition-colors">← Volver</button>
-            <h2 className="text-2xl font-black italic uppercase tracking-tight">¿Con quién?</h2>
+            <button onClick={() => setPaso(1)} className="text-[10px] font-black text-slate-500 hover:text-white transition-colors">Volver</button>
+            <h2 className="text-2xl font-black italic uppercase tracking-tight">Con quien?</h2>
             <div className="grid grid-cols-2 gap-4">
-              {staffList.map((p) => (
+              {staffList.map(p => (
                 <button key={p.id} onClick={() => { setSel({ ...sel, barbero: p }); setPaso(3) }}
                   className="bg-white/4 border border-white/8 hover:border-white/20 p-6 rounded-[2rem] text-center active:scale-[0.97] transition-all">
                   {p.avatar_url ? (
-                    <Image src={p.avatar_url} alt={p.nombre} width={48} height={48} unoptimized className="w-12 h-12 rounded-full mx-auto mb-3 object-cover border border-white/10" />
+                    <Image src={p.avatar_url} alt={p.nombre} width={48} height={48} unoptimized
+                      className="w-12 h-12 rounded-full mx-auto mb-3 object-cover border border-white/10" />
                   ) : (
                     <div className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center font-black text-xl border border-white/10"
-                      style={{ background: `${colorP}18`, color: colorP }}>{p.nombre[0]}</div>
+                      style={{ background: colorP + '18', color: colorP }}>
+                      {p.nombre[0]}
+                    </div>
                   )}
                   <h3 className="font-black italic uppercase text-xs">{p.nombre}</h3>
                 </button>
@@ -370,36 +369,41 @@ export default function ReservaPro() {
           </section>
         )}
 
+        {/* PASO 3: DIA */}
         {paso === 3 && (
           <section className="pt-8 space-y-3">
-            <button onClick={() => setPaso(2)} className="text-[10px] font-black text-slate-500 italic hover:text-white transition-colors">← Volver</button>
-            <h2 className="text-2xl font-black italic uppercase tracking-tight">¿Qué día?</h2>
-            {[0,1,2,3,4,5,6].map((offset) => {
+            <button onClick={() => setPaso(2)} className="text-[10px] font-black text-slate-500 hover:text-white transition-colors">Volver</button>
+            <h2 className="text-2xl font-black italic uppercase tracking-tight">Que dia?</h2>
+            {[0, 1, 2, 3, 4, 5, 6].map(offset => {
               const d = new Date(); d.setDate(d.getDate() + offset)
               const iso = d.toISOString().split('T')[0]
               const lab = negocio.dias_laborales?.includes(new Date(iso + 'T12:00:00').getDay())
               return (
-                <button key={iso} disabled={!lab} onClick={() => { setSel({ ...sel, fecha: iso }); setPaso(4) }}
-                  className={`w-full p-5 rounded-[1.75rem] border flex justify-between items-center transition-all ${!lab ? 'opacity-20 cursor-not-allowed border-transparent' : 'bg-white/4 border-white/8 hover:border-white/20 active:scale-[0.98]'}`}>
+                <button key={iso} disabled={!lab}
+                  onClick={() => { setSel({ ...sel, fecha: iso }); setPaso(4) }}
+                  className={'w-full p-5 rounded-[1.75rem] border flex justify-between items-center transition-all ' +
+                    (!lab ? 'opacity-20 cursor-not-allowed border-transparent' : 'bg-white/4 border-white/8 hover:border-white/20 active:scale-[0.98]')}>
                   <span className="font-black italic uppercase text-lg">{etiquetaDia(d)}</span>
-                  {lab && <span className="font-black text-[10px] uppercase tracking-widest" style={{ color: colorP }}>Ver horas →</span>}
+                  {lab && <span className="font-black text-[10px] uppercase tracking-widest" style={{ color: colorP }}>Ver horas</span>}
                 </button>
               )
             })}
           </section>
         )}
 
+        {/* PASO 4: HORA */}
         {paso === 4 && (
-          <section className="pt-8 space-y-6">
-            <button onClick={() => setPaso(3)} className="text-[10px] font-black text-slate-500 italic hover:text-white transition-colors">← Volver</button>
-            <h2 className="text-2xl font-black italic uppercase tracking-tight">¿A qué hora?</h2>
+          <section className="pt-8 space-y-5">
+            <button onClick={() => setPaso(3)} className="text-[10px] font-black text-slate-500 hover:text-white transition-colors">Volver</button>
+            <h2 className="text-2xl font-black italic uppercase tracking-tight">A que hora?</h2>
             {generarHoras().length === 0 ? (
               <p className="text-center text-slate-500 font-bold py-12 italic">No hay horarios disponibles.</p>
             ) : (
               <div className="grid grid-cols-3 gap-2">
-                {generarHoras().map((h) => (
+                {generarHoras().map(h => (
                   <button key={h} onClick={() => setSel({ ...sel, hora: h })}
-                    className={`py-4 rounded-xl font-black text-xs border transition-all active:scale-[0.97] ${sel.hora === h ? 'text-black border-transparent' : 'bg-white/4 border-white/8 hover:border-white/20'}`}
+                    className={'py-4 rounded-xl font-black text-xs border transition-all active:scale-[0.97] ' +
+                      (sel.hora === h ? 'text-black border-transparent' : 'bg-white/4 border-white/8 hover:border-white/20')}
                     style={sel.hora === h ? { backgroundColor: colorP } : {}}>
                     {h}
                   </button>
@@ -410,90 +414,100 @@ export default function ReservaPro() {
               <button onClick={() => setPaso(5)}
                 className="w-full py-4 rounded-2xl font-black italic text-black text-base transition-opacity hover:opacity-90"
                 style={{ backgroundColor: colorP }}>
-                Continuar a pago →
+                Continuar
               </button>
             )}
           </section>
         )}
 
+        {/* PASO 5: CONFIRMAR */}
         {paso === 5 && (
           <section className="pt-8 space-y-5">
-            <button onClick={() => setPaso(4)} className="text-[10px] font-black text-slate-500 italic hover:text-white transition-colors">← Volver</button>
-            <h2 className="text-2xl font-black italic uppercase tracking-tight">Confirmá tu turno</h2>
+            <button onClick={() => setPaso(4)} className="text-[10px] font-black text-slate-500 hover:text-white transition-colors">Volver</button>
+            <h2 className="text-2xl font-black italic uppercase tracking-tight">Confirma tu turno</h2>
+
             <div className="bg-white/4 border border-white/8 rounded-[2rem] p-5 space-y-3">
-              {[['Servicio', sel.servicio?.nombre ?? ''], ['Barbero', sel.barbero?.nombre ?? ''], ['Fecha', sel.fecha], ['Hora', `${sel.hora} hs`]].map(([l, v]) => (
+              {([['Servicio', sel.servicio?.nombre ?? ''], ['Barbero', sel.barbero?.nombre ?? ''], ['Fecha', sel.fecha], ['Hora', sel.hora + ' hs']] as [string, string][]).map(([l, v]) => (
                 <div key={l} className="flex justify-between items-center">
                   <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">{l}</span>
                   <span className="font-bold text-sm">{v}</span>
                 </div>
               ))}
-              <div className="border-t border-white/8 pt-3 flex justify-between items-end">
-                <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Total</span>
-                <span className="font-black italic text-3xl" style={{ color: colorP }}>${sel.servicio?.precio.toLocaleString('es-AR')}</span>
+              <div className="border-t border-white/8 pt-3 flex justify-between items-center">
+                <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">Precio</span>
+                <span className="font-black italic text-2xl" style={{ color: colorP }}>
+                  ${sel.servicio?.precio.toLocaleString('es-AR')}
+                </span>
               </div>
             </div>
-            {errorMsg && <div className="bg-red-500/10 border border-red-500/20 rounded-2xl px-4 py-3 text-red-400 text-sm font-bold">{errorMsg}</div>}
+
+            {errorMsg && (
+              <p className="bg-red-500/10 border border-red-500/20 rounded-2xl px-4 py-3 text-red-400 text-sm font-bold">
+                {errorMsg}
+              </p>
+            )}
+
             {!user ? (
               <div className="space-y-3 text-center">
-                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Identificate para pagar</p>
+                <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+                  Identificate para confirmar
+                </p>
                 <button onClick={loginGoogle}
                   className="w-full py-4 bg-white text-black font-black italic uppercase rounded-2xl flex items-center justify-center gap-3 hover:bg-gray-100 transition-colors">
-                  <GoogleIcon /> Continuar con Google
+                  <GoogleIcon />
+                  Continuar con Google
                 </button>
               </div>
             ) : (
               <div className="space-y-3">
-                <p className="text-[10px] text-slate-500 text-center">Reservando como <span className="text-white/60 font-bold">{user.email}</span></p>
-                <button onClick={confirmarConPago} disabled={confirmando}
-                  className="w-full py-5 rounded-[1.75rem] font-black italic text-lg text-black transition-all hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-3"
+                <p className="text-[10px] text-slate-500 text-center">
+                  Reservando como <span className="text-white/60 font-bold">{user.email}</span>
+                </p>
+                <button onClick={confirmarTurno} disabled={confirmando}
+                  className="w-full py-5 rounded-[1.75rem] font-black italic text-lg text-black transition-all hover:opacity-90 disabled:opacity-50"
                   style={{ backgroundColor: colorP }}>
-                  {confirmando ? 'Confirmando...' : 'Confirmar Turno ✓'}
+                  {confirmando ? 'Reservando...' : 'Confirmar Turno'}
                 </button>
-                <p className="text-[9px] text-slate-600 text-center font-bold uppercase tracking-widest">🔒 Pago seguro · El turno se reserva al confirmar</p>
               </div>
             )}
           </section>
         )}
 
+        {/* PASO 6: EXITO */}
         {paso === 6 && (
-          <section className="pt-16 text-center space-y-6">
-            {pagoStatus === 'error' ? (
-              <>
-                <div className="w-20 h-20 bg-red-500/20 border border-red-500/40 rounded-full flex items-center justify-center mx-auto text-4xl">✕</div>
-                <h2 className="text-3xl font-black italic uppercase tracking-tighter text-red-400">Pago rechazado</h2>
-                <p className="text-slate-500 text-sm">{errorMsg}</p>
-                <button onClick={() => { setPaso(5); setPagoStatus('idle'); setErrorMsg(null) }}
-                  className="text-sm font-black uppercase" style={{ color: colorP }}>Intentar de nuevo →</button>
-              </>
-            ) : (
-              <>
-                <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto text-4xl text-black font-black"
-                  style={{ backgroundColor: colorP, boxShadow: `0 0 60px ${colorP}40` }}>✓</div>
-                <div>
-                  <h2 className="text-3xl font-black italic uppercase tracking-tighter">¡Turno Confirmado!</h2>
-                  <p className="text-slate-500 text-xs mt-2 font-bold uppercase tracking-widest">
-                    {pagoStatus === 'pendiente' ? 'Pago en proceso — te avisamos cuando se acredite' : 'Pago acreditado · Nos vemos pronto'}
-                  </p>
-                </div>
-                {negocio.whatsapp && turnoCreado && (() => {
-                  const waUrl = typeof window !== 'undefined' ? sessionStorage.getItem(`barbucho_wa_${turnoCreado.id}`) : null
-                  return waUrl ? (
-                    <a href={waUrl} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-3 px-6 py-4 rounded-2xl font-black italic text-sm text-black transition-all hover:opacity-90"
-                      style={{ backgroundColor: '#25D366' }}>
-                      <WhatsAppIcon /> Ver confirmación en WhatsApp
-                    </a>
-                  ) : null
-                })()}
-                <button onClick={() => { setPaso(1); setSel({ servicio: null, barbero: null, fecha: '', hora: '' }); setTurnoCreado(null); setPagoStatus('idle') }}
-                  className="text-[10px] font-black uppercase text-slate-600 hover:text-slate-400 transition-colors border-b border-slate-800 pb-0.5">
-                  Reservar otro turno
-                </button>
-              </>
-            )}
+          <section className="pt-16 text-center space-y-5">
+            <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto text-3xl text-black font-black"
+              style={{ backgroundColor: colorP, boxShadow: '0 0 60px ' + colorP + '40' }}>
+              OK
+            </div>
+            <div>
+              <h2 className="text-3xl font-black italic uppercase tracking-tighter">Turno Confirmado!</h2>
+              <p className="text-slate-500 text-xs mt-2 font-bold uppercase tracking-widest">
+                Nos vemos pronto en {negocio.nombre}
+              </p>
+            </div>
+
+            {negocio.whatsapp && turnoId && (() => {
+              const waUrl = typeof window !== 'undefined'
+                ? sessionStorage.getItem('barbucho_wa_' + turnoId)
+                : null
+              return waUrl ? (
+                <a href={waUrl} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-3 px-6 py-4 rounded-2xl font-black italic text-sm text-black hover:opacity-90 transition-all"
+                  style={{ backgroundColor: '#25D366' }}>
+                  <WAIcon />
+                  Ver en WhatsApp
+                </a>
+              ) : null
+            })()}
+
+            <button
+              onClick={() => { setPaso(1); setSel({ servicio: null, barbero: null, fecha: '', hora: '' }); setTurnoId(null) }}
+              className="text-[10px] font-black uppercase text-slate-600 hover:text-slate-400 transition-colors border-b border-slate-800 pb-0.5">
+              Reservar otro turno
+            </button>
           </section>
         )}
-
       </div>
     </div>
   )
@@ -510,17 +524,7 @@ function GoogleIcon() {
   )
 }
 
-function MPIcon() {
-  return (
-    <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 32 32" fill="none">
-      <circle cx="16" cy="16" r="16" fill="#009EE3"/>
-      <path d="M8 16c0-4.418 3.582-8 8-8s8 3.582 8 8" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
-      <circle cx="16" cy="18" r="3" fill="white"/>
-    </svg>
-  )
-}
-
-function WhatsAppIcon() {
+function WAIcon() {
   return (
     <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
       <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>

@@ -29,35 +29,41 @@ export default function AgendaTurnos() {
   const [turnoEditando, setTurnoEditando] = useState<string | null>(null)
   const router = useRouter()
 
-  const totalIngresos = useMemo(
+  const totalCobrado = useMemo(
     () => turnos
-      .filter(t => t.estado !== 'cancelado' && t.pago_estado === 'cobrado')
+      .filter(t => t.pago_estado === 'cobrado')
       .reduce((acc, t) => acc + (t.Servicio?.precio ?? 0), 0),
     [turnos]
   )
 
-  const estadoColorClass = (estado: string) => {
+  const estadoColor = (estado: string) => {
     const map: Record<string, string> = {
       confirmado: 'bg-emerald-500',
       pendiente: 'bg-amber-500',
       cancelado: 'bg-rose-500',
-      completado: 'bg-slate-500',
+      completado: 'bg-slate-400',
     }
     return map[estado] ?? 'bg-slate-500'
   }
 
-  const pagoColorClass = (pagoEstado: string | null) => {
-    if (pagoEstado === 'cobrado') return 'text-emerald-400'
-    if (pagoEstado === 'cancelado') return 'text-red-400'
-    return 'text-amber-400'
-  }
-
+  // Cargar negocio del usuario logueado
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
-      const { data: neg } = await supabase
+
+      // Buscar por owner_id (columna recien agregada) O por id (diseño viejo)
+      let neg = null
+      const { data: byOwner } = await supabase
         .from('Negocio').select('id, tema').eq('owner_id', user.id).single()
+      if (byOwner) {
+        neg = byOwner
+      } else {
+        const { data: byId } = await supabase
+          .from('Negocio').select('id, tema').eq('id', user.id).single()
+        neg = byId
+      }
+
       if (!neg) { router.push('/dashboard'); return }
       setNegocioId(neg.id)
       setColorPrincipal(getThemeColor(neg.tema))
@@ -65,10 +71,11 @@ export default function AgendaTurnos() {
     init()
   }, [router])
 
+  // Cargar turnos
   useEffect(() => {
     if (!negocioId) return
     let mounted = true
-    async function loadTurnos() {
+    async function load() {
       setLoading(true)
       const { data } = await supabase
         .from('Turno')
@@ -76,14 +83,17 @@ export default function AgendaTurnos() {
         .eq('negocio_id', negocioId)
         .eq('fecha', fechaFiltro)
         .order('hora', { ascending: true })
-      if (mounted) { setTurnos((data as TurnoItem[]) ?? []); setLoading(false) }
+      if (mounted) {
+        setTurnos((data as TurnoItem[]) ?? [])
+        setLoading(false)
+      }
     }
-    void loadTurnos()
+    void load()
     return () => { mounted = false }
   }, [negocioId, fechaFiltro, reloadKey])
 
   const moverFecha = (dias: number) => {
-    const d = new Date(fechaFiltro)
+    const d = new Date(fechaFiltro + 'T12:00:00')
     d.setDate(d.getDate() + dias)
     setFechaFiltro(d.toISOString().split('T')[0])
   }
@@ -93,9 +103,21 @@ export default function AgendaTurnos() {
     setReloadKey(k => k + 1)
   }, [])
 
-  const cambiarPago = useCallback(async (id: string, tipo: string | null, estado: string) => {
-    await supabase.from('Turno').update({ pago_tipo: tipo, pago_estado: estado }).eq('id', id)
+  const registrarPago = useCallback(async (id: string, tipo: string) => {
+    await supabase.from('Turno').update({
+      pago_tipo: tipo,
+      pago_estado: 'cobrado',
+      estado: 'completado',
+    }).eq('id', id)
     setTurnoEditando(null)
+    setReloadKey(k => k + 1)
+  }, [])
+
+  const deshacerPago = useCallback(async (id: string) => {
+    await supabase.from('Turno').update({
+      pago_tipo: null,
+      pago_estado: 'pendiente',
+    }).eq('id', id)
     setReloadKey(k => k + 1)
   }, [])
 
@@ -107,9 +129,11 @@ export default function AgendaTurnos() {
 
   return (
     <div className="min-h-screen bg-[#020617] text-white p-6">
-      <div className="max-w-4xl mx-auto">
-        <header className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between mb-8">
-          <div className="flex-1">
+      <div className="max-w-3xl mx-auto">
+
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-8">
+          <div>
             <button onClick={() => router.push('/dashboard')}
               className="text-slate-500 text-[10px] font-black uppercase mb-2 block hover:text-white transition-colors">
               Volver
@@ -117,37 +141,47 @@ export default function AgendaTurnos() {
             <h1 className="text-4xl font-black uppercase italic tracking-tighter" style={{ color: colorPrincipal }}>
               Agenda
             </h1>
-
-            {/* Caja */}
-            <div className="mt-4 rounded-[2rem] border border-white/10 bg-white/4 p-5">
-              <div className="flex items-end justify-between">
-                <div>
-                  <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Cobrado hoy</p>
-                  <p className="text-3xl font-black" style={{ color: colorPrincipal }}>${totalIngresos.toFixed(0)}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Turnos</p>
-                  <p className="text-3xl font-black">{turnos.filter(t => t.estado !== 'cancelado').length}</p>
-                </div>
+            {/* Caja del día */}
+            <div className="mt-4 bg-white/4 border border-white/8 rounded-2xl p-4 flex gap-6">
+              <div>
+                <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Cobrado</p>
+                <p className="text-2xl font-black" style={{ color: colorPrincipal }}>${totalCobrado}</p>
+              </div>
+              <div className="w-px bg-white/10" />
+              <div>
+                <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Turnos</p>
+                <p className="text-2xl font-black">{turnos.filter(t => t.estado !== 'cancelado').length}</p>
+              </div>
+              <div className="w-px bg-white/10" />
+              <div>
+                <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Pendientes</p>
+                <p className="text-2xl font-black text-amber-400">
+                  {turnos.filter(t => t.pago_estado !== 'cobrado' && t.estado !== 'cancelado').length}
+                </p>
               </div>
             </div>
           </div>
 
           {/* Selector fecha */}
-          <div className="flex items-center gap-2 bg-white/5 border border-white/8 p-2 rounded-2xl self-start md:mt-8">
-            <button onClick={() => moverFecha(-1)} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
+          <div className="flex items-center gap-1 bg-white/5 border border-white/8 p-1.5 rounded-2xl self-start md:mt-8">
+            <button onClick={() => moverFecha(-1)}
+              className="p-2 hover:bg-white/10 rounded-xl transition-colors text-sm font-black">
               {'<'}
             </button>
             <input type="date" value={fechaFiltro} onChange={e => setFechaFiltro(e.target.value)}
-              className="bg-transparent font-black uppercase italic text-sm outline-none cursor-pointer" />
-            <button onClick={() => moverFecha(1)} className="p-2 hover:bg-white/10 rounded-xl transition-colors">
+              className="bg-transparent font-black text-sm outline-none cursor-pointer px-1" />
+            <button onClick={() => moverFecha(1)}
+              className="p-2 hover:bg-white/10 rounded-xl transition-colors text-sm font-black">
               {'>'}
             </button>
           </div>
-        </header>
+        </div>
 
+        {/* Lista */}
         {loading ? (
-          <div className="text-center py-20 font-black italic text-slate-700 animate-pulse">Buscando turnos...</div>
+          <div className="text-center py-20 font-black italic text-slate-700 animate-pulse">
+            Buscando turnos...
+          </div>
         ) : turnos.length === 0 ? (
           <div className="text-center py-20 bg-white/3 rounded-[2.5rem] border border-dashed border-white/10">
             <p className="text-slate-500 font-black uppercase italic">No hay turnos para este día</p>
@@ -156,31 +190,29 @@ export default function AgendaTurnos() {
           <div className="space-y-3">
             {turnos.map(t => (
               <div key={t.id}
-                className={`bg-white/4 border rounded-[1.75rem] overflow-hidden transition-all ${
-                  t.estado === 'completado' ? 'opacity-50 border-white/5' : 'border-white/8 hover:border-white/15'
-                }`}>
+                className={'rounded-[1.75rem] border overflow-hidden transition-all ' +
+                  (t.estado === 'cancelado' ? 'opacity-40 border-white/5 bg-white/2' : 'border-white/8 bg-white/4 hover:border-white/15')}>
+
                 {/* Fila principal */}
-                <div className="p-5 flex items-center gap-4 justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-1 self-stretch rounded-full ${estadoColorClass(t.estado)}`} />
+                <div className="p-4 flex items-center gap-3 justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={'w-1 h-12 rounded-full flex-shrink-0 ' + estadoColor(t.estado)} />
+                    <p className="text-xl font-black italic w-14 flex-shrink-0" style={{ color: colorPrincipal }}>
+                      {t.hora.slice(0, 5)}
+                    </p>
                     <div>
-                      <p className="text-2xl font-black italic" style={{ color: colorPrincipal }}>
-                        {t.hora.slice(0, 5)}
+                      <p className="font-black uppercase text-sm leading-tight">{t.cliente_nombre}</p>
+                      <p className="text-[10px] text-slate-500 font-bold mt-0.5">
+                        {t.Servicio?.nombre} · {t.Staff?.nombre}
                       </p>
-                    </div>
-                    <div>
-                      <p className="font-black uppercase text-base leading-tight">{t.cliente_nombre}</p>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase mt-0.5">
-                        {t.Servicio?.nombre} — {t.Staff?.nombre}
-                      </p>
-                      {/* Badge pago */}
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className={`text-[9px] font-black uppercase ${pagoColorClass(t.pago_estado)}`}>
-                          {t.pago_estado === 'cobrado'
-                            ? 'Cobrado' + (t.pago_tipo ? ' · ' + t.pago_tipo : '')
-                            : t.pago_estado === 'cancelado' ? 'Cancelado'
-                            : 'Sin cobrar'}
-                        </span>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        {t.pago_estado === 'cobrado' ? (
+                          <span className="text-[9px] font-black uppercase text-emerald-400">
+                            {'Cobrado · ' + (t.pago_tipo ?? '')}
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-black uppercase text-amber-400">Sin cobrar</span>
+                        )}
                         {t.Servicio?.precio && (
                           <span className="text-[9px] text-slate-600 font-bold">${t.Servicio.precio}</span>
                         )}
@@ -188,36 +220,29 @@ export default function AgendaTurnos() {
                     </div>
                   </div>
 
-                  {/* Acciones rápidas */}
-                  <div className="flex gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => setTurnoEditando(turnoEditando === t.id ? null : t.id)}
-                      className="px-3 py-2 rounded-xl text-[10px] font-black uppercase bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
-                    >
-                      Gestionar
-                    </button>
-                    <button onClick={() => eliminarTurno(t.id)}
-                      className="p-2 rounded-xl text-red-500/40 hover:text-red-400 hover:bg-red-500/10 transition-all">
-                      x
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => setTurnoEditando(turnoEditando === t.id ? null : t.id)}
+                    className="px-3 py-2 rounded-xl text-[10px] font-black uppercase bg-white/5 hover:bg-white/10 border border-white/10 transition-all flex-shrink-0">
+                    {turnoEditando === t.id ? 'Cerrar' : 'Gestionar'}
+                  </button>
                 </div>
 
-                {/* Panel expandible de gestión */}
+                {/* Panel gestión */}
                 {turnoEditando === t.id && (
-                  <div className="border-t border-white/8 p-5 bg-white/3 space-y-4">
-                    {/* Cambiar estado del turno */}
+                  <div className="border-t border-white/8 p-4 bg-black/20 space-y-4">
+
+                    {/* Estado */}
                     <div>
-                      <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-2">Estado del turno</p>
+                      <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-2">
+                        Estado del turno
+                      </p>
                       <div className="flex gap-2 flex-wrap">
                         {ESTADOS_TURNO.map(e => (
-                          <button key={e}
-                            onClick={() => cambiarEstado(t.id, e)}
-                            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all border ${
-                              t.estado === e
+                          <button key={e} onClick={() => cambiarEstado(t.id, e)}
+                            className={'px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all border ' +
+                              (t.estado === e
                                 ? 'text-black border-transparent'
-                                : 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10'
-                            }`}
+                                : 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10')}
                             style={t.estado === e ? { backgroundColor: colorPrincipal } : {}}>
                             {e}
                           </button>
@@ -225,29 +250,36 @@ export default function AgendaTurnos() {
                       </div>
                     </div>
 
-                    {/* Registrar pago */}
+                    {/* Pago */}
                     <div>
-                      <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-2">Registrar pago</p>
+                      <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-2">
+                        Registrar cobro
+                      </p>
                       <div className="flex gap-2 flex-wrap">
                         {TIPOS_PAGO.map(tipo => (
-                          <button key={tipo}
-                            onClick={() => cambiarPago(t.id, tipo, 'cobrado')}
-                            className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all border ${
-                              t.pago_tipo === tipo && t.pago_estado === 'cobrado'
+                          <button key={tipo} onClick={() => registrarPago(t.id, tipo)}
+                            className={'px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all border ' +
+                              (t.pago_tipo === tipo && t.pago_estado === 'cobrado'
                                 ? 'bg-emerald-500 text-black border-transparent'
-                                : 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10'
-                            }`}>
+                                : 'bg-white/5 text-slate-400 border-white/10 hover:bg-emerald-500/20 hover:text-emerald-400 hover:border-emerald-500/30')}>
                             {tipo === 'mercadopago' ? 'MercadoPago' : tipo.charAt(0).toUpperCase() + tipo.slice(1)}
                           </button>
                         ))}
                         {t.pago_estado === 'cobrado' && (
-                          <button
-                            onClick={() => cambiarPago(t.id, null, 'pendiente')}
+                          <button onClick={() => deshacerPago(t.id)}
                             className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all">
                             Deshacer
                           </button>
                         )}
                       </div>
+                    </div>
+
+                    {/* Eliminar */}
+                    <div className="flex justify-end">
+                      <button onClick={() => eliminarTurno(t.id)}
+                        className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase text-red-500/40 hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all">
+                        Eliminar turno
+                      </button>
                     </div>
                   </div>
                 )}

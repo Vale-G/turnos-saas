@@ -7,12 +7,12 @@ import { useRouter } from 'next/navigation'
 type StaffItem = { id: string; nombre: string; activo: boolean }
 type Plan = 'normal' | 'pro'
 
-const MAX_STAFF: Record<Plan, number> = { normal: 2, pro: 999 }
+const MAX_STAFF: Record<string, number> = { normal: 2, basico: 2, pro: 999, trial: 999 }
 
 export default function GestionStaff() {
   const [staff, setStaff] = useState<StaffItem[]>([])
   const [negocioId, setNegocioId] = useState<string | null>(null)
-  const [plan, setPlan] = useState<Plan>('normal')
+  const [plan, setPlan] = useState<string>('normal')
   const [colorPrincipal, setColorPrincipal] = useState(getThemeColor())
   const [nombre, setNombre] = useState('')
   const [loading, setLoading] = useState(true)
@@ -41,7 +41,7 @@ export default function GestionStaff() {
 
       setNegocioId(neg.id)
       setColorPrincipal(getThemeColor(neg.tema))
-      setPlan((neg.suscripcion_tipo as Plan) ?? 'normal')
+      setPlan(neg.suscripcion_tipo ?? 'normal')
       await cargarStaff(neg.id)
       setLoading(false)
     }

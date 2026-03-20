@@ -45,7 +45,7 @@ export default function RegistroNegocio() {
         alert("Error al guardar negocio: " + dbError.message)
       } else {
         alert("¡Cuenta creada! Ahora vamos al panel.")
-        router.push('/dashboard') // Lo enviamos a su panel de control
+        router.push('/onboarding') // Lo enviamos a su panel de control
       }
     }
     setLoading(false)

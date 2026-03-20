@@ -7,12 +7,12 @@ import { useRouter } from 'next/navigation'
 type ServicioItem = { id: string; nombre: string; precio: number; duracion: number }
 type Plan = 'normal' | 'pro'
 
-const MAX_SERVICIOS: Record<Plan, number> = { normal: 5, pro: 999 }
+const MAX_SERVICIOS: Record<string, number> = { normal: 5, basico: 5, pro: 999, trial: 999 }
 
 export default function GestionServicios() {
   const [servicios, setServicios] = useState<ServicioItem[]>([])
   const [negocioId, setNegocioId] = useState<string | null>(null)
-  const [plan, setPlan] = useState<Plan>('normal')
+  const [plan, setPlan] = useState<string>('normal')
   const [colorPrincipal, setColorPrincipal] = useState(getThemeColor())
   const [nombre, setNombre] = useState('')
   const [precio, setPrecio] = useState('')
@@ -44,7 +44,7 @@ export default function GestionServicios() {
 
       setNegocioId(neg.id)
       setColorPrincipal(getThemeColor(neg.tema))
-      setPlan((neg.suscripcion_tipo as Plan) ?? 'normal')
+      setPlan(neg.suscripcion_tipo ?? 'normal')
       await cargarServicios(neg.id)
       setLoading(false)
     }

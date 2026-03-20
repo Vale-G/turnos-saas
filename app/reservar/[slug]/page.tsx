@@ -130,6 +130,9 @@ export default function ReservaPro() {
     const mAR = parseInt(horaStr.split(':')[1] ?? '0')
 
     const esHoy = sel.fecha === fechaAR
+    if (typeof window !== 'undefined') {
+      console.log('[TURNLY] sel.fecha:', sel.fecha, '| fechaAR:', fechaAR, '| hora AR:', hAR + ':' + mAR, '| esHoy:', sel.fecha === fechaAR)
+    }
 
     while (act < negocio.hora_cierre) {
       const hF = act.slice(0, 5)

@@ -1,4 +1,5 @@
 'use client'
+import React from 'react'
 import { useRouter } from 'next/navigation'
 
 const FEATURES = [
@@ -12,6 +13,21 @@ const FEATURES = [
 
 export default function Landing() {
   const router = useRouter()
+  const [precios, setPrecios] = React.useState({ basico: 5000, pro: 25000 })
+
+  React.useEffect(() => {
+    import('@/lib/supabase').then(({ supabase }) => {
+      supabase.from('Config').select('clave, valor')
+        .in('clave', ['precio_basico', 'precio_pro'])
+        .then(({ data }) => {
+          if (data) {
+            const pm: Record<string, number> = {}
+            data.forEach((c: { clave: string; valor: string }) => { pm[c.clave] = Number(c.valor) })
+            setPrecios({ basico: pm.precio_basico ?? 5000, pro: pm.precio_pro ?? 25000 })
+          }
+        })
+    })
+  }, [])
 
   return (
     <div className="min-h-screen bg-[#020617] text-white">
@@ -139,7 +155,7 @@ export default function Landing() {
             <div className="p-6 border-b border-white/8">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">Básico</p>
               <div className="flex items-baseline gap-1">
-                <span className="text-4xl font-black">$5.000</span>
+                <span className="text-4xl font-black">${precios.basico.toLocaleString('es-AR')}</span>
                 <span className="text-slate-400 text-sm">ARS/mes</span>
               </div>
             </div>
@@ -170,7 +186,7 @@ export default function Landing() {
                 <span className="bg-amber-400 text-black text-[9px] font-black uppercase px-2 py-0.5 rounded-full">Recomendado</span>
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="text-4xl font-black text-[#6366F1]">$25.000</span>
+                <span className="text-4xl font-black text-[#6366F1]">${precios.pro.toLocaleString('es-AR')}</span>
                 <span className="text-slate-400 text-sm">ARS/mes</span>
               </div>
             </div>

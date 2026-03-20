@@ -171,7 +171,7 @@ export default function ReservaPro() {
       }).select('id').single()
       if (error || !data) throw new Error(error?.message ?? 'Error')
       setTurnoId(data.id)
-      // Notificar al dueño
+      // Guardar link WA del dueño para mostrarlo en paso 6 (no abrir automáticamente)
       if (negocio.whatsapp) {
         const waDueno = buildWhatsAppNuevoTurno({
           telefono: negocio.whatsapp,
@@ -182,8 +182,7 @@ export default function ReservaPro() {
           hora: sel.hora,
           negocioNombre: negocio.nombre,
         })
-        // Abrir en background sin interrumpir el flujo
-        setTimeout(() => { window.open(waDueno, '_blank') }, 1500)
+        sessionStorage.setItem('turnly_wa_dueno_' + data.id, waDueno)
       }
 
       if (negocio.whatsapp) {
@@ -228,7 +227,7 @@ export default function ReservaPro() {
       setTurnoId(data.id)
 
       // Guardar link de WhatsApp para mostrar en éxito
-      // Notificar al dueño
+      // Guardar link WA del dueño para mostrarlo en paso 6 (no abrir automáticamente)
       if (negocio.whatsapp) {
         const waDueno = buildWhatsAppNuevoTurno({
           telefono: negocio.whatsapp,
@@ -239,8 +238,7 @@ export default function ReservaPro() {
           hora: sel.hora,
           negocioNombre: negocio.nombre,
         })
-        // Abrir en background sin interrumpir el flujo
-        setTimeout(() => { window.open(waDueno, '_blank') }, 1500)
+        sessionStorage.setItem('turnly_wa_dueno_' + data.id, waDueno)
       }
 
       if (negocio.whatsapp) {

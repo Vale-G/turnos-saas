@@ -1,18 +1,20 @@
-'use client'
-import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
+import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
+import { createServerClient } from '@supabase/ssr'
 
-export default function HomePage() {
-  const router = useRouter()
-
-  useEffect(() => {
-    // Mandamos a todo el mundo al login por defecto
-    router.push('/login')
-  }, [router])
-
-  return (
-    <div className="min-h-screen bg-[#020617] flex items-center justify-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500"></div>
-    </div>
+export default async function Home() {
+  const cookieStore = await cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => cookieStore.getAll(),
+        setAll: () => {},
+      },
+    }
   )
+  const { data: { user } } = await supabase.auth.getUser()
+  if (user) redirect('/dashboard')
+  redirect('/landing')
 }

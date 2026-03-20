@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase, getOAuthRedirectUrl } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
-import { buildWhatsAppConfirmacion } from '@/lib/whatsapp'
+import { buildWhatsAppConfirmacion, buildWhatsAppNuevoTurno } from '@/lib/whatsapp'
 
 type Negocio = {
   id: string; nombre: string; slug: string; tema?: string
@@ -171,6 +171,21 @@ export default function ReservaPro() {
       }).select('id').single()
       if (error || !data) throw new Error(error?.message ?? 'Error')
       setTurnoId(data.id)
+      // Notificar al dueño
+      if (negocio.whatsapp) {
+        const waDueno = buildWhatsAppNuevoTurno({
+          telefono: negocio.whatsapp,
+          clienteNombre: user?.email ?? gNombre ?? 'Cliente',
+          servicio: sel.servicio!.nombre,
+          barbero: sel.barbero!.nombre,
+          fecha: sel.fecha,
+          hora: sel.hora,
+          negocioNombre: negocio.nombre,
+        })
+        // Abrir en background sin interrumpir el flujo
+        setTimeout(() => { window.open(waDueno, '_blank') }, 1500)
+      }
+
       if (negocio.whatsapp) {
         const waUrl = buildWhatsAppConfirmacion({
           telefono: negocio.whatsapp,
@@ -213,6 +228,21 @@ export default function ReservaPro() {
       setTurnoId(data.id)
 
       // Guardar link de WhatsApp para mostrar en éxito
+      // Notificar al dueño
+      if (negocio.whatsapp) {
+        const waDueno = buildWhatsAppNuevoTurno({
+          telefono: negocio.whatsapp,
+          clienteNombre: user?.email ?? gNombre ?? 'Cliente',
+          servicio: sel.servicio!.nombre,
+          barbero: sel.barbero!.nombre,
+          fecha: sel.fecha,
+          hora: sel.hora,
+          negocioNombre: negocio.nombre,
+        })
+        // Abrir en background sin interrumpir el flujo
+        setTimeout(() => { window.open(waDueno, '_blank') }, 1500)
+      }
+
       if (negocio.whatsapp) {
         const waUrl = buildWhatsAppConfirmacion({
           telefono: negocio.whatsapp,

@@ -115,25 +115,19 @@ export default function ReservaPro() {
     const lista: string[] = []
     let act = negocio.hora_apertura
 
-    // Hora actual — usar Intl para Argentina sin importar dónde corre el código
+    // Hora actual en Buenos Aires — usando toLocaleDateString con formato ISO
     const ahora = new Date()
-    const formatterFecha = new Intl.DateTimeFormat('es-AR', {
-      timeZone: 'America/Argentina/Buenos_Aires',
-      year: 'numeric', month: '2-digit', day: '2-digit'
-    })
-    const partesFecha = formatterFecha.formatToParts(ahora)
-    const diaAR = partesFecha.find(p => p.type === 'day')?.value ?? '01'
-    const mesAR = partesFecha.find(p => p.type === 'month')?.value ?? '01'
-    const anioAR = partesFecha.find(p => p.type === 'year')?.value ?? '2000'
-    const fechaAR = anioAR + '-' + mesAR + '-' + diaAR
-
-    const formatterHora = new Intl.DateTimeFormat('es-AR', {
+    // Obtener fecha en Buenos Aires como YYYY-MM-DD
+    const fechaAR = ahora.toLocaleDateString('en-CA', {
+      timeZone: 'America/Argentina/Buenos_Aires'
+    }) // en-CA devuelve YYYY-MM-DD siempre
+    // Obtener hora y minutos en Buenos Aires
+    const horaStr = ahora.toLocaleTimeString('es-AR', {
       timeZone: 'America/Argentina/Buenos_Aires',
       hour: '2-digit', minute: '2-digit', hour12: false
     })
-    const partesHora = formatterHora.formatToParts(ahora)
-    const hAR = parseInt(partesHora.find(p => p.type === 'hour')?.value ?? '0')
-    const mAR = parseInt(partesHora.find(p => p.type === 'minute')?.value ?? '0')
+    const hAR = parseInt(horaStr.split(':')[0] ?? '0')
+    const mAR = parseInt(horaStr.split(':')[1] ?? '0')
 
     const esHoy = sel.fecha === fechaAR
 

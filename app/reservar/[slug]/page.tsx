@@ -175,7 +175,7 @@ export default function ReservaPro() {
       if (negocio.whatsapp) {
         const waDueno = buildWhatsAppNuevoTurno({
           telefono: negocio.whatsapp,
-          clienteNombre: user?.email ?? gNombre ?? 'Cliente',
+          clienteNombre: user?.email ?? 'Cliente',
           servicio: sel.servicio!.nombre,
           barbero: sel.barbero!.nombre,
           fecha: sel.fecha,
@@ -232,7 +232,7 @@ export default function ReservaPro() {
       if (negocio.whatsapp) {
         const waDueno = buildWhatsAppNuevoTurno({
           telefono: negocio.whatsapp,
-          clienteNombre: user?.email ?? gNombre ?? 'Cliente',
+          clienteNombre: user?.email ?? 'Cliente',
           servicio: sel.servicio!.nombre,
           barbero: sel.barbero!.nombre,
           fecha: sel.fecha,

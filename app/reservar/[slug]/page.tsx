@@ -115,15 +115,26 @@ export default function ReservaPro() {
     const lista: string[] = []
     let act = negocio.hora_apertura
 
-    // Hora actual en Argentina UTC-3 fijo (no tiene horario de verano)
+    // Hora actual — usar Intl para Argentina sin importar dónde corre el código
     const ahora = new Date()
-    const utcMs = ahora.getTime() + ahora.getTimezoneOffset() * 60000
-    const localAR = new Date(utcMs + (-3 * 3600000))
-    const hAR = localAR.getUTCHours()
-    const mAR = localAR.getUTCMinutes()
-    const fechaAR = localAR.getUTCFullYear() + '-' +
-      String(localAR.getUTCMonth() + 1).padStart(2, '0') + '-' +
-      String(localAR.getUTCDate()).padStart(2, '0')
+    const formatterFecha = new Intl.DateTimeFormat('es-AR', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      year: 'numeric', month: '2-digit', day: '2-digit'
+    })
+    const partesFecha = formatterFecha.formatToParts(ahora)
+    const diaAR = partesFecha.find(p => p.type === 'day')?.value ?? '01'
+    const mesAR = partesFecha.find(p => p.type === 'month')?.value ?? '01'
+    const anioAR = partesFecha.find(p => p.type === 'year')?.value ?? '2000'
+    const fechaAR = anioAR + '-' + mesAR + '-' + diaAR
+
+    const formatterHora = new Intl.DateTimeFormat('es-AR', {
+      timeZone: 'America/Argentina/Buenos_Aires',
+      hour: '2-digit', minute: '2-digit', hour12: false
+    })
+    const partesHora = formatterHora.formatToParts(ahora)
+    const hAR = parseInt(partesHora.find(p => p.type === 'hour')?.value ?? '0')
+    const mAR = parseInt(partesHora.find(p => p.type === 'minute')?.value ?? '0')
+
     const esHoy = sel.fecha === fechaAR
 
     while (act < negocio.hora_cierre) {

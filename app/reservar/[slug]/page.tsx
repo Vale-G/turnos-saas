@@ -115,21 +115,24 @@ export default function ReservaPro() {
     const lista: string[] = []
     let act = negocio.hora_apertura
 
-    // Hora actual en Argentina (UTC-3) — no mostrar horas que ya pasaron si es hoy
+    // Hora actual en Argentina UTC-3 fijo (no tiene horario de verano)
     const ahora = new Date()
-    const offsetAR = -3 * 60
-    const localAR = new Date(ahora.getTime() + (offsetAR - ahora.getTimezoneOffset()) * 60000)
-    const horaActualStr = String(localAR.getHours()).padStart(2, '0') + ':' + String(localAR.getMinutes()).padStart(2, '0')
-    const esHoy = sel.fecha === localAR.toISOString().split('T')[0]
+    const utcMs = ahora.getTime() + ahora.getTimezoneOffset() * 60000
+    const localAR = new Date(utcMs + (-3 * 3600000))
+    const hAR = localAR.getUTCHours()
+    const mAR = localAR.getUTCMinutes()
+    const fechaAR = localAR.getUTCFullYear() + '-' +
+      String(localAR.getUTCMonth() + 1).padStart(2, '0') + '-' +
+      String(localAR.getUTCDate()).padStart(2, '0')
+    const esHoy = sel.fecha === fechaAR
 
     while (act < negocio.hora_cierre) {
       const hF = act.slice(0, 5)
       // Si es hoy, filtrar horas que ya pasaron (con 15 min de margen)
       const [hh, mm] = hF.split(':').map(Number)
-      const [ha, ma] = horaActualStr.split(':').map(Number)
       const minutosHora = hh * 60 + mm
-      const minutosAhora = ha * 60 + ma + 15
-      const yaPaso = esHoy && minutosHora <= minutosAhora
+      const minutosAhoraAR = hAR * 60 + mAR + 15
+      const yaPaso = esHoy && minutosHora <= minutosAhoraAR
 
       if (!ocupados.includes(hF) && !yaPaso) lista.push(hF)
       let [h, m] = act.split(':').map(Number)
@@ -154,7 +157,9 @@ export default function ReservaPro() {
   const [guestTel, setGuestTel] = useState('')
 
   const confirmarTurnoGuest = async (gNombre?: string, gTel?: string) => {
-    if (!negocio || !sel.servicio || !sel.barbero || !guestNombre.trim()) return
+    const nombreFinal = (gNombre ?? guestNombre ?? '').trim()
+    const telFinal = (gTel ?? guestTel ?? '').trim()
+    if (!negocio || !sel.servicio || !sel.barbero || !nombreFinal) return
     setConfirmando(true)
     setErrorMsg(null)
     try {
@@ -165,7 +170,7 @@ export default function ReservaPro() {
         fecha: sel.fecha,
         hora: sel.hora + ':00',
         cliente_id: null,
-        cliente_nombre: (gNombre ?? guestNombre).trim() + (gTel ?? guestTel ? ' · ' + (gTel ?? guestTel) : ''),
+        cliente_nombre: nombreFinal + (telFinal ? ' · ' + telFinal : ''),
         estado: 'pendiente',
         pago_estado: 'pendiente',
       }).select('id').single()
@@ -188,7 +193,7 @@ export default function ReservaPro() {
       if (negocio.whatsapp) {
         const waUrl = buildWhatsAppConfirmacion({
           telefono: negocio.whatsapp,
-          clienteNombre: (gNombre ?? guestNombre),
+          clienteNombre: nombreFinal,
           servicio: sel.servicio.nombre,
           barbero: sel.barbero.nombre,
           fecha: sel.fecha,

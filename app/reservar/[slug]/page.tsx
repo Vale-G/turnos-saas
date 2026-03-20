@@ -115,24 +115,19 @@ export default function ReservaPro() {
     const lista: string[] = []
     let act = negocio.hora_apertura
 
-    // Hora actual en Buenos Aires — usando toLocaleDateString con formato ISO
-    const ahora = new Date()
-    // Obtener fecha en Buenos Aires como YYYY-MM-DD
-    const fechaAR = ahora.toLocaleDateString('en-CA', {
-      timeZone: 'America/Argentina/Buenos_Aires'
-    }) // en-CA devuelve YYYY-MM-DD siempre
-    // Obtener hora y minutos en Buenos Aires
-    const horaStr = ahora.toLocaleTimeString('es-AR', {
-      timeZone: 'America/Argentina/Buenos_Aires',
-      hour: '2-digit', minute: '2-digit', hour12: false
-    })
-    const hAR = parseInt(horaStr.split(':')[0] ?? '0')
-    const mAR = parseInt(horaStr.split(':')[1] ?? '0')
+    // Argentina es UTC-3 fijo — calcular manualmente sin depender de APIs del browser
+    const ahoraUTC = Date.now()
+    const AR_OFFSET_MS = -3 * 60 * 60 * 1000
+    const ahoraAR = new Date(ahoraUTC + AR_OFFSET_MS)
+    // Construir fecha YYYY-MM-DD directamente desde UTC values ajustados
+    const anioAR = ahoraAR.getUTCFullYear()
+    const mesAR = String(ahoraAR.getUTCMonth() + 1).padStart(2, '0')
+    const diaAR = String(ahoraAR.getUTCDate()).padStart(2, '0')
+    const fechaAR = anioAR + '-' + mesAR + '-' + diaAR
+    const hAR = ahoraAR.getUTCHours()
+    const mAR = ahoraAR.getUTCMinutes()
 
     const esHoy = sel.fecha === fechaAR
-    if (typeof window !== 'undefined') {
-      console.log('[TURNLY] sel.fecha:', sel.fecha, '| fechaAR:', fechaAR, '| hora AR:', hAR + ':' + mAR, '| esHoy:', sel.fecha === fechaAR)
-    }
 
     while (act < negocio.hora_cierre) {
       const hF = act.slice(0, 5)

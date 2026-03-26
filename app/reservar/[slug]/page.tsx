@@ -17,7 +17,7 @@ type Staff    = { id: string; nombre: string; avatar_url?: string | null }
 type Turno    = { id: string; fecha: string; hora: string; estado: string; Servicio?: { nombre: string; precio: number } }
 type Sel      = { servicio: Servicio | null; barbero: Staff | null; fecha: string; hora: string }
 
-const PASO_LABELS = ['Servicio', 'Barbero', 'Día', 'Hora', 'Confirmar']
+const PASO_LABELS = ['Servicio', 'Turno', 'Confirmar']
 const ESTADO_BADGE: Record<string, { bg: string; label: string }> = {
   pendiente:  { bg: 'bg-amber-500',   label: 'Pendiente'  },
   confirmado: { bg: 'bg-emerald-500', label: 'Confirmado' },
@@ -108,7 +108,7 @@ export default function ReservaPro() {
   }, [misTurnos])
 
   const colorP = getThemeColor(negocio?.tema)
-  const progress = ({ 1: 20, 2: 40, 3: 60, 4: 80, 5: 100, 6: 100 } as Record<number, number>)[paso] ?? 0
+  const progress = ({ 1: 33, 2: 66, 3: 100, 4: 100 } as Record<number, number>)[paso] ?? 0
 
   const generarHoras = (): string[] => {
     if (!negocio?.hora_apertura || !negocio?.hora_cierre || !sel.servicio) return []
@@ -198,7 +198,7 @@ export default function ReservaPro() {
         })
         sessionStorage.setItem('turnly_wa_' + data.id, waUrl)
       }
-      setPaso(6)
+      setPaso(4)
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Error')
     } finally {
@@ -255,9 +255,9 @@ export default function ReservaPro() {
         sessionStorage.setItem('turnly_wa_' + data.id, waUrl)
       }
 
-      setPaso(6)
+      setPaso(4)
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Error inesperado')
+      setErrorMsg(err instanceof Error ? err.message : 'Error creando turno')
     } finally {
       setConfirmando(false)
     }
@@ -429,86 +429,118 @@ export default function ReservaPro() {
           </section>
         )}
 
-        {/* PASO 2: STAFF */}
+        {/* PASO 2: BARBERO + DIA + HORA (TODO JUNTO) */}
         {paso === 2 && (
-          <section className="pt-8 space-y-4">
+          <section className="pt-8 space-y-6">
             <button onClick={() => setPaso(1)} className="text-[10px] font-black text-slate-500 hover:text-white transition-colors">Volver</button>
-            <h2 className="text-2xl font-black italic uppercase tracking-tight">Con quien?</h2>
-            <div className="grid grid-cols-2 gap-4">
-              {staffList.map(p => (
-                <button key={p.id} onClick={() => { setSel({ ...sel, barbero: p }); setPaso(3) }}
-                  className="bg-white/4 border border-white/8 hover:border-white/20 p-6 rounded-[2rem] text-center active:scale-[0.97] transition-all">
-                  {p.avatar_url ? (
-                    <Image src={p.avatar_url} alt={p.nombre} width={48} height={48} unoptimized
-                      className="w-12 h-12 rounded-full mx-auto mb-3 object-cover border border-white/10" />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full mx-auto mb-3 flex items-center justify-center font-black text-xl border border-white/10"
-                      style={{ background: colorP + '18', color: colorP }}>
-                      {p.nombre[0]}
-                    </div>
-                  )}
-                  <h3 className="font-black italic uppercase text-xs">{p.nombre}</h3>
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
 
-        {/* PASO 3: DIA */}
-        {paso === 3 && (
-          <section className="pt-8 space-y-3">
-            <button onClick={() => setPaso(2)} className="text-[10px] font-black text-slate-500 hover:text-white transition-colors">Volver</button>
-            <h2 className="text-2xl font-black italic uppercase tracking-tight">Que dia?</h2>
-            {[0, 1, 2, 3, 4, 5, 6].map(offset => {
-              const d = new Date(); d.setDate(d.getDate() + offset)
-              const iso = d.toISOString().split('T')[0]
-              const lab = negocio.dias_laborales?.includes(new Date(iso + 'T12:00:00').getDay())
-              return (
-                <button key={iso} disabled={!lab}
-                  onClick={() => { setSel({ ...sel, fecha: iso }); setPaso(4) }}
-                  className={'w-full p-5 rounded-[1.75rem] border flex justify-between items-center transition-all ' +
-                    (!lab ? 'opacity-20 cursor-not-allowed border-transparent' : 'bg-white/4 border-white/8 hover:border-white/20 active:scale-[0.98]')}>
-                  <span className="font-black italic uppercase text-lg">{etiquetaDia(d)}</span>
-                  {lab && <span className="font-black text-[10px] uppercase tracking-widest" style={{ color: colorP }}>Ver horas</span>}
-                </button>
-              )
-            })}
-          </section>
-        )}
-
-        {/* PASO 4: HORA */}
-        {paso === 4 && (
-          <section className="pt-8 space-y-5">
-            <button onClick={() => setPaso(3)} className="text-[10px] font-black text-slate-500 hover:text-white transition-colors">Volver</button>
-            <h2 className="text-2xl font-black italic uppercase tracking-tight">A que hora?</h2>
-            {generarHoras().length === 0 ? (
-              <p className="text-center text-slate-500 font-bold py-12 italic">No hay horarios disponibles.</p>
-            ) : (
-              <div className="grid grid-cols-3 gap-2">
-                {generarHoras().map(h => (
-                  <button key={h} onClick={() => setSel({ ...sel, hora: h })}
-                    className={'py-4 rounded-xl font-black text-xs border transition-all active:scale-[0.97] ' +
-                      (sel.hora === h ? 'text-black border-transparent' : 'bg-white/4 border-white/8 hover:border-white/20')}
-                    style={sel.hora === h ? { backgroundColor: colorP } : {}}>
-                    {h}
+            {/* Sección 1: Elegir Barbero */}
+            <div>
+              <h2 className="text-2xl font-black italic uppercase tracking-tight mb-4">1. Con quién?</h2>
+              <div className="grid grid-cols-2 gap-3">
+                {staffList.map(p => (
+                  <button
+                    key={p.id}
+                    onClick={() => setSel({ ...sel, barbero: p })}
+                    className={`bg-white/4 border p-5 rounded-[1.5rem] text-center active:scale-[0.97] transition-all ${
+                      sel.barbero?.id === p.id
+                        ? 'border-white/40 shadow-lg'
+                        : 'border-white/8 hover:border-white/20'
+                    }`}
+                  >
+                    {p.avatar_url ? (
+                      <Image src={p.avatar_url} alt={p.nombre} width={40} height={40} unoptimized
+                        className="w-10 h-10 rounded-full mx-auto mb-2 object-cover border border-white/10" />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full mx-auto mb-2 flex items-center justify-center font-black text-lg border border-white/10"
+                        style={{ background: colorP + '18', color: colorP }}>
+                        {p.nombre[0]}
+                      </div>
+                    )}
+                    <h3 className="font-black italic uppercase text-[10px]">{p.nombre}</h3>
                   </button>
                 ))}
               </div>
+            </div>
+
+            {/* Sección 2: Elegir Día - solo visible si hay barbero seleccionado */}
+            {sel.barbero && (
+              <div className="animate-in fade-in slide-in-from-top-4">
+                <h2 className="text-2xl font-black italic uppercase tracking-tight mb-4">2. Qué día?</h2>
+                <div className="flex gap-2 overflow-x-auto pb-2">
+                  {[0, 1, 2, 3, 4, 5, 6].map(offset => {
+                    const d = new Date(); d.setDate(d.getDate() + offset)
+                    const iso = d.toISOString().split('T')[0]
+                    const lab = negocio.dias_laborales?.includes(new Date(iso + 'T12:00:00').getDay())
+                    const estaSeleccionado = sel.fecha === iso
+
+                    return (
+                      <button
+                        key={iso}
+                        disabled={!lab}
+                        onClick={() => { setSel({ ...sel, fecha: iso }); setSel(prev => ({ ...prev, hora: '' })) }}
+                        className={`flex-shrink-0 w-20 h-20 rounded-2xl border font-black transition-all ${
+                          !lab
+                            ? 'opacity-20 cursor-not-allowed border-transparent bg-white/4'
+                            : estaSeleccionado
+                              ? 'border-white/40 shadow-lg text-black'
+                              : 'border-white/8 hover:border-white/20 bg-white/4 text-white'
+                        }`}
+                        style={estaSeleccionado ? { backgroundColor: colorP } : {}}
+                      >
+                        <div className="text-[9px] uppercase tracking-tighter">{etiquetaDia(d).slice(0, 3)}</div>
+                        <div className="text-xl">{d.getDate()}</div>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
             )}
-            {sel.hora && (
-              <button onClick={() => setPaso(5)}
-                className="w-full py-4 rounded-2xl font-black italic text-black text-base transition-opacity hover:opacity-90"
-                style={{ backgroundColor: colorP }}>
+
+            {/* Sección 3: Elegir Hora - solo visible si hay día seleccionado */}
+            {sel.barbero && sel.fecha && (
+              <div className="animate-in fade-in slide-in-from-top-4">
+                <h2 className="text-2xl font-black italic uppercase tracking-tight mb-4">3. A qué hora?</h2>
+                {generarHoras().length === 0 ? (
+                  <p className="text-center text-slate-500 font-bold py-8 italic">No hay horarios disponibles.</p>
+                ) : (
+                  <div className="grid grid-cols-4 gap-2">
+                    {generarHoras().map(h => (
+                      <button
+                        key={h}
+                        onClick={() => setSel({ ...sel, hora: h })}
+                        className={`py-3 rounded-xl font-black text-[10px] border transition-all active:scale-[0.97] ${
+                          sel.hora === h
+                            ? 'text-black border-transparent shadow-lg'
+                            : 'bg-white/4 border-white/8 hover:border-white/20 text-white'
+                        }`}
+                        style={sel.hora === h ? { backgroundColor: colorP } : {}}
+                      >
+                        {h}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Botón continuar - solo visible si todo está seleccionado */}
+            {sel.barbero && sel.fecha && sel.hora && (
+              <button
+                onClick={() => setPaso(3)}
+                className="w-full py-5 rounded-[1.75rem] font-black italic text-lg text-black transition-all hover:opacity-90 shadow-lg"
+                style={{ backgroundColor: colorP }}
+              >
                 Continuar
               </button>
             )}
           </section>
         )}
 
-        {/* PASO 5: CONFIRMAR */}
-        {paso === 5 && (
+        {/* PASO 3: CONFIRMAR */}
+        {paso === 3 && (
           <section className="pt-8 space-y-5">
-            <button onClick={() => setPaso(4)} className="text-[10px] font-black text-slate-500 hover:text-white transition-colors">Volver</button>
+            <button onClick={() => setPaso(2)} className="text-[10px] font-black text-slate-500 hover:text-white transition-colors">Volver</button>
             <h2 className="text-2xl font-black italic uppercase tracking-tight">Confirma tu turno</h2>
 
             <div className="bg-white/4 border border-white/8 rounded-[2rem] p-5 space-y-3">
@@ -544,8 +576,8 @@ export default function ReservaPro() {
           </section>
         )}
 
-        {/* PASO 6: EXITO */}
-        {paso === 6 && (
+        {/* PASO 4: EXITO */}
+        {paso === 4 && (
           <section className="pt-16 text-center space-y-5">
             <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto text-3xl text-black font-black"
               style={{ backgroundColor: colorP, boxShadow: '0 0 60px ' + colorP + '40' }}>
@@ -573,7 +605,7 @@ export default function ReservaPro() {
             })()}
 
             <button
-              onClick={() => { setPaso(1); setSel({ servicio: null, barbero: null, fecha: '', hora: '' }); setTurnoId(null) }}
+              onClick={() => { setPaso(1); setSel({ servicio: null, barbero: null, fecha: '', hora: '' }); setTurnoId(null); setErrorMsg(null) }}
               className="text-[10px] font-black uppercase text-slate-600 hover:text-slate-400 transition-colors border-b border-slate-800 pb-0.5">
               Reservar otro turno
             </button>

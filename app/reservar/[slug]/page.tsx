@@ -115,27 +115,20 @@ export default function ReservaPro() {
     const lista: string[] = []
     let act = negocio.hora_apertura
 
-    // Argentina es UTC-3 fijo — calcular manualmente sin depender de APIs del browser
-    const ahoraUTC = Date.now()
-    const AR_OFFSET_MS = -3 * 60 * 60 * 1000
-    const ahoraAR = new Date(ahoraUTC + AR_OFFSET_MS)
-    // Construir fecha YYYY-MM-DD directamente desde UTC values ajustados
-    const anioAR = ahoraAR.getUTCFullYear()
-    const mesAR = String(ahoraAR.getUTCMonth() + 1).padStart(2, '0')
-    const diaAR = String(ahoraAR.getUTCDate()).padStart(2, '0')
-    const fechaAR = anioAR + '-' + mesAR + '-' + diaAR
-    const hAR = ahoraAR.getUTCHours()
-    const mAR = ahoraAR.getUTCMinutes()
+    // Calcular si la fecha seleccionada es hoy en Argentina (UTC-3 fijo)
+    // Usamos el input[type=date] del selector que ya tiene YYYY-MM-DD en hora local
+    const hoyAR = new Date(new Date().getTime() - 3 * 60 * 60 * 1000)
+    const hoyStr = hoyAR.toISOString().slice(0, 10)
+    const esHoy = sel.fecha === hoyStr
 
-    const esHoy = sel.fecha === fechaAR
+    // Minutos actuales en Argentina
+    const minutosAhora = hoyAR.getUTCHours() * 60 + hoyAR.getUTCMinutes() + 15
 
     while (act < negocio.hora_cierre) {
       const hF = act.slice(0, 5)
-      // Si es hoy, filtrar horas que ya pasaron (con 15 min de margen)
       const [hh, mm] = hF.split(':').map(Number)
-      const minutosHora = hh * 60 + mm
-      const minutosAhoraAR = hAR * 60 + mAR + 15
-      const yaPaso = esHoy && minutosHora <= minutosAhoraAR
+      const minHora = hh * 60 + mm
+      const yaPaso = esHoy && minHora <= minutosAhora
 
       if (!ocupados.includes(hF) && !yaPaso) lista.push(hF)
       let [h, m] = act.split(':').map(Number)

@@ -7,6 +7,11 @@ import { supabase, getOAuthRedirectUrl } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
 import { buildWhatsAppConfirmacion, buildWhatsAppNuevoTurno } from '@/lib/whatsapp'
 
+type Bloqueo = {
+  hora_inicio: string; hora_fin: string
+  recurrente: boolean; dia_semana?: number; fecha?: string
+}
+
 type Negocio = {
   id: string; nombre: string; slug: string; tema?: string
   hora_apertura?: string; hora_cierre?: string
@@ -31,6 +36,7 @@ export default function ReservaPro() {
   const [servicios,   setServicios]   = useState<Servicio[]>([])
   const [staffList,   setStaffList]   = useState<Staff[]>([])
   const [ocupados,    setOcupados]    = useState<string[]>([])
+  const [bloqueos,    setBloqueos]    = useState<Bloqueo[]>([])
   const [loading,     setLoading]     = useState(true)
   const [user,        setUser]        = useState<User | null>(null)
   const [misTurnos,   setMisTurnos]   = useState<Turno[]>([])

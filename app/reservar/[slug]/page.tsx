@@ -117,8 +117,9 @@ export default function ReservaPro() {
 
     // Calcular si la fecha seleccionada es hoy en Argentina (UTC-3 fijo)
     // Usamos el input[type=date] del selector que ya tiene YYYY-MM-DD en hora local
-    const hoyAR = new Date(new Date().getTime() - 3 * 60 * 60 * 1000)
-    const hoyStr = hoyAR.toISOString().slice(0, 10)
+    const msAR = Date.now() + (-3 * 60 * 60 * 1000)
+    const hoyAR = new Date(msAR)
+    const hoyStr = hoyAR.getUTCFullYear() + '-' + String(hoyAR.getUTCMonth() + 1).padStart(2, '0') + '-' + String(hoyAR.getUTCDate()).padStart(2, '0')
     const esHoy = sel.fecha === hoyStr
 
     // Minutos actuales en Argentina

@@ -120,6 +120,21 @@ export default function Clientes() {
     c.cliente_nombre.toLowerCase().includes(busqueda.toLowerCase())
   )
 
+  const toggleBlacklist = async (clienteId: string, estadoActual: boolean) => {
+    if (!negocioId) return
+    const nuevoEstado = !estadoActual
+    await supabase.from('ClienteNota')
+      .upsert({
+        negocio_id: negocioId,
+        cliente_id: clienteId,
+        cliente_nombre: clientes.find(c => c.cliente_id === clienteId)?.cliente_nombre ?? '',
+        bloqueado: nuevoEstado,
+      }, { onConflict: 'negocio_id,cliente_id' })
+    setClientes(prev => prev.map(c =>
+      c.cliente_id === clienteId ? { ...c, bloqueado: nuevoEstado } : c
+    ))
+  }
+
   return (
     <div className="min-h-screen bg-[#020617] text-white p-6">
       <div className="max-w-4xl mx-auto">

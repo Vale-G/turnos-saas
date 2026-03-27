@@ -131,7 +131,19 @@ export default function ReservaPro() {
       const minHora = hh * 60 + mm
       const yaPaso = esHoy && minHora <= minutosAhora
 
-      if (!ocupados.includes(hF) && !yaPaso) lista.push(hF)
+      // Verificar bloqueos de horario
+      const fechaSelDate = new Date(sel.fecha + 'T12:00:00')
+      const diaSemanaSelec = fechaSelDate.getDay()
+      const bloqueado = bloqueos.some(b => {
+        const hIni = b.hora_inicio.slice(0,5)
+        const hFin = b.hora_fin.slice(0,5)
+        const enRango = hF >= hIni && hF < hFin
+        if (!enRango) return false
+        if (b.recurrente) return b.dia_semana === diaSemanaSelec
+        return b.fecha === sel.fecha
+      })
+
+      if (!ocupados.includes(hF) && !yaPaso && !bloqueado) lista.push(hF)
       let [h, m] = act.split(':').map(Number)
       m += sel.servicio.duracion
       if (m >= 60) { h += Math.floor(m / 60); m %= 60 }
@@ -208,6 +220,15 @@ export default function ReservaPro() {
   }
 
   const confirmarTurno = async () => {
+    // Verificar blacklist
+    if (user) {
+      const { data: nota } = await supabase.from('ClienteNota')
+        .select('bloqueado').eq('negocio_id', negocio!.id).eq('cliente_id', user.id).single()
+      if (nota?.bloqueado) {
+        setErrorMsg('No podés reservar en este negocio. Contactá al local para más información.')
+        return
+      }
+    }
     if (!user || !negocio || !sel.servicio || !sel.barbero) return
     setConfirmando(true)
     setErrorMsg(null)

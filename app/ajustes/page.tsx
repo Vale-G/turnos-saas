@@ -15,6 +15,8 @@ const DIAS = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
 export default function AjustesNegocio() {
   const [nombre, setNombre] = useState('')
   const [whatsapp, setWhatsapp] = useState('')
+  const [senaPorcentaje, setSenaPorcentaje] = useState(0)
+  const [requiereSena, setRequiereSena] = useState(false)
   const [descripcion, setDescripcion] = useState('')
   const [tema, setTema] = useState('emerald')
   const [logoUrl, setLogoUrl] = useState('')

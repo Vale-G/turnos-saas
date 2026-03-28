@@ -39,7 +39,7 @@ export default function SuperAdmin() {
   const router = useRouter()
 
   const cargarConfig = useCallback(async () => {
-    const { data } = await supabase.from('Config').select('clave, valor')
+    const { data } = await supabase.from('config').select('clave, valor')
     if (data) {
       const cfg: Record<string, number> = {}
       data.forEach(r => { cfg[r.clave] = Number(r.valor) })
@@ -55,7 +55,7 @@ export default function SuperAdmin() {
 
   const cargarNegocios = useCallback(async () => {
     const { data } = await supabase
-      .from('Negocio').select('*').order('created_at', { ascending: false })
+      .from('negocio').select('*').order('created_at', { ascending: false })
     setNegocios(data ?? [])
   }, [])
 
@@ -64,9 +64,20 @@ export default function SuperAdmin() {
       const { data: { user } } = await supabase.auth.getUser()
       console.log('Superadmin User:', user)
       if (!user) { router.push('/dashboard'); return }
-      const { data: rol, error } = await supabase.from('AdminRol').select('id').eq('user_id', user.id).single()
-      console.log('Superadmin Rol:', rol, 'Error:', error)
-      if (!rol) { router.push('/dashboard'); return }
+      const { data: rol, error } = await supabase
+  .from('adminrol')
+  .select('role') // Ahora pedimos la columna 'role'
+  .eq('user_id', user.id)
+  .single()
+
+console.log('Superadmin Rol encontrado:', rol)
+
+// Si hay error o el rol no es superadmin, rebotamos
+if (error || !rol || rol.role !== 'superadmin') { 
+  console.error('Acceso denegado o error de tabla:', error)
+  router.push('/dashboard') 
+  return 
+}
       await Promise.all([cargarNegocios(), cargarConfig()])
       setLoading(false)
     }
@@ -92,7 +103,7 @@ export default function SuperAdmin() {
       { clave: 'dias_trial', valor: String(configEdit.dias_trial), descripcion: 'Dias de prueba gratuita' },
     ]
     for (const u of updates) {
-      await supabase.from('Config').upsert(u, { onConflict: 'clave' })
+      await supabase.from('config').upsert(u, { onConflict: 'clave' })
     }
     await cargarConfig()
     setGuardandoConfig(false)
@@ -101,13 +112,13 @@ export default function SuperAdmin() {
   }
 
   async function toggleActivo(id: string, actual: boolean) {
-    await supabase.from('Negocio').update({ activo: !actual }).eq('id', id)
+    await supabase.from('negocio').update({ activo: !actual }).eq('id', id)
     setNegocios(prev => prev.map(n => n.id === id ? { ...n, activo: !actual } : n))
   }
 
   async function togglePlan(id: string, planActual: string) {
     const nuevo = planActual === 'pro' ? 'basico' : 'pro'
-    await supabase.from('Negocio').update({ suscripcion_tipo: nuevo }).eq('id', id)
+    await supabase.from('negocio').update({ suscripcion_tipo: nuevo }).eq('id', id)
     setNegocios(prev => prev.map(n => n.id === id ? { ...n, suscripcion_tipo: nuevo } : n))
   }
 
@@ -115,14 +126,14 @@ export default function SuperAdmin() {
     setGuardandoTrial(id)
     const nuevo = new Date()
     nuevo.setDate(nuevo.getDate() + dias)
-    await supabase.from('Negocio').update({ trial_hasta: nuevo.toISOString() }).eq('id', id)
+    await supabase.from('negocio').update({ trial_hasta: nuevo.toISOString() }).eq('id', id)
     setNegocios(prev => prev.map(n => n.id === id ? { ...n, trial_hasta: nuevo.toISOString() } : n))
     setGuardandoTrial(null)
   }
 
   async function verPagos(negocioId: string) {
     const { data } = await supabase
-      .from('Suscripcion').select('*').eq('negocio_id', negocioId)
+      .from('suscripcion').select('*').eq('negocio_id', negocioId)
       .order('created_at', { ascending: false })
     setPagosNegocio(data ?? [])
     setNegocioDetalle(negocioId)
@@ -130,7 +141,7 @@ export default function SuperAdmin() {
 
   async function eliminarNegocio(id: string, nombre: string) {
     if (!confirm('Seguro que queres eliminar "' + nombre + '"?')) return
-    await supabase.from('Negocio').delete().eq('id', id)
+    await supabase.from('negocio').delete().eq('id', id)
     setNegocios(prev => prev.filter(n => n.id !== id))
   }
 

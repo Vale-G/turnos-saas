@@ -3,11 +3,11 @@
 //
 // PROBLEMA ORIGINAL: en múltiples páginas existía este patrón con bug:
 //
-//   const { data: byOwner } = await supabase.from('Negocio').select('*').eq('owner_id', user.id).single()
+//   const { data: byOwner } = await supabase.from('negocio').select('*').eq('owner_id', user.id).single()
 //   if (byOwner) { neg = byOwner }
 //   else {
 //     // ⚠️ BUG: hacía EXACTAMENTE la misma query de nuevo — siempre null si la primera falló
-//     const { data: byId } = await supabase.from('Negocio').select('*').eq('owner_id', user.id).single()
+//     const { data: byId } = await supabase.from('negocio').select('*').eq('owner_id', user.id).single()
 //     neg = byId
 //   }
 //
@@ -39,7 +39,7 @@ export type NegocioBase = {
  */
 export async function getNegocioDelUsuario(userId: string): Promise<NegocioBase | null> {
   const { data, error } = await supabase
-    .from('Negocio')
+    .from('negocio')
     .select('*')
     .eq('owner_id', userId)
     .single()

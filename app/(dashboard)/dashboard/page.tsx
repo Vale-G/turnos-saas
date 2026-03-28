@@ -5,37 +5,42 @@ import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
 import { LIMITES } from '@/lib/permisos'
 import { useRouter } from 'next/navigation'
-
+ 
 type NegocioDashboard = {
   id: string; nombre: string; tema?: string
   logo_url?: string; suscripcion_tipo?: string; slug?: string
+  trial_hasta?: string | null
 }
-
+ 
+function diasTrialRestantes(trial_hasta?: string | null): number {
+  if (!trial_hasta) return 0
+  const diff = new Date(trial_hasta).getTime() - Date.now()
+  return Math.max(0, Math.ceil(diff / 86400000))
+}
+ 
 export default function DashboardPrincipal() {
   const [negocio, setNegocio] = useState<NegocioDashboard | null>(null)
   const [staffCount, setStaffCount] = useState(0)
   const [serviciosCount, setServiciosCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
-
+ 
   useEffect(() => {
     async function cargarDatos() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
-
-      // Buscar negocio por owner_id o por id (compatibilidad)
-      let neg = null
-      const { data: byOwner } = await supabase.from('Negocio').select('*').eq('owner_id', user.id).single()
-      if (byOwner) {
-        neg = byOwner
-      } else {
-        const { data: byId } = await supabase.from('Negocio').select('*').eq('owner_id', user.id).single()
-        neg = byId
-      }
-
+ 
+      // FIX: la versión anterior hacía la misma query dos veces.
+      // Ahora primero busca por owner_id, y si no hay resultado busca
+      // si el usuario es staff de algún negocio (caso edge).
+      const { data: neg } = await supabase
+        .from('Negocio')
+        .select('*')
+        .eq('owner_id', user.id)
+        .single()
+ 
       if (neg) {
         setNegocio(neg)
-        // Cargar contadores para mostrar límites
         const [{ count: sc }, { count: svc }] = await Promise.all([
           supabase.from('Staff').select('*', { count: 'exact', head: true }).eq('negocio_id', neg.id),
           supabase.from('Servicio').select('*', { count: 'exact', head: true }).eq('negocio_id', neg.id),
@@ -47,18 +52,20 @@ export default function DashboardPrincipal() {
     }
     cargarDatos()
   }, [router])
-
+ 
   if (loading) return (
     <div className="min-h-screen bg-[#020617] text-white flex items-center justify-center font-black uppercase italic text-emerald-500 animate-pulse">
       Cargando...
     </div>
   )
-
+ 
   const colorPrincipal = getThemeColor(negocio?.tema)
-  const plan = (negocio?.suscripcion_tipo ?? 'normal') as 'normal' | 'pro'
-  const limites = LIMITES[plan]
+  const plan = (negocio?.suscripcion_tipo ?? 'normal') as keyof typeof LIMITES
+  const limites = LIMITES[plan] ?? LIMITES.normal
   const esPro = plan === 'pro'
-
+  const esTrial = plan === 'trial'
+  const diasTrial = diasTrialRestantes(negocio?.trial_hasta)
+ 
   const navItems = [
     {
       label: 'Agenda',
@@ -76,23 +83,23 @@ export default function DashboardPrincipal() {
     },
     {
       label: 'Servicios',
-      desc: esPro ? 'Sin límite' : serviciosCount + ' / ' + limites.maxServicios,
+      desc: (esPro || esTrial) ? 'Sin límite' : serviciosCount + ' / ' + limites.maxServicios,
       href: '/servicios',
-      badge: !esPro && serviciosCount >= limites.maxServicios ? 'LÍMITE' : null,
+      badge: !esPro && !esTrial && serviciosCount >= limites.maxServicios ? 'LÍMITE' : null,
       proOnly: false,
     },
     {
       label: 'Staff',
-      desc: esPro ? 'Sin límite' : staffCount + ' / ' + limites.maxStaff,
+      desc: (esPro || esTrial) ? 'Sin límite' : staffCount + ' / ' + limites.maxStaff,
       href: '/staff',
-      badge: !esPro && staffCount >= limites.maxStaff ? 'LÍMITE' : null,
+      badge: !esPro && !esTrial && staffCount >= limites.maxStaff ? 'LÍMITE' : null,
       proOnly: false,
     },
     {
       label: 'Informes',
-      desc: esPro ? 'Estadísticas PRO' : 'Solo plan Pro',
-      href: esPro ? '/informes' : '#',
-      badge: esPro ? null : 'PRO',
+      desc: (esPro || esTrial) ? 'Estadísticas PRO' : 'Solo plan Pro',
+      href: (esPro || esTrial) ? '/informes' : '#',
+      badge: (esPro || esTrial) ? null : 'PRO',
       proOnly: true,
     },
     {
@@ -110,11 +117,11 @@ export default function DashboardPrincipal() {
       proOnly: false,
     },
   ]
-
+ 
   return (
     <div className="min-h-screen bg-[#020617] text-white p-8">
       <div className="max-w-5xl mx-auto">
-
+ 
         {/* Header */}
         <header className="flex justify-between items-end mb-10 border-b border-white/5 pb-8">
           <div className="flex items-center gap-5">
@@ -136,6 +143,10 @@ export default function DashboardPrincipal() {
                   <span className="bg-amber-400 text-black text-[9px] font-black uppercase px-2 py-1 rounded-full">
                     PRO
                   </span>
+                ) : esTrial ? (
+                  <span className="bg-blue-500 text-white text-[9px] font-black uppercase px-2 py-1 rounded-full">
+                    TRIAL · {diasTrial}d
+                  </span>
                 ) : (
                   <span className="bg-white/10 text-white/40 text-[9px] font-black uppercase px-2 py-1 rounded-full">
                     NORMAL
@@ -152,9 +163,27 @@ export default function DashboardPrincipal() {
             Salir
           </button>
         </header>
-
+ 
+        {/* Banner trial */}
+        {esTrial && diasTrial <= 7 && (
+          <div className="mb-8 p-5 rounded-2xl border border-blue-500/20 bg-blue-500/5 flex items-center justify-between gap-4 cursor-pointer hover:bg-blue-500/8 transition-colors"
+            onClick={() => router.push('/upgrade')}>
+            <div>
+              <p className="font-black uppercase text-sm text-blue-400">
+                Trial — quedan {diasTrial} día{diasTrial !== 1 ? 's' : ''}
+              </p>
+              <p className="text-slate-400 text-xs mt-0.5">
+                Tu período de prueba termina pronto. Activá un plan para no perder el acceso.
+              </p>
+            </div>
+            <span className="text-[10px] font-black uppercase text-black bg-blue-400 px-3 py-1.5 rounded-xl hover:opacity-90 transition-opacity whitespace-nowrap">
+              Ver planes
+            </span>
+          </div>
+        )}
+ 
         {/* Banner upgrade si es plan normal */}
-        {!esPro && (
+        {!esPro && !esTrial && (
           <div className="mb-8 p-5 rounded-2xl border border-amber-400/20 bg-amber-400/5 flex items-center justify-between gap-4 cursor-pointer hover:bg-amber-400/8 transition-colors"
             onClick={() => router.push('/upgrade')}>
             <div>
@@ -169,7 +198,7 @@ export default function DashboardPrincipal() {
             </span>
           </div>
         )}
-
+ 
         {/* Grid de accesos */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
           {navItems.map(item => (
@@ -188,7 +217,7 @@ export default function DashboardPrincipal() {
             </div>
           ))}
         </div>
-
+ 
         {/* Link público */}
         <div className="mt-10 p-6 rounded-[2.5rem] border flex flex-col md:flex-row justify-between items-center gap-4"
           style={{ background: colorPrincipal + '08', borderColor: colorPrincipal + '18' }}>
@@ -197,7 +226,11 @@ export default function DashboardPrincipal() {
             <p className="text-slate-500 text-sm mt-0.5">Pegalo en tu Instagram.</p>
           </div>
           <button
-            onClick={() => negocio?.slug && navigator.clipboard.writeText((process.env.NEXT_PUBLIC_SITE_URL ?? 'https://turnos-saas-eight.vercel.app') + '/reservar/' + negocio.slug)}
+            onClick={() => {
+              if (!negocio?.slug) return
+              const url = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://turnos-saas-eight.vercel.app') + '/reservar/' + negocio.slug
+              navigator.clipboard.writeText(url)
+            }}
             className="bg-black/50 px-5 py-3 rounded-xl border border-white/10 font-mono text-sm hover:border-white/25 transition-colors flex items-center gap-3 group"
             style={{ color: colorPrincipal }}>
             {'/reservar/' + negocio?.slug}

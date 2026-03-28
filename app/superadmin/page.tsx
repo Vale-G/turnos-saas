@@ -62,8 +62,10 @@ export default function SuperAdmin() {
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
+      console.log('Superadmin User:', user)
       if (!user) { router.push('/dashboard'); return }
-      const { data: rol } = await supabase.from('AdminRol').select('id').eq('user_id', user.id).single()
+      const { data: rol, error } = await supabase.from('AdminRol').select('id').eq('user_id', user.id).single()
+      console.log('Superadmin Rol:', rol, 'Error:', error)
       if (!rol) { router.push('/dashboard'); return }
       await Promise.all([cargarNegocios(), cargarConfig()])
       setLoading(false)

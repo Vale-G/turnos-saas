@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
+import Image from 'next/image'
 
 const DIAS = ['Lunes','Martes','Miercoles','Jueves','Viernes','Sabado','Domingo']
 const DIAS_KEYS = ['lunes','martes','miercoles','jueves','viernes','sabado','domingo']
@@ -173,7 +174,7 @@ export default function Onboarding() {
               </div>
               {logoPreview && logoUrl && (
                 <div className="mt-3 flex items-center gap-3 bg-white/5 rounded-xl p-3">
-                  <img src={logoUrl} alt="logo" className="w-12 h-12 rounded-xl object-cover"
+                  <Image src={logoUrl} alt="logo" width={48} height={48} className="rounded-xl object-cover"
                     onError={() => setLogoPreview(false)} />
                   <p className="text-xs text-slate-400">Logo cargado correctamente</p>
                 </div>

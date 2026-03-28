@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 
 const TEMAS = [
   { id: 'emerald', nombre: 'Esmeralda', color: '#10b981' },
@@ -26,6 +27,8 @@ export default function AjustesNegocio() {
   
   const [loading, setLoading] = useState(true)
   const [guardando, setGuardando] = useState(false)
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [subiendoLogo, setSubiendoLogo] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -73,6 +76,21 @@ export default function AjustesNegocio() {
     setDiasLaborales(prev => 
       prev.includes(index) ? prev.filter(d => d !== index) : [...prev, index]
     )
+  }
+
+  const handleLogoUpload = async () => {
+    if (!logoFile) return
+    setSubiendoLogo(true)
+    const fileExt = logoFile.name.split('.').pop()
+    const fileName = `${Date.now()}.${fileExt}`
+    const { data, error } = await supabase.storage.from('logos').upload(fileName, logoFile)
+    if (error) {
+      alert('Error subiendo logo: ' + error.message)
+    } else {
+      const { data: { publicUrl } } = supabase.storage.from('logos').getPublicUrl(fileName)
+      setLogoUrl(publicUrl)
+    }
+    setSubiendoLogo(false)
   }
 
   const colorActual = TEMAS.find(t => t.id === tema)?.color || '#10b981'
@@ -150,6 +168,15 @@ export default function AjustesNegocio() {
                 onChange={(e) => setDescripcion(e.target.value)} 
                 className="w-full bg-black border border-white/10 p-4 rounded-2xl outline-none h-24 text-sm"
               />
+            </div>
+
+            <div>
+              <label className="text-[10px] font-black uppercase text-slate-500 ml-2 block mb-2">Logo del Negocio</label>
+              <input type="file" accept="image/*" onChange={(e) => setLogoFile(e.target.files?.[0] || null)} className="w-full bg-black border border-white/10 p-4 rounded-2xl outline-none focus:border-white/20" />
+              <button type="button" onClick={handleLogoUpload} disabled={subiendoLogo || !logoFile} className="mt-2 w-full bg-slate-700 text-white font-black uppercase py-2 rounded-2xl hover:bg-slate-600 transition-all">
+                {subiendoLogo ? 'SUBIENDO...' : 'SUBIR LOGO'}
+              </button>
+              {logoUrl && <Image src={logoUrl} alt="Logo" width={48} height={48} className="mt-2 rounded-xl object-cover" />}
             </div>
 
             <button type="submit" disabled={guardando} className="w-full text-black font-black uppercase italic py-5 rounded-2xl hover:scale-[1.02] transition-all" style={{ backgroundColor: colorActual }}>

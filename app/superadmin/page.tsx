@@ -16,7 +16,11 @@ type Metrica = {
   enTrial: number; trialVencido: number; mrr: number
 }
 
-const ADMIN_EMAIL = 'valepro50020@gmail.com'
+const diasTrialRestantes = (trial_hasta?: string | null) => {
+  if (!trial_hasta) return 0
+  const diff = new Date(trial_hasta).getTime() - Date.now()
+  return Math.max(0, Math.ceil(diff / 86400000))
+}
 
 export default function SuperAdmin() {
   const [negocios, setNegocios] = useState<Negocio[]>([])
@@ -37,7 +41,7 @@ export default function SuperAdmin() {
   const cargarConfig = useCallback(async () => {
     const { data } = await supabase.from('Config').select('clave, valor')
     if (data) {
-      const cfg: any = {}
+      const cfg: Record<string, number> = {}
       data.forEach(r => { cfg[r.clave] = Number(r.valor) })
       const c = {
         precio_basico: cfg.precio_basico ?? 5000,
@@ -58,7 +62,7 @@ export default function SuperAdmin() {
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user || user.email !== ADMIN_EMAIL) { router.push('/dashboard'); return }
+      if (!user) { router.push('/dashboard'); return }
       const { data: rol } = await supabase.from('AdminRol').select('id').eq('user_id', user.id).single()
       if (!rol) { router.push('/dashboard'); return }
       await Promise.all([cargarNegocios(), cargarConfig()])
@@ -126,12 +130,6 @@ export default function SuperAdmin() {
     if (!confirm('Seguro que queres eliminar "' + nombre + '"?')) return
     await supabase.from('Negocio').delete().eq('id', id)
     setNegocios(prev => prev.filter(n => n.id !== id))
-  }
-
-  const diasTrialRestantes = (trial_hasta?: string | null) => {
-    if (!trial_hasta) return 0
-    const diff = new Date(trial_hasta).getTime() - Date.now()
-    return Math.max(0, Math.ceil(diff / 86400000))
   }
 
   const negociosFiltrados = negocios.filter(n =>

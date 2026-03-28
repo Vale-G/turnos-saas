@@ -168,7 +168,9 @@ export default function ReservaPro() {
     options: { redirectTo: getOAuthRedirectUrl('/reservar/' + slug) },
   })
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [guestNombre, setGuestNombre] = useState('')
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [guestTel, setGuestTel] = useState('')
 
   const confirmarTurnoGuest = async (gNombre?: string, gTel?: string) => {

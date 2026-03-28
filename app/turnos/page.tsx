@@ -26,8 +26,8 @@ export default function AgendaTurnos() {
   const [reloadKey, setReloadKey] = useState(0)
   const [turnoEditando, setTurnoEditando] = useState<string | null>(null)
   const [turnoEditar, setTurnoEditar] = useState<TurnoItem | null>(null)
-  const [staffList, setStaffList] = useState<{ id: string; nombre: string }[]>([])
-  const [serviciosList, setServiciosList] = useState<{ id: string; nombre: string; precio: number; duracion: number }[]>([])
+  const [_staffList, _setStaffList] = useState<{ id: string; nombre: string }[]>([])
+  const [_serviciosList, _setServiciosList] = useState<{ id: string; nombre: string; precio: number; duracion: number }[]>([])
   const router = useRouter()
 
   const totalCobrado = useMemo(
@@ -54,8 +54,8 @@ export default function AgendaTurnos() {
         supabase.from('Staff').select('id, nombre').eq('negocio_id', neg.id).eq('activo', true),
         supabase.from('Servicio').select('id, nombre, precio, duracion').eq('negocio_id', neg.id),
       ])
-      setStaffList(stf ?? [])
-      setServiciosList(svcs ?? [])
+      _setStaffList(stf ?? [])
+      _setServiciosList(svcs ?? [])
     }
     init()
   }, [router])

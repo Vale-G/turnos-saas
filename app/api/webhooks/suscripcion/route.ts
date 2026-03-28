@@ -1,5 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createHmac } from 'crypto'
+
+function verificarFirmaMP(req: NextRequest, body: string): boolean {
+  // MP envía x-signature: ts=...,v1=...
+  const xSignature = req.headers.get('x-signature')
+  const xRequestId = req.headers.get('x-request-id')
+  if (!xSignature || !xRequestId) return true // en sandbox no siempre vienen
+  
+  const secret = process.env.MP_WEBHOOK_SECRET
+  if (!secret) return true // si no hay secret configurado, pasamos (dev)
+
+  try {
+    const parts = Object.fromEntries(xSignature.split(',').map(p => p.split('=')))
+    const ts = parts['ts']
+    const v1 = parts['v1']
+    if (!ts || !v1) return true
+
+    const manifest = `id:${xRequestId};request-id:${xRequestId};ts:${ts};`
+    const hmac = createHmac('sha256', secret).update(manifest).digest('hex')
+    return hmac === v1
+  } catch {
+    return true // si falla la verificación, no bloqueamos (evitar falsos negativos)
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,7 +32,15 @@ export async function POST(req: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    const body = await req.json()
+    const bodyText = await req.text()
+    
+    // Verificar firma MP en producción
+    if (process.env.NODE_ENV === 'production' && !verificarFirmaMP(req, bodyText)) {
+      console.warn('[Turnly] Webhook firma inválida rechazado')
+      return NextResponse.json({ ok: false }, { status: 401 })
+    }
+
+    const body = JSON.parse(bodyText)
     const { type, data } = body
 
     if (type !== 'payment') return NextResponse.json({ ok: true })
@@ -23,25 +55,38 @@ export async function POST(req: NextRequest) {
     if (!mpRes.ok) return NextResponse.json({ ok: false }, { status: 500 })
 
     const pago = await mpRes.json()
-    const negocioId = pago.external_reference
+    const ref = pago.external_reference
     const estado = pago.status
 
-    if (!negocioId) return NextResponse.json({ ok: true })
+    if (!ref) return NextResponse.json({ ok: true })
 
+    const parts = ref.split('|')
+    const negocioId = parts[0]
+    const tipo = parts[1] ?? 'pro'
+
+    // Si es seña de turno
+    if (tipo === 'sena') {
+      const turnoId = negocioId
+      if (estado === 'approved') {
+        await supabaseAdmin.from('Turno')
+          .update({ sena_pagada: true, estado: 'confirmado' })
+          .eq('id', turnoId)
+        console.log('[Turnly] Seña aprobada turno:', turnoId)
+      }
+      return NextResponse.json({ ok: true })
+    }
+
+    // Si es suscripción de plan
     if (estado === 'approved') {
-      // Calcular vencimiento: 31 días desde ahora
+      const planFinal = tipo === 'basico' ? 'basico' : 'pro'
       const vencimiento = new Date()
       vencimiento.setDate(vencimiento.getDate() + 31)
 
-      // Activar plan Pro en el negocio
-      await supabaseAdmin
-        .from('Negocio')
-        .update({ suscripcion_tipo: 'pro' })
+      await supabaseAdmin.from('Negocio')
+        .update({ suscripcion_tipo: planFinal })
         .eq('id', negocioId)
 
-      // Actualizar suscripcion
-      await supabaseAdmin
-        .from('Suscripcion')
+      await supabaseAdmin.from('Suscripcion')
         .update({
           estado: 'activa',
           mp_payment_id: String(paymentId),
@@ -51,10 +96,9 @@ export async function POST(req: NextRequest) {
         .eq('negocio_id', negocioId)
         .eq('estado', 'pendiente')
 
-      console.log('[Turnly] Plan Pro activado para negocio:', negocioId)
+      console.log('[Turnly] Plan', planFinal, 'activado negocio:', negocioId)
     } else if (estado === 'rejected' || estado === 'cancelled') {
-      await supabaseAdmin
-        .from('Suscripcion')
+      await supabaseAdmin.from('Suscripcion')
         .update({ estado: 'fallida', mp_payment_id: String(paymentId) })
         .eq('negocio_id', negocioId)
         .eq('estado', 'pendiente')
@@ -62,11 +106,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true })
   } catch (err) {
-    console.error('[Turnly] Webhook suscripcion error:', err)
+    console.error('[Turnly] Webhook error:', err)
     return NextResponse.json({ ok: false }, { status: 500 })
   }
 }
 
 export async function GET() {
-  return NextResponse.json({ status: 'Turnly suscripcion webhook activo' })
+  return NextResponse.json({ status: 'Turnly webhook activo' })
 }

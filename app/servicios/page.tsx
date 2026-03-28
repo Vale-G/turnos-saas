@@ -5,8 +5,6 @@ import { getThemeColor } from '@/lib/theme'
 import { useRouter } from 'next/navigation'
 
 type ServicioItem = { id: string; nombre: string; precio: number; duracion: number }
-type Plan = 'normal' | 'pro'
-
 const MAX_SERVICIOS: Record<string, number> = { normal: 5, basico: 5, pro: 999, trial: 999 }
 
 export default function GestionServicios() {

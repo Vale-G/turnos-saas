@@ -5,8 +5,6 @@ import { getThemeColor } from '@/lib/theme'
 import { useRouter } from 'next/navigation'
 
 type StaffItem = { id: string; nombre: string; activo: boolean }
-type Plan = 'normal' | 'pro'
-
 const MAX_STAFF: Record<string, number> = { normal: 2, basico: 2, pro: 999, trial: 999 }
 
 export default function GestionStaff() {

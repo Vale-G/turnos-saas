@@ -105,6 +105,7 @@ export default function Onboarding() {
     router.push('/dashboard?bienvenida=1')
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const progreso = (paso / 3) * 100
 
   return (

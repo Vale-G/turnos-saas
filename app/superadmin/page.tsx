@@ -28,7 +28,7 @@ export default function SuperAdmin() {
   const [busqueda, setBusqueda] = useState('')
   const [vista, setVista] = useState<'negocios' | 'metricas' | 'config'>('metricas')
   const [negocioDetalle, setNegocioDetalle] = useState<string | null>(null)
-  const [pagosNegocio, setPagosNegocio] = useState<any[]>([])
+  const [pagosNegocio, setPagosNegocio] = useState<{id:string;plan:string;monto:number;estado:string;mp_payment_id?:string;mp_preference_id?:string;fecha_pago?:string;fecha_vencimiento?:string;created_at:string}[]>([])
   const [guardandoTrial, setGuardandoTrial] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [exito, setExito] = useState<string | null>(null)

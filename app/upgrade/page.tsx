@@ -52,7 +52,7 @@ function UpgradeContent() {
       if (byOwner) neg = byOwner
       else {
         const { data: byId } = await supabase.from('Negocio')
-          .select('nombre, tema, suscripcion_tipo').eq('id', user.id).single()
+          .select('nombre, tema, suscripcion_tipo').eq('owner_id', user.id).single()
         neg = byId
       }
       if (neg) { setNegocio(neg); setColorPrincipal(getThemeColor(neg.tema)) }

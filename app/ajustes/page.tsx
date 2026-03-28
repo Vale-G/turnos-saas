@@ -36,7 +36,7 @@ export default function AjustesNegocio() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      const { data } = await supabase.from('Negocio').select('*').eq('id', user.id).single()
+      const { data } = await supabase.from('Negocio').select('*').eq('owner_id', user.id).single()
 
       if (data) {
         setNombre(data.nombre || '')
@@ -65,7 +65,7 @@ export default function AjustesNegocio() {
         logo_url: logoUrl, hora_apertura: horaApertura, 
         hora_cierre: horaCierre, dias_laborales: diasLaborales 
       })
-      .eq('id', user?.id)
+      .eq('owner_id', user?.id)
 
     if (error) alert(error.message)
     else alert("¡Ajustes actualizados!")

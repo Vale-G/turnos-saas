@@ -44,7 +44,7 @@ export default function Onboarding() {
       if (byOwner) neg = byOwner
       else {
         const { data: byId } = await supabase.from('Negocio')
-          .select('id, nombre, tema, onboarding_completo').eq('id', user.id).single()
+          .select('id, nombre, tema, onboarding_completo').eq('owner_id', user.id).single()
         neg = byId
       }
       if (!neg) { router.push('/dashboard'); return }

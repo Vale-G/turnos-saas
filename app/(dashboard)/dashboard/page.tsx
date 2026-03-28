@@ -29,7 +29,7 @@ export default function DashboardPrincipal() {
       if (byOwner) {
         neg = byOwner
       } else {
-        const { data: byId } = await supabase.from('Negocio').select('*').eq('id', user.id).single()
+        const { data: byId } = await supabase.from('Negocio').select('*').eq('owner_id', user.id).single()
         neg = byId
       }
 

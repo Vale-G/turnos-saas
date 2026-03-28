@@ -235,6 +235,12 @@ export default function ReservaPro() {
         return
       }
     }
+    // Nombre completo obligatorio siempre
+    const nombreCompleto = (user?.user_metadata?.full_name ?? '').trim()
+    if (!nombreCompleto || nombreCompleto.split(' ').filter(Boolean).length < 2) {
+      setErrorMsg('Por favor ingresá tu nombre y apellido completo para reservar.')
+      return
+    }
     if (!user || !negocio || !sel.servicio || !sel.barbero) return
     setConfirmando(true)
     setErrorMsg(null)

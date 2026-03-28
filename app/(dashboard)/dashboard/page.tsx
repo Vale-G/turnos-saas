@@ -102,6 +102,13 @@ export default function DashboardPrincipal() {
       badge: null,
       proOnly: false,
     },
+    {
+      label: 'Bloqueos',
+      desc: 'Bloquear horarios.',
+      href: '/bloqueos',
+      badge: null,
+      proOnly: false,
+    },
   ]
 
   return (
@@ -190,10 +197,10 @@ export default function DashboardPrincipal() {
             <p className="text-slate-500 text-sm mt-0.5">Pegalo en tu Instagram.</p>
           </div>
           <button
-            onClick={() => negocio?.slug && navigator.clipboard.writeText('https://turnly.app/' + negocio.slug)}
+            onClick={() => negocio?.slug && navigator.clipboard.writeText((process.env.NEXT_PUBLIC_SITE_URL ?? 'https://turnos-saas-eight.vercel.app') + '/reservar/' + negocio.slug)}
             className="bg-black/50 px-5 py-3 rounded-xl border border-white/10 font-mono text-sm hover:border-white/25 transition-colors flex items-center gap-3 group"
             style={{ color: colorPrincipal }}>
-            {'turnly.app/' + negocio?.slug}
+            {'/reservar/' + negocio?.slug}
             <span className="text-[9px] text-slate-600 group-hover:text-white font-black uppercase transition-colors">
               copiar
             </span>

@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   title: 'Turnly — Reservas para tu negocio',
   description: 'Tus clientes reservan solos. Vos te concentrás en trabajar. Sistema de turnos online para barberías, peluquerías y más.',
   openGraph: {
-    title: 'Turnly',
+    title: 'Turnly by F&V Tech',
     description: 'Tus turnos, tu negocio.',
     type: 'website',
   },

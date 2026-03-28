@@ -32,13 +32,21 @@ export default function RegistroNegocio() {
 
     // PARTE 2: Guardar los datos de la peluquería en la tabla "Negocio"
     if (authData.user) {
+      const trialHasta = new Date()
+      trialHasta.setDate(trialHasta.getDate() + 30)
+
+      const slugFinal = slug.toLowerCase().trim().replace(/\s+/g, '-')
+
       const { error: dbError } = await supabase
         .from('Negocio')
         .insert([{
-          id: authData.user.id, // Vinculamos la cuenta con el negocio
+          owner_id: authData.user.id,
           nombre: nombreNegocio,
-          slug: slug.toLowerCase().trim().replace(/\s+/g, '-'), // Convierte "Mi Barber" en "mi-barber"
-          suscripcion_tipo: 'normal'
+          slug: slugFinal,
+          suscripcion_tipo: 'trial',
+          trial_hasta: trialHasta.toISOString(),
+          activo: true,
+          onboarding_completo: false,
         }])
 
       if (dbError) {

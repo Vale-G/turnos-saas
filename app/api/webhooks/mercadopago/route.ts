@@ -1,8 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createHmac } from 'crypto'
+
+function verificarFirmaMP(req: NextRequest): boolean {
+  const xSignature = req.headers.get('x-signature')
+  const xRequestId = req.headers.get('x-request-id')
+  if (!xSignature || !xRequestId) return false
+
+  const secret = process.env.MP_WEBHOOK_SECRET
+  if (!secret) return false
+
+  try {
+    const parts = Object.fromEntries(xSignature.split(',').map(p => p.split('=')))
+    const ts = parts.ts
+    const v1 = parts.v1
+    if (!ts || !v1) return false
+
+    const manifest = `id:${xRequestId};request-id:${xRequestId};ts:${ts};`
+    const hmac = createHmac('sha256', secret).update(manifest).digest('hex')
+    return hmac === v1
+  } catch {
+    return false
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
+    if (process.env.NODE_ENV === 'production' && !verificarFirmaMP(req)) {
+      return NextResponse.json({ ok: false }, { status: 401 })
+    }
+
     // Crear cliente adentro del handler — nunca en el módulo raíz
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

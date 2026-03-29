@@ -1,0 +1,17 @@
+<svg width="220" height="72" viewBox="0 0 220 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#E5E7EB"/>
+      <stop offset="45%" stop-color="#94A3B8"/>
+      <stop offset="100%" stop-color="#CBD5E1"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#60A5FA"/>
+      <stop offset="100%" stop-color="#1D4ED8"/>
+    </linearGradient>
+  </defs>
+  <rect x="1" y="1" width="218" height="70" rx="12" fill="#0B1220" stroke="#334155" stroke-width="2"/>
+  <text x="22" y="38" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="800" fill="url(#metal)">F&amp;</text>
+  <text x="90" y="38" font-family="Inter, Arial, sans-serif" font-size="34" font-weight="900" fill="url(#accent)">V</text>
+  <text x="22" y="58" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="700" letter-spacing="4" fill="url(#metal)">TECH</text>
+</svg>

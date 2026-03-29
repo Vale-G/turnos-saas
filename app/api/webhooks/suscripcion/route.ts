@@ -28,7 +28,8 @@ function verificarFirmaMP(req: NextRequest): boolean {
 }
 
 async function registerWebhookEvent(
-  supabaseAdmin: ReturnType<typeof createClient>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseAdmin: any,
   provider: string,
   eventKey: string,
   payload: unknown
@@ -107,7 +108,8 @@ export async function POST(req: NextRequest) {
         console.log('[Turnly] Seña aprobada turno:', turnoId)
       }
 
-      await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabaseAdmin as any)
         .from('webhook_event')
         .update({ processed_at: new Date().toISOString() })
         .eq('provider', 'mercadopago_subscription')
@@ -143,7 +145,8 @@ export async function POST(req: NextRequest) {
         .eq('estado', 'pendiente')
     }
 
-    await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabaseAdmin as any)
       .from('webhook_event')
       .update({ processed_at: new Date().toISOString() })
       .eq('provider', 'mercadopago_subscription')

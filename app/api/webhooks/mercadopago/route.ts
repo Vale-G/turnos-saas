@@ -28,7 +28,8 @@ function verificarFirmaMP(req: NextRequest): boolean {
 }
 
 async function registerWebhookEvent(
-  supabaseAdmin: ReturnType<typeof createClient>,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabaseAdmin: any,
   provider: string,
   eventKey: string,
   payload: unknown
@@ -102,7 +103,8 @@ export async function POST(req: NextRequest) {
       .update({ estado: estadoTurno[pago.status] ?? 'pendiente', pago_id: String(paymentId), pago_estado: pago.status })
       .eq('id', turnoId)
 
-    await supabaseAdmin
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabaseAdmin as any)
       .from('webhook_event')
       .update({ processed_at: new Date().toISOString() })
       .eq('provider', 'mercadopago_payment')

@@ -48,6 +48,7 @@ export default function ReservaPro() {
   const [errorMsg,    setErrorMsg]    = useState<string | null>(null)
   const [verPerfil,   setVerPerfil]   = useState(false)
   const [isDemoFallback, setIsDemoFallback] = useState(false)
+  const [negocioInactivo, setNegocioInactivo] = useState(false)
 
   // Cargar negocio
   useEffect(() => {
@@ -77,6 +78,11 @@ export default function ReservaPro() {
           ])
           setIsDemoFallback(true)
         }
+        setLoading(false)
+        return
+      }
+      if (neg.activo === false) {
+        setNegocioInactivo(true)
         setLoading(false)
         return
       }
@@ -345,9 +351,15 @@ export default function ReservaPro() {
     </div>
   )
   if (!negocio) return (
+    negocioInactivo ? (
+      <div className="min-h-screen bg-[#020617] flex items-center justify-center text-slate-300 font-bold text-center px-6">
+        Este negocio está temporalmente inactivo.
+      </div>
+    ) : (
     <div className="min-h-screen bg-[#020617] flex items-center justify-center text-slate-500 font-bold">
       Negocio no encontrado.
     </div>
+    )
   )
 
   return (

@@ -45,7 +45,7 @@ create policy negocio_owner_delete on public.negocio for delete using (owner_id 
 -- public business profile read for booking page (active only)
 create policy negocio_public_read_active on public.negocio
 for select
-using (activo = true);
+using (slug is not null);
 
 -- servicio/staff/bloquehorario by negocio owner
 create policy servicio_owner_all on public.servicio

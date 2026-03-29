@@ -123,9 +123,17 @@ export default function ReservaPro() {
   // Horarios ocupados
   useEffect(() => {
     if (!sel.barbero || !sel.fecha) return
-    supabase.from('turno').select('hora')
-      .eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha).not('estado', 'eq', 'cancelado')
-      .then(({ data }) => setOcupados((data ?? []).map((t: { hora: string }) => t.hora.slice(0, 5))))
+    let mounted = true
+    const cargarOcupados = async () => {
+      const { data } = await supabase.from('turno').select('hora')
+        .eq('staff_id', sel.barbero!.id).eq('fecha', sel.fecha).not('estado', 'eq', 'cancelado')
+      if (mounted) {
+        setOcupados((data ?? []).map((t: { hora: string }) => t.hora.slice(0, 5)))
+      }
+    }
+    void cargarOcupados()
+    const interval = setInterval(() => { void cargarOcupados() }, 15000)
+    return () => { mounted = false; clearInterval(interval) }
   }, [sel.barbero, sel.fecha])
 
   // Métricas
@@ -225,6 +233,8 @@ export default function ReservaPro() {
         .maybeSingle()
       if (existente) {
         setErrorMsg('Ese horario acaba de ocuparse. Elegí otro horario disponible.')
+        setOcupados(prev => prev.includes(sel.hora) ? prev : [...prev, sel.hora])
+        setSel(prev => ({ ...prev, hora: '' }))
         return
       }
 
@@ -313,6 +323,8 @@ export default function ReservaPro() {
         .maybeSingle()
       if (existente) {
         setErrorMsg('Ese horario acaba de ocuparse. Elegí otro horario disponible.')
+        setOcupados(prev => prev.includes(sel.hora) ? prev : [...prev, sel.hora])
+        setSel(prev => ({ ...prev, hora: '' }))
         return
       }
 

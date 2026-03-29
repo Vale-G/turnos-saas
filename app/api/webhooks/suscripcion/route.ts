@@ -6,22 +6,22 @@ function verificarFirmaMP(req: NextRequest, body: string): boolean {
   // MP envía x-signature: ts=...,v1=...
   const xSignature = req.headers.get('x-signature')
   const xRequestId = req.headers.get('x-request-id')
-  if (!xSignature || !xRequestId) return true // en sandbox no siempre vienen
+  if (!xSignature || !xRequestId) return false
   
   const secret = process.env.MP_WEBHOOK_SECRET
-  if (!secret) return true // si no hay secret configurado, pasamos (dev)
+  if (!secret) return false
 
   try {
     const parts = Object.fromEntries(xSignature.split(',').map(p => p.split('=')))
     const ts = parts['ts']
     const v1 = parts['v1']
-    if (!ts || !v1) return true
+    if (!ts || !v1) return false
 
     const manifest = `id:${xRequestId};request-id:${xRequestId};ts:${ts};`
     const hmac = createHmac('sha256', secret).update(manifest).digest('hex')
     return hmac === v1
   } catch {
-    return true // si falla la verificación, no bloqueamos (evitar falsos negativos)
+    return false
   }
 }
 
@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
       const turnoId = negocioId
       if (estado === 'approved') {
         await supabaseAdmin.from('turno')
-          .update({ sena_pagada: true, estado: 'confirmado' })
+          .update({ pago_estado: 'cobrado', estado: 'confirmado' })
           .eq('id', turnoId)
         console.log('[Turnly] Seña aprobada turno:', turnoId)
       }

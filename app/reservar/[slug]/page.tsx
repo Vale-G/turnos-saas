@@ -214,6 +214,20 @@ export default function ReservaPro() {
     setConfirmando(true)
     setErrorMsg(null)
     try {
+      const horaTurno = sel.hora + ':00'
+      const { data: existente } = await supabase.from('turno')
+        .select('id')
+        .eq('staff_id', sel.barbero.id)
+        .eq('fecha', sel.fecha)
+        .eq('hora', horaTurno)
+        .not('estado', 'eq', 'cancelado')
+        .limit(1)
+        .maybeSingle()
+      if (existente) {
+        setErrorMsg('Ese horario acaba de ocuparse. Elegí otro horario disponible.')
+        return
+      }
+
       if (isDemoFallback) {
         setTurnoId('demo-' + Date.now())
         setPaso(4)
@@ -224,7 +238,7 @@ export default function ReservaPro() {
         servicio_id: sel.servicio.id,
         staff_id: sel.barbero.id,
         fecha: sel.fecha,
-        hora: sel.hora + ':00',
+        hora: horaTurno,
         cliente_id: null,
         cliente_nombre: nombreFinal + (telFinal ? ' · ' + telFinal : ''),
         estado: 'pendiente',
@@ -286,6 +300,20 @@ export default function ReservaPro() {
     setConfirmando(true)
     setErrorMsg(null)
     try {
+      const horaTurno = sel.hora + ':00'
+      const { data: existente } = await supabase.from('turno')
+        .select('id')
+        .eq('staff_id', sel.barbero.id)
+        .eq('fecha', sel.fecha)
+        .eq('hora', horaTurno)
+        .not('estado', 'eq', 'cancelado')
+        .limit(1)
+        .maybeSingle()
+      if (existente) {
+        setErrorMsg('Ese horario acaba de ocuparse. Elegí otro horario disponible.')
+        return
+      }
+
       if (isDemoFallback) {
         setTurnoId('demo-' + Date.now())
         setPaso(4)
@@ -296,7 +324,7 @@ export default function ReservaPro() {
         servicio_id: sel.servicio.id,
         staff_id: sel.barbero.id,
         fecha: sel.fecha,
-        hora: sel.hora + ':00',
+        hora: horaTurno,
         cliente_id: user.id,
         cliente_nombre: nombreCompleto || user.email,
         estado: 'pendiente',

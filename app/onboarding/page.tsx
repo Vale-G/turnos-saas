@@ -77,10 +77,10 @@ export default function Onboarding() {
   const guardarPaso2 = async () => {
     if (!negocioId) return
     setLoading(true); setError(null)
-    const diasObj: Record<string, boolean> = {}
-    DIAS_KEYS.forEach(d => { diasObj[d] = diasActivos.includes(d) })
+    const _map: Record<string,number> = {domingo:0,lunes:1,martes:2,miercoles:3,jueves:4,viernes:5,sabado:6}
+    const diasNums = diasActivos.map(d => _map[d])
     const { error } = await supabase.from('Negocio').update({
-      dias_laborales: diasObj,
+      dias_laborales: diasNums,
       hora_apertura: horaApertura + ':00',
       hora_cierre: horaCierre + ':00',
       ...(whatsapp.trim() && { whatsapp: whatsapp.trim() }),

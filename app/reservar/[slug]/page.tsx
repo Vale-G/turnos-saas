@@ -165,7 +165,7 @@ export default function ReservaPro() {
 
   const loginGoogle = () => supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: getOAuthRedirectUrl('/reservar/' + slug) },
+    options: { redirectTo: getOAuthRedirectUrl('/auth/callback?next=/reservar/' + slug) },
   })
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

@@ -233,19 +233,21 @@ export default function ReservaPro() {
         setPaso(4)
         return
       }
-      const { data, error } = await supabase.from('turno').insert({
-        negocio_id: negocio.id,
-        servicio_id: sel.servicio.id,
-        staff_id: sel.barbero.id,
-        fecha: sel.fecha,
-        hora: horaTurno,
-        cliente_id: null,
-        cliente_nombre: nombreFinal + (telFinal ? ' · ' + telFinal : ''),
-        estado: 'pendiente',
-        pago_estado: 'pendiente',
-      }).select('id').single()
-      if (error || !data) throw new Error(error?.message ?? 'Error')
-      setTurnoId(data.id)
+      const response = await fetch('/api/public-turno', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          negocio_id: negocio.id,
+          servicio_id: sel.servicio.id,
+          staff_id: sel.barbero.id,
+          fecha: sel.fecha,
+          hora: horaTurno,
+          cliente_nombre: nombreFinal + (telFinal ? ' · ' + telFinal : ''),
+        }),
+      })
+      const payload = await response.json()
+      if (!response.ok || !payload?.id) throw new Error(payload?.error ?? 'Error')
+      setTurnoId(payload.id)
       // Guardar link WA del dueño para mostrarlo en paso 6 (no abrir automáticamente)
       if (negocio.whatsapp) {
         const waDueno = buildWhatsAppNuevoTurno({
@@ -257,7 +259,7 @@ export default function ReservaPro() {
           hora: sel.hora,
           negocioNombre: negocio.nombre,
         })
-        sessionStorage.setItem('turnly_wa_dueno_' + data.id, waDueno)
+        sessionStorage.setItem('turnly_wa_dueno_' + payload.id, waDueno)
       }
 
       if (negocio.whatsapp) {
@@ -270,7 +272,7 @@ export default function ReservaPro() {
           hora: sel.hora,
           negocioNombre: negocio.nombre,
         })
-        sessionStorage.setItem('turnly_wa_' + data.id, waUrl)
+        sessionStorage.setItem('turnly_wa_' + payload.id, waUrl)
       }
       setPaso(4)
     } catch (err) {

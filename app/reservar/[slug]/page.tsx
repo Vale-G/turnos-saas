@@ -266,7 +266,7 @@ export default function ReservaPro() {
     }
   }
 
-  const confirmarTurno = async () => {
+  const confirmarTurno = async (nombreCompletoManual?: string) => {
     // Verificar blacklist
     if (user && !isDemoFallback) {
       const { data: nota } = await supabase.from('clientenota')
@@ -277,7 +277,7 @@ export default function ReservaPro() {
       }
     }
     // Nombre completo obligatorio siempre
-    const nombreCompleto = (user?.user_metadata?.full_name ?? '').trim()
+    const nombreCompleto = (nombreCompletoManual ?? user?.user_metadata?.full_name ?? '').trim()
     if (!nombreCompleto || nombreCompleto.split(' ').filter(Boolean).length < 2) {
       setErrorMsg('Por favor ingresá tu nombre y apellido completo para reservar.')
       return
@@ -298,7 +298,7 @@ export default function ReservaPro() {
         fecha: sel.fecha,
         hora: sel.hora + ':00',
         cliente_id: user.id,
-        cliente_nombre: user.user_metadata?.full_name ?? user.email,
+        cliente_nombre: nombreCompleto || user.email,
         estado: 'pendiente',
         pago_estado: 'pendiente',
       }).select('id').single()
@@ -652,6 +652,7 @@ export default function ReservaPro() {
 
             <ConfirmarOGuest
               user={user}
+              userFullName={user?.user_metadata?.full_name ?? ''}
               colorP={colorP}
               confirmando={confirmando}
               errorMsg={errorMsg}
@@ -703,27 +704,46 @@ export default function ReservaPro() {
 }
 
 function ConfirmarOGuest({
-  user, colorP, confirmando, errorMsg, onConfirmar, onConfirmarGuest, onLoginGoogle
+  user, userFullName, colorP, confirmando, errorMsg, onConfirmar, onConfirmarGuest, onLoginGoogle
 }: {
   user: { email?: string } | null
+  userFullName: string
   colorP: string
   confirmando: boolean
   errorMsg: string | null
-  onConfirmar: () => void
+  onConfirmar: (nombreCompletoManual?: string) => void
   onConfirmarGuest: (nombre: string, tel: string) => void
   onLoginGoogle: () => void
 }) {
   const [modo, setModo] = useState<'google' | 'guest'>('google')
   const [nombre, setNombre] = useState('')
   const [tel, setTel] = useState('')
+  const [nombreCuenta, setNombreCuenta] = useState(userFullName)
+
+  useEffect(() => {
+    setNombreCuenta(userFullName)
+  }, [userFullName])
 
   if (user) return (
     <div className="space-y-3">
       <p className="text-[10px] text-slate-500 text-center">
         Reservando como <span className="text-white/60 font-bold">{user.email}</span>
       </p>
+      <div>
+        <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-2">
+          Nombre y apellido
+        </label>
+        <input
+          type="text"
+          value={nombreCuenta}
+          onChange={(e) => setNombreCuenta(e.target.value)}
+          placeholder="Ej: Valentina Gomez"
+          className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-white/25 transition-colors"
+        />
+      </div>
       {errorMsg && <p className="bg-red-500/10 border border-red-500/20 rounded-2xl px-4 py-3 text-red-400 text-sm font-bold">{errorMsg}</p>}
-      <button onClick={onConfirmar} disabled={confirmando}
+      <button onClick={() => onConfirmar(nombreCuenta)}
+        disabled={confirmando || nombreCuenta.trim().split(' ').filter(Boolean).length < 2}
         className="w-full py-5 rounded-[1.75rem] font-black italic text-lg text-black transition-all hover:opacity-90 disabled:opacity-50"
         style={{ backgroundColor: colorP }}>
         {confirmando ? 'Reservando...' : 'Confirmar Turno'}

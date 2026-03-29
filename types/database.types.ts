@@ -15,7 +15,7 @@ export type DiaSemana = 'L' | 'Ma' | 'Mi' | 'J' | 'V' | 'S' | 'D'
 // INTERFACES PRINCIPALES
 // ============================================
 
-export interface Negocio {
+export interface negocio {
   id: string
   nombre: string
   slug: string
@@ -42,9 +42,9 @@ export interface Negocio {
   last_activity_at: string
   
   // Relaciones (opcional, cuando se hace JOIN)
-  Servicio?: Servicio[]
-  Staff?: Staff[]
-  turnos?: Turno[]
+  servicio?: servicio[]
+  staff?: staff[]
+  turnos?: turno[]
   Egresos?: Egreso[]
 }
 
@@ -57,7 +57,7 @@ export interface UsuarioNegocio {
   created_at: string
 }
 
-export interface Servicio {
+export interface servicio {
   id: string
   negocio_id: string
   nombre: string
@@ -69,7 +69,7 @@ export interface Servicio {
   created_at: string
 }
 
-export interface Staff {
+export interface staff {
   id: string
   negocio_id: string
   user_id?: string
@@ -86,7 +86,7 @@ export interface Staff {
   created_at: string
 }
 
-export interface Turno {
+export interface turno {
   id: string
   negocio_id: string
   servicio_id: string
@@ -114,8 +114,8 @@ export interface Turno {
   cancelado_por?: string
   
   // Relaciones (cuando se hace JOIN)
-  Servicio?: Servicio
-  Staff?: Staff
+  servicio?: servicio
+  staff?: staff
 }
 
 export interface Egreso {
@@ -256,7 +256,7 @@ export interface MetricasSaaS {
   total_usuarios: number
 }
 
-export interface NegocioConMetricas extends Negocio {
+export interface NegocioConMetricas extends negocio {
   turnos_mes: number
   ingresos_mes: number
   ultima_actividad: string

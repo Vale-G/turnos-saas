@@ -2,14 +2,14 @@
 'use client'
 
 import { Fragment, useState, useMemo } from 'react'
-import { Turno, Staff } from '@/types/database.types'
+import { turno, staff } from '@/types/database.types'
 import { format, addDays, startOfWeek, isSameDay, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 
 interface CalendarioSemanalProps {
-  turnos: Turno[]
-  staff: Staff[]
-  onTurnoClick: (turno: Turno) => void
+  turnos: turno[]
+  staff: staff[]
+  onTurnoClick: (turno: turno) => void
   onSlotClick: (fecha: Date, staffId: string) => void
   colorPrimario?: string
 }
@@ -55,7 +55,7 @@ export default function CalendarioSemanal({
   }
   
   // Obtener color por estado
-  const getColorEstado = (estado: Turno['estado']) => {
+  const getColorEstado = (estado: turno['estado']) => {
     switch (estado) {
       case 'pendiente': return 'bg-yellow-500/20 border-yellow-500/40 text-yellow-200'
       case 'confirmado': return 'bg-green-500/20 border-green-500/40 text-green-200'
@@ -176,7 +176,7 @@ export default function CalendarioSemanal({
                               {turnosEnSlot[0].nombre_cliente}
                             </p>
                             <p className="text-[10px] opacity-70 mt-1">
-                              {turnosEnSlot[0].Servicio?.nombre}
+                              {turnosEnSlot[0].servicio?.nombre}
                             </p>
                           </div>
                         )}

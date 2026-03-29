@@ -23,7 +23,7 @@ export async function proxy(request: NextRequest) {
   )
 
   const { data: negocio } = await supabase
-    .from('Negocio')
+    .from('negocio')
     .select('activo')
     .eq('slug', slug)
     .single()

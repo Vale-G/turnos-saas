@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
     if (tipo === 'sena') {
       const turnoId = negocioId
       if (estado === 'approved') {
-        await supabaseAdmin.from('Turno')
+        await supabaseAdmin.from('turno')
           .update({ sena_pagada: true, estado: 'confirmado' })
           .eq('id', turnoId)
         console.log('[Turnly] Seña aprobada turno:', turnoId)
@@ -82,11 +82,11 @@ export async function POST(req: NextRequest) {
       const vencimiento = new Date()
       vencimiento.setDate(vencimiento.getDate() + 31)
 
-      await supabaseAdmin.from('Negocio')
+      await supabaseAdmin.from('negocio')
         .update({ suscripcion_tipo: planFinal })
         .eq('id', negocioId)
 
-      await supabaseAdmin.from('Suscripcion')
+      await supabaseAdmin.from('suscripcion')
         .update({
           estado: 'activa',
           mp_payment_id: String(paymentId),
@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
 
       console.log('[Turnly] Plan', planFinal, 'activado negocio:', negocioId)
     } else if (estado === 'rejected' || estado === 'cancelled') {
-      await supabaseAdmin.from('Suscripcion')
+      await supabaseAdmin.from('suscripcion')
         .update({ estado: 'fallida', mp_payment_id: String(paymentId) })
         .eq('negocio_id', negocioId)
         .eq('estado', 'pendiente')

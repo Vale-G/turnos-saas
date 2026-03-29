@@ -3,14 +3,15 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
+import { getNegocioDelUsuario } from '@/lib/getnegocio'
 
 type StatTurno = {
   fecha: string
   estado: string
   pago_estado: string | null
   pago_tipo: string | null
-  Servicio?: { nombre: string; precio: number }
-  Staff?: { nombre: string }
+  servicio?: { nombre: string; precio: number }
+  staff?: { nombre: string }
 }
 
 type Periodo = '7d' | '30d' | '90d'
@@ -29,13 +30,7 @@ export default function Informes() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      let neg = null
-      const { data: byOwner } = await supabase.from('Negocio').select('id, tema, suscripcion_tipo').eq('owner_id', user.id).single()
-      if (byOwner) neg = byOwner
-      else {
-        const { data: byId } = await supabase.from('Negocio').select('id, tema, suscripcion_tipo').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
-        neg = byId
-      }
+      const neg = await getNegocioDelUsuario(user.id)
 
       if (!neg) { router.push('/dashboard'); return }
       if (neg.suscripcion_tipo !== 'pro') { router.push('/dashboard'); return }
@@ -57,8 +52,8 @@ export default function Informes() {
       const desdeStr = desde.toISOString().split('T')[0]
 
       const { data } = await supabase
-        .from('Turno')
-        .select('fecha, estado, pago_estado, pago_tipo, Servicio(nombre, precio), Staff(nombre)')
+        .from('turno')
+        .select('fecha, estado, pago_estado, pago_tipo, servicio(nombre, precio), staff(nombre)')
         .eq('negocio_id', negocioId)
         .gte('fecha', desdeStr)
         .order('fecha', { ascending: true })
@@ -72,14 +67,14 @@ export default function Informes() {
   // Métricas
   const activos = turnos.filter(t => t.estado !== 'cancelado')
   const cobrados = turnos.filter(t => t.pago_estado === 'cobrado')
-  const totalIngreso = cobrados.reduce((s, t) => s + (t.Servicio?.precio ?? 0), 0)
+  const totalIngreso = cobrados.reduce((s, t) => s + (t.servicio?.precio ?? 0), 0)
   const ticketPromedio = cobrados.length ? totalIngreso / cobrados.length : 0
 
   // Servicios más pedidos
   const porServicio: Record<string, { count: number; ingreso: number }> = {}
   activos.forEach(t => {
-    const n = t.Servicio?.nombre ?? 'Sin servicio'
-    const p = t.Servicio?.precio ?? 0
+    const n = t.servicio?.nombre ?? 'Sin servicio'
+    const p = t.servicio?.precio ?? 0
     if (!porServicio[n]) porServicio[n] = { count: 0, ingreso: 0 }
     porServicio[n].count++
     if (t.pago_estado === 'cobrado') porServicio[n].ingreso += p
@@ -91,7 +86,7 @@ export default function Informes() {
   // Barbero más activo
   const porBarbero: Record<string, number> = {}
   activos.forEach(t => {
-    const n = t.Staff?.nombre ?? 'Sin asignar'
+    const n = t.staff?.nombre ?? 'Sin asignar'
     porBarbero[n] = (porBarbero[n] ?? 0) + 1
   })
   const barberoRanking = Object.entries(porBarbero).sort((a, b) => b[1] - a[1])
@@ -106,7 +101,7 @@ export default function Informes() {
   // Ingresos por día (para sparkline)
   const porDia: Record<string, number> = {}
   cobrados.forEach(t => {
-    porDia[t.fecha] = (porDia[t.fecha] ?? 0) + (t.Servicio?.precio ?? 0)
+    porDia[t.fecha] = (porDia[t.fecha] ?? 0) + (t.servicio?.precio ?? 0)
   })
   const diasOrdenados = Object.entries(porDia).sort((a, b) => a[0].localeCompare(b[0]))
   const maxDia = Math.max(...diasOrdenados.map(d => d[1]), 1)

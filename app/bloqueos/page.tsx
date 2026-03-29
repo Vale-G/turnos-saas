@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
+import { getNegocioDelUsuario } from '@/lib/getnegocio'
 import { useRouter } from 'next/navigation'
 
 type Bloqueo = {
@@ -26,7 +27,7 @@ export default function Bloqueos() {
   const router = useRouter()
 
   const cargar = useCallback(async (nId: string) => {
-    const { data } = await supabase.from('BloqueHorario')
+    const { data } = await supabase.from('bloquehorario')
       .select('*').eq('negocio_id', nId).order('created_at', { ascending: false })
     setBloqueos(data ?? [])
   }, [])
@@ -35,10 +36,7 @@ export default function Bloqueos() {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
-      let neg = null
-      const { data: byOwner } = await supabase.from('Negocio').select('id, tema').eq('owner_id', user.id).single()
-      if (byOwner) neg = byOwner
-      else { const { data: byId } = await supabase.from('Negocio').select('id, tema').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single(); neg = byId }
+      const neg = await getNegocioDelUsuario(user.id)
       if (!neg) { router.push('/dashboard'); return }
       setNegocioId(neg.id)
       setColorP(getThemeColor(neg.tema))
@@ -53,7 +51,7 @@ export default function Bloqueos() {
     if (!negocioId) return
     setError(null)
     if (horaInicio >= horaFin) { setError('La hora de fin debe ser mayor que la de inicio'); return }
-    const { error } = await supabase.from('BloqueHorario').insert({
+    const { error } = await supabase.from('bloquehorario').insert({
       negocio_id: negocioId,
       hora_inicio: horaInicio,
       hora_fin: horaFin,
@@ -70,7 +68,7 @@ export default function Bloqueos() {
 
   const eliminar = async (id: string) => {
     if (!negocioId || !confirm('Eliminar bloqueo?')) return
-    await supabase.from('BloqueHorario').delete().eq('id', id)
+    await supabase.from('bloquehorario').delete().eq('id', id)
     await cargar(negocioId)
   }
 

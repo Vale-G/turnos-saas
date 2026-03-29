@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import { getNegocioDelUsuario } from '@/lib/getnegocio'
  
 const TEMAS = [
   { id: 'emerald', nombre: 'Esmeralda', color: '#10b981' },
@@ -38,13 +39,8 @@ export default function AjustesNegocio() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
  
-      // FIX: una sola query, sin duplicado
-      const { data } = await supabase
-        .from('Negocio')
-        .select('*')
-        .eq('owner_id', user.id)
-        .single()
- 
+      const data = await getNegocioDelUsuario(user.id)
+
       if (data) {
         setNegocioId(data.id)
         setNombre(data.nombre || '')
@@ -64,12 +60,13 @@ export default function AjustesNegocio() {
  
   const guardarAjustes = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!negocioId) return
     setGuardando(true)
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
  
     const { error } = await supabase
-      .from('Negocio')
+      .from('negocio')
       .update({
         nombre,
         whatsapp,
@@ -80,7 +77,7 @@ export default function AjustesNegocio() {
         hora_cierre: horaCierre,
         dias_laborales: diasLaborales,
       })
-      .eq('owner_id', user.id)
+      .eq('id', negocioId)
  
     if (error) alert(error.message)
     else alert('¡Ajustes actualizados!')

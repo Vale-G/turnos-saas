@@ -17,7 +17,7 @@ export default function Landing() {
 
   React.useEffect(() => {
     import('@/lib/supabase').then(({ supabase }) => {
-      supabase.from('Config').select('clave, valor')
+      supabase.from('config').select('clave, valor')
         .in('clave', ['precio_basico', 'precio_pro'])
         .then(({ data }) => {
           if (data) {

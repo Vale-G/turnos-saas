@@ -19,7 +19,7 @@ type Negocio = {
 }
 type Servicio = { id: string; nombre: string; precio: number; duracion: number }
 type Staff    = { id: string; nombre: string; avatar_url?: string | null }
-type Turno    = { id: string; fecha: string; hora: string; estado: string; Servicio?: { nombre: string; precio: number } }
+type Turno    = { id: string; fecha: string; hora: string; estado: string; servicio?: { nombre: string; precio: number } }
 type Sel      = { servicio: Servicio | null; barbero: Staff | null; fecha: string; hora: string }
 
 const PASO_LABELS = ['Servicio', 'Turno', 'Confirmar']
@@ -50,12 +50,12 @@ export default function ReservaPro() {
   // Cargar negocio
   useEffect(() => {
     async function init() {
-      const { data: neg } = await supabase.from('Negocio').select('*').eq('slug', slug).single()
+      const { data: neg } = await supabase.from('negocio').select('*').eq('slug', slug).single()
       if (!neg) { setLoading(false); return }
       setNegocio(neg)
       const [{ data: svcs }, { data: stf }] = await Promise.all([
-        supabase.from('Servicio').select('*').eq('negocio_id', neg.id),
-        supabase.from('Staff').select('*').eq('negocio_id', neg.id).eq('activo', true),
+        supabase.from('servicio').select('*').eq('negocio_id', neg.id),
+        supabase.from('staff').select('*').eq('negocio_id', neg.id).eq('activo', true),
       ])
       setServicios(svcs ?? [])
       setStaffList(stf ?? [])
@@ -67,8 +67,8 @@ export default function ReservaPro() {
   // Auth
   const cargarMisTurnos = useCallback(async (userId: string) => {
     const { data } = await supabase
-      .from('Turno')
-      .select('id, fecha, hora, estado, Servicio(nombre, precio)')
+      .from('turno')
+      .select('id, fecha, hora, estado, servicio(nombre, precio)')
       .eq('cliente_id', userId)
       .order('fecha', { ascending: false })
       .limit(8)
@@ -89,7 +89,7 @@ export default function ReservaPro() {
   // Horarios ocupados
   useEffect(() => {
     if (!sel.barbero || !sel.fecha) return
-    supabase.from('Turno').select('hora')
+    supabase.from('turno').select('hora')
       .eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha).not('estado', 'eq', 'cancelado')
       .then(({ data }) => setOcupados((data ?? []).map((t: { hora: string }) => t.hora.slice(0, 5))))
   }, [sel.barbero, sel.fecha])
@@ -103,13 +103,13 @@ export default function ReservaPro() {
       t.fecha >= new Date().toISOString().split('T')[0]
     )
     const frecuencia: Record<string, number> = {}
-    completados.forEach(t => { const n = t.Servicio?.nombre ?? '?'; frecuencia[n] = (frecuencia[n] ?? 0) + 1 })
+    completados.forEach(t => { const n = t.servicio?.nombre ?? '?'; frecuencia[n] = (frecuencia[n] ?? 0) + 1 })
     const favorito = Object.entries(frecuencia).sort((a, b) => b[1] - a[1])[0]?.[0]
     return {
       totalVisitas: completados.length,
       proximoTurno: proximos[0] ?? null,
       favorito,
-      totalGastado: completados.reduce((s, t) => s + (t.Servicio?.precio ?? 0), 0),
+      totalGastado: completados.reduce((s, t) => s + (t.servicio?.precio ?? 0), 0),
     }
   }, [misTurnos])
 
@@ -180,7 +180,7 @@ export default function ReservaPro() {
     setConfirmando(true)
     setErrorMsg(null)
     try {
-      const { data, error } = await supabase.from('Turno').insert({
+      const { data, error } = await supabase.from('turno').insert({
         negocio_id: negocio.id,
         servicio_id: sel.servicio.id,
         staff_id: sel.barbero.id,
@@ -230,7 +230,7 @@ export default function ReservaPro() {
   const confirmarTurno = async () => {
     // Verificar blacklist
     if (user) {
-      const { data: nota } = await supabase.from('ClienteNota')
+      const { data: nota } = await supabase.from('clientenota')
         .select('bloqueado').eq('negocio_id', negocio!.id).eq('cliente_id', user.id).single()
       if (nota?.bloqueado) {
         setErrorMsg('No podés reservar en este negocio. Contactá al local para más información.')
@@ -247,7 +247,7 @@ export default function ReservaPro() {
     setConfirmando(true)
     setErrorMsg(null)
     try {
-      const { data, error } = await supabase.from('Turno').insert({
+      const { data, error } = await supabase.from('turno').insert({
         negocio_id: negocio.id,
         servicio_id: sel.servicio.id,
         staff_id: sel.barbero.id,
@@ -413,7 +413,7 @@ export default function ReservaPro() {
                 <div className="rounded-2xl p-4 mb-4 border"
                   style={{ background: colorP + '10', borderColor: colorP + '30' }}>
                   <p className="text-[9px] font-black uppercase tracking-widest mb-1" style={{ color: colorP }}>Proximo turno</p>
-                  <p className="font-black">{metricas.proximoTurno.Servicio?.nombre ?? 'Servicio'}</p>
+                  <p className="font-black">{metricas.proximoTurno.servicio?.nombre ?? 'Servicio'}</p>
                   <p className="text-slate-400 text-xs mt-0.5">
                     {metricas.proximoTurno.fecha} a las {metricas.proximoTurno.hora.slice(0, 5)} hs
                   </p>
@@ -430,7 +430,7 @@ export default function ReservaPro() {
                     <div key={t.id}
                       className="flex items-center justify-between bg-white/4 border border-white/8 rounded-xl px-4 py-3">
                       <div>
-                        <p className="text-xs font-black">{t.Servicio?.nombre ?? '-'}</p>
+                        <p className="text-xs font-black">{t.servicio?.nombre ?? '-'}</p>
                         <p className="text-[10px] text-slate-500">{t.fecha} · {t.hora.slice(0, 5)} hs</p>
                       </div>
                       <span className={badge.bg + ' text-[9px] font-black uppercase px-2 py-1 rounded-full text-black'}>

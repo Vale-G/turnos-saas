@@ -3,10 +3,20 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
+import { getNegocioDelUsuario } from '@/lib/getnegocio'
 import Image from 'next/image'
 
 const DIAS = ['Lunes','Martes','Miercoles','Jueves','Viernes','Sabado','Domingo']
-const DIAS_KEYS = ['lunes','martes','miercoles','jueves','viernes','sabado','domingo']
+const DIAS_KEYS = ['lunes','martes','miercoles','jueves','viernes','sabado','domingo'] as const
+const DIA_TO_POSTGRES_DOW: Record<string, number> = {
+  lunes: 1,
+  martes: 2,
+  miercoles: 3,
+  jueves: 4,
+  viernes: 5,
+  sabado: 6,
+  domingo: 0,
+}
 
 export default function Onboarding() {
   const [paso, setPaso] = useState(1)
@@ -38,15 +48,7 @@ export default function Onboarding() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      let neg = null
-      const { data: byOwner } = await supabase.from('Negocio')
-        .select('id, nombre, tema, onboarding_completo').eq('owner_id', user.id).single()
-      if (byOwner) neg = byOwner
-      else {
-        const { data: byId } = await supabase.from('Negocio')
-          .select('id, nombre, tema, onboarding_completo').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
-        neg = byId
-      }
+      const neg = await getNegocioDelUsuario(user.id)
       if (!neg) { router.push('/dashboard'); return }
       if (neg.onboarding_completo) { router.push('/dashboard'); return }
 
@@ -66,7 +68,7 @@ export default function Onboarding() {
   const guardarPaso1 = async () => {
     if (!negocioId || !nombre.trim()) return
     setLoading(true); setError(null)
-    const { error } = await supabase.from('Negocio').update({
+    const { error } = await supabase.from('negocio').update({
       nombre: nombre.trim(),
       ...(logoUrl.trim() && { logo_url: logoUrl.trim() }),
     }).eq('id', negocioId)
@@ -77,10 +79,11 @@ export default function Onboarding() {
   const guardarPaso2 = async () => {
     if (!negocioId) return
     setLoading(true); setError(null)
-    const diasObj: Record<string, boolean> = {}
-    DIAS_KEYS.forEach(d => { diasObj[d] = diasActivos.includes(d) })
-    const { error } = await supabase.from('Negocio').update({
-      dias_laborales: diasObj,
+    const diasLaborales = diasActivos
+      .map((dia) => DIA_TO_POSTGRES_DOW[dia])
+      .filter((dia) => typeof dia === 'number')
+    const { error } = await supabase.from('negocio').update({
+      dias_laborales: diasLaborales,
       hora_apertura: horaApertura + ':00',
       hora_cierre: horaCierre + ':00',
       ...(whatsapp.trim() && { whatsapp: whatsapp.trim() }),
@@ -93,7 +96,7 @@ export default function Onboarding() {
     if (!negocioId) return
     setLoading(true); setError(null)
     if (servicioNombre.trim() && servicioPrecio) {
-      const { error } = await supabase.from('Servicio').insert({
+      const { error } = await supabase.from('servicio').insert({
         negocio_id: negocioId,
         nombre: servicioNombre.trim(),
         precio: parseFloat(servicioPrecio),
@@ -101,7 +104,7 @@ export default function Onboarding() {
       })
       if (error) { setError(error.message); setLoading(false); return }
     }
-    await supabase.from('Negocio').update({ onboarding_completo: true }).eq('id', negocioId)
+    await supabase.from('negocio').update({ onboarding_completo: true }).eq('id', negocioId)
     setLoading(false)
     router.push('/dashboard?bienvenida=1')
   }

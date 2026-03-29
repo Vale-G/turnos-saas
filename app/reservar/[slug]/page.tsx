@@ -124,16 +124,28 @@ export default function ReservaPro() {
   useEffect(() => {
     if (!sel.barbero || !sel.fecha) return
     let mounted = true
+    const staffId = sel.barbero.id
+    const fecha = sel.fecha
     const cargarOcupados = async () => {
       const { data } = await supabase.from('turno').select('hora')
-        .eq('staff_id', sel.barbero!.id).eq('fecha', sel.fecha).not('estado', 'eq', 'cancelado')
+        .eq('staff_id', staffId).eq('fecha', fecha).not('estado', 'eq', 'cancelado')
       if (mounted) {
         setOcupados((data ?? []).map((t: { hora: string }) => t.hora.slice(0, 5)))
       }
     }
     void cargarOcupados()
+    const channel = supabase
+      .channel(`turnos-ocupados-${staffId}-${fecha}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'turno' }, () => {
+        void cargarOcupados()
+      })
+      .subscribe()
     const interval = setInterval(() => { void cargarOcupados() }, 15000)
-    return () => { mounted = false; clearInterval(interval) }
+    return () => {
+      mounted = false
+      clearInterval(interval)
+      void supabase.removeChannel(channel)
+    }
   }, [sel.barbero, sel.fecha])
 
   // Métricas

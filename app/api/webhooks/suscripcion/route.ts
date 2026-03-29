@@ -2,19 +2,21 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createHmac } from 'crypto'
 
-function verificarFirmaMP(req: NextRequest, body: string): boolean {
-  // MP envía x-signature: ts=...,v1=...
+import { consumeRateLimit } from '@/lib/rate-limit'
+import { getClientIp } from '@/lib/request-security'
+
+function verificarFirmaMP(req: NextRequest): boolean {
   const xSignature = req.headers.get('x-signature')
   const xRequestId = req.headers.get('x-request-id')
   if (!xSignature || !xRequestId) return false
-  
+
   const secret = process.env.MP_WEBHOOK_SECRET
   if (!secret) return false
 
   try {
     const parts = Object.fromEntries(xSignature.split(',').map(p => p.split('=')))
-    const ts = parts['ts']
-    const v1 = parts['v1']
+    const ts = parts.ts
+    const v1 = parts.v1
     if (!ts || !v1) return false
 
     const manifest = `id:${xRequestId};request-id:${xRequestId};ts:${ts};`
@@ -25,22 +27,46 @@ function verificarFirmaMP(req: NextRequest, body: string): boolean {
   }
 }
 
+async function registerWebhookEvent(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  provider: string,
+  eventKey: string,
+  payload: unknown
+) {
+  const { error } = await supabaseAdmin
+    .from('webhook_event')
+    .insert({ provider, event_key: eventKey, payload })
+
+  if (!error) {
+    return { ok: true, duplicated: false }
+  }
+
+  if (error.code === '23505') {
+    return { ok: true, duplicated: true }
+  }
+
+  return { ok: false, duplicated: false }
+}
+
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req)
+    const rate = consumeRateLimit(`webhook-subscription:${ip}`, 120, 60_000)
+    if (!rate.ok) {
+      return NextResponse.json({ ok: false }, { status: 429 })
+    }
+
+    if (process.env.NODE_ENV === 'production' && !verificarFirmaMP(req)) {
+      console.warn('[Turnly] Webhook firma inválida rechazado')
+      return NextResponse.json({ ok: false }, { status: 401 })
+    }
+
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    const bodyText = await req.text()
-    
-    // Verificar firma MP en producción
-    if (process.env.NODE_ENV === 'production' && !verificarFirmaMP(req, bodyText)) {
-      console.warn('[Turnly] Webhook firma inválida rechazado')
-      return NextResponse.json({ ok: false }, { status: 401 })
-    }
-
-    const body = JSON.parse(bodyText)
+    const body = await req.json()
     const { type, data } = body
 
     if (type !== 'payment') return NextResponse.json({ ok: true })
@@ -48,7 +74,15 @@ export async function POST(req: NextRequest) {
     const paymentId = data?.id
     if (!paymentId) return NextResponse.json({ ok: true })
 
-    // Consultar el pago a MP
+    const eventKey = req.headers.get('x-request-id') ?? `payment:${String(paymentId)}`
+    const registration = await registerWebhookEvent(supabaseAdmin, 'mercadopago_subscription', eventKey, body)
+    if (!registration.ok) {
+      return NextResponse.json({ ok: false }, { status: 500 })
+    }
+    if (registration.duplicated) {
+      return NextResponse.json({ ok: true, duplicated: true })
+    }
+
     const mpRes = await fetch('https://api.mercadopago.com/v1/payments/' + paymentId, {
       headers: { Authorization: 'Bearer ' + process.env.MP_ACCESS_TOKEN },
     })
@@ -64,7 +98,6 @@ export async function POST(req: NextRequest) {
     const negocioId = parts[0]
     const tipo = parts[1] ?? 'pro'
 
-    // Si es seña de turno
     if (tipo === 'sena') {
       const turnoId = negocioId
       if (estado === 'approved') {
@@ -73,10 +106,16 @@ export async function POST(req: NextRequest) {
           .eq('id', turnoId)
         console.log('[Turnly] Seña aprobada turno:', turnoId)
       }
+
+      await supabaseAdmin
+        .from('webhook_event')
+        .update({ processed_at: new Date().toISOString() })
+        .eq('provider', 'mercadopago_subscription')
+        .eq('event_key', eventKey)
+
       return NextResponse.json({ ok: true })
     }
 
-    // Si es suscripción de plan
     if (estado === 'approved') {
       const planFinal = tipo === 'basico' ? 'basico' : 'pro'
       const vencimiento = new Date()
@@ -103,6 +142,12 @@ export async function POST(req: NextRequest) {
         .eq('negocio_id', negocioId)
         .eq('estado', 'pendiente')
     }
+
+    await supabaseAdmin
+      .from('webhook_event')
+      .update({ processed_at: new Date().toISOString() })
+      .eq('provider', 'mercadopago_subscription')
+      .eq('event_key', eventKey)
 
     return NextResponse.json({ ok: true })
   } catch (err) {

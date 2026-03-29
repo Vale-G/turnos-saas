@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createHmac } from 'crypto'
 
+import { consumeRateLimit } from '@/lib/rate-limit'
+import { getClientIp } from '@/lib/request-security'
+
 function verificarFirmaMP(req: NextRequest): boolean {
   const xSignature = req.headers.get('x-signature')
   const xRequestId = req.headers.get('x-request-id')
@@ -24,13 +27,39 @@ function verificarFirmaMP(req: NextRequest): boolean {
   }
 }
 
+async function registerWebhookEvent(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  provider: string,
+  eventKey: string,
+  payload: unknown
+) {
+  const { error } = await supabaseAdmin
+    .from('webhook_event')
+    .insert({ provider, event_key: eventKey, payload })
+
+  if (!error) {
+    return { ok: true, duplicated: false }
+  }
+
+  if (error.code === '23505') {
+    return { ok: true, duplicated: true }
+  }
+
+  return { ok: false, duplicated: false }
+}
+
 export async function POST(req: NextRequest) {
   try {
+    const ip = getClientIp(req)
+    const rate = consumeRateLimit(`webhook-mp:${ip}`, 120, 60_000)
+    if (!rate.ok) {
+      return NextResponse.json({ ok: false }, { status: 429 })
+    }
+
     if (process.env.NODE_ENV === 'production' && !verificarFirmaMP(req)) {
       return NextResponse.json({ ok: false }, { status: 401 })
     }
 
-    // Crear cliente adentro del handler — nunca en el módulo raíz
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -42,6 +71,15 @@ export async function POST(req: NextRequest) {
 
     const paymentId = data?.id
     if (!paymentId) return NextResponse.json({ ok: true })
+
+    const eventKey = req.headers.get('x-request-id') ?? `payment:${String(paymentId)}`
+    const registration = await registerWebhookEvent(supabaseAdmin, 'mercadopago_payment', eventKey, body)
+    if (!registration.ok) {
+      return NextResponse.json({ ok: false }, { status: 500 })
+    }
+    if (registration.duplicated) {
+      return NextResponse.json({ ok: true, duplicated: true })
+    }
 
     const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
       headers: { Authorization: `Bearer ${process.env.MP_ACCESS_TOKEN}` },
@@ -63,6 +101,12 @@ export async function POST(req: NextRequest) {
       .from('turno')
       .update({ estado: estadoTurno[pago.status] ?? 'pendiente', pago_id: String(paymentId), pago_estado: pago.status })
       .eq('id', turnoId)
+
+    await supabaseAdmin
+      .from('webhook_event')
+      .update({ processed_at: new Date().toISOString() })
+      .eq('provider', 'mercadopago_payment')
+      .eq('event_key', eventKey)
 
     return NextResponse.json({ ok: true })
   } catch (err) {

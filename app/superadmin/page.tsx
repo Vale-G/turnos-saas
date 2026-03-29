@@ -69,12 +69,12 @@ export default function SuperAdmin() {
       const isWhitelistedEmail = SUPERADMIN_EMAILS.includes((user.email ?? '').toLowerCase())
       let isSuperadminByRole = false
 
-      const { data: rol } = await supabase
+      const { data: roleRow } = await supabase
         .from('adminrol')
-        .select('rol')
+        .select('role')
         .eq('user_id', user.id)
         .single()
-      isSuperadminByRole = rol?.rol === 'superadmin'
+      isSuperadminByRole = roleRow?.role === 'superadmin'
 
       if (!isWhitelistedEmail && !isSuperadminByRole) {
         router.push('/dashboard')

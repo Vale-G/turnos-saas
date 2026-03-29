@@ -24,10 +24,10 @@ export async function proxy(request: NextRequest) {
     const isWhitelistedEmail = SUPERADMIN_EMAILS.includes((user.email ?? '').toLowerCase())
     const { data: admin } = await supabase
       .from('adminrol')
-      .select('rol')
+      .select('role')
       .eq('user_id', user.id)
       .single()
-    const isSuperadminByRole = admin?.rol === 'superadmin'
+    const isSuperadminByRole = admin?.role === 'superadmin'
 
     if (!isWhitelistedEmail && !isSuperadminByRole) {
       return NextResponse.redirect(new URL('/dashboard', request.url))

@@ -36,12 +36,28 @@ alter table if exists public.adminrol enable row level security;
 alter table if exists public.bloquehorario enable row level security;
 alter table if exists public.clientenota enable row level security;
 
+-- 3.1) If legacy column name exists, rename adminrol.rol -> adminrol.role
+do $$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public' and table_name = 'adminrol' and column_name = 'rol'
+  ) and not exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public' and table_name = 'adminrol' and column_name = 'role'
+  ) then
+    alter table public.adminrol rename column rol to role;
+  end if;
+end $$;
+
 -- 4) Ensure superadmin bootstrap row for configured email if account exists
-insert into public.adminrol (user_id, rol)
+insert into public.adminrol (user_id, role)
 select id, 'superadmin'
 from auth.users
 where email = 'valepro50020@gmail.com'
-on conflict (user_id) do update set rol = excluded.rol;
+on conflict (user_id) do update set role = excluded.role;
 
 -- 5) Baseline config keys (safe upsert)
 insert into public.config (clave, valor, descripcion) values

@@ -118,7 +118,7 @@ create policy config_public_read on public.config for select using (true);
 -- only superadmin role can write config/adminrol
 create policy config_superadmin_write on public.config
 for all
-using (exists (select 1 from public.adminrol a where a.user_id = auth.uid() and a.rol = 'superadmin'))
-with check (exists (select 1 from public.adminrol a where a.user_id = auth.uid() and a.rol = 'superadmin'));
+using (exists (select 1 from public.adminrol a where a.user_id = auth.uid() and a.role = 'superadmin'))
+with check (exists (select 1 from public.adminrol a where a.user_id = auth.uid() and a.role = 'superadmin'));
 
 commit;

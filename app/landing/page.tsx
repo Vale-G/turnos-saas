@@ -1,7 +1,6 @@
 'use client'
 import React from 'react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
 
 const FEATURES = [
   { icon: '📅', titulo: 'Reservas 24/7', desc: 'Tus clientes reservan desde el celular a cualquier hora, sin llamarte.' },
@@ -35,14 +34,10 @@ export default function Landing() {
 
       {/* Nav */}
       <nav className="flex items-center justify-between px-6 py-5 max-w-5xl mx-auto">
-        <div className="flex items-center gap-3">
-          <Image src="/fv-tech-logo.svg" alt="F&V TECH" width={72} height={24} className="h-9 w-auto" priority />
-          <div className="flex flex-col items-start">
-          <span className="text-xl font-black italic tracking-tighter">
+        <div className="flex items-center gap-2">
+          <span className="text-2xl font-black italic tracking-tighter">
             turn<span className="text-[#6366F1]">ly</span>
           </span>
-          <span className="text-[8px] font-black uppercase tracking-widest text-slate-600" style={{letterSpacing: '0.15em'}}>by F&amp;V Tech</span>
-        </div>
         </div>
         <div className="flex items-center gap-3">
           <button onClick={() => router.push('/login')}
@@ -218,10 +213,7 @@ export default function Landing() {
             Empezá hoy. Es gratis.
           </h2>
           <p className="text-slate-400 mb-6">30 días con todo el plan Pro incluido. Sin tarjeta. Sin compromiso.</p>
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <Image src="/fv-tech-logo.svg" alt="F&V TECH" width={90} height={30} className="h-7 w-auto opacity-90" />
-            <p className="text-slate-600 text-xs">Desarrollado con ❤️ por <span className="text-[#6366F1] font-bold">F&amp;V TECH</span></p>
-          </div>
+          <p className="text-slate-600 text-xs mb-4">Configuración en menos de 10 minutos y soporte para dejarlo funcionando.</p>
           <button onClick={() => router.push('/registro-negocio')}
             className="bg-[#6366F1] hover:opacity-90 text-white font-black italic text-lg px-10 py-4 rounded-2xl transition-opacity">
             Crear mi cuenta gratis
@@ -231,11 +223,8 @@ export default function Landing() {
 
       {/* Footer */}
       <footer className="border-t border-white/5 px-6 py-8 text-center">
-        <div className="flex items-center justify-center gap-3 mb-3">
-          <Image src="/fv-tech-logo.svg" alt="F&V TECH" width={80} height={24} className="h-6 w-auto opacity-90" />
-          <span className="font-black italic">turn<span className="text-[#6366F1]">ly</span></span>
-        </div>
-        <p className="text-slate-600 text-xs">Tus turnos, tu negocio. · Desarrollado por <span className="text-[#6366F1] font-bold">F&amp;V Tech</span> 🇦🇷</p>
+        <p className="font-black italic mb-2">turn<span className="text-[#6366F1]">ly</span></p>
+        <p className="text-slate-600 text-xs">Tus turnos, tu negocio.</p>
       </footer>
 
     </div>

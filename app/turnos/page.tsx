@@ -24,6 +24,7 @@ export default function AgendaTurnos() {
   const [vista, setVista] = useState<Vista>('dia')
   const [loading, setLoading] = useState(true)
   const [reloadKey, setReloadKey] = useState(0)
+  const [busqueda, setBusqueda] = useState('')
   const [turnoEditando, setTurnoEditando] = useState<string | null>(null)
   const [turnoEditar, setTurnoEditar] = useState<TurnoItem | null>(null)
   const [_staffList, _setStaffList] = useState<{ id: string; nombre: string }[]>([])
@@ -131,6 +132,14 @@ export default function AgendaTurnos() {
     setTurnoEditar(null)
     setReloadKey(k => k + 1)
   }
+
+  const turnosFiltrados = busqueda.trim()
+    ? turnos.filter(t =>
+        t.cliente_nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+        t.Servicio?.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
+        t.Staff?.nombre?.toLowerCase().includes(busqueda.toLowerCase())
+      )
+    : turnos
 
   // Agrupar por fecha para vista semanal
   const turnosPorFecha = useMemo(() => {
@@ -286,6 +295,15 @@ export default function AgendaTurnos() {
           </div>
         </div>
 
+        {/* Búsqueda */}
+        <input
+          type="text"
+          placeholder="Buscar cliente, servicio o barbero..."
+          value={busqueda}
+          onChange={e => setBusqueda(e.target.value)}
+          className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-sm outline-none focus:border-white/25 transition-colors mb-4"
+        />
+
         {/* Modal editar turno */}
         {turnoEditar && (
           <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/75 px-4 pb-0 md:pb-4">
@@ -348,20 +366,20 @@ export default function AgendaTurnos() {
         {vista === 'dia' && (
           loading ? (
             <div className="text-center py-20 font-black italic text-slate-700 animate-pulse">Buscando...</div>
-          ) : turnos.length === 0 ? (
+          ) : turnosFiltrados.length === 0 ? (
             <div className="text-center py-20 bg-white/3 rounded-[2.5rem] border border-dashed border-white/10">
               <p className="text-slate-500 font-black uppercase italic">No hay turnos para este día</p>
             </div>
           ) : (
             <div className="space-y-3">
-              {turnos.map(t => <TurnoCard key={t.id} t={t} />)}
+              {turnosFiltrados.map(t => <TurnoCard key={t.id} t={t} />)}
             </div>
           )
         )}
 
         {/* Vista semana */}
         {vista === 'semana' && (
-          <div className="space-y-6">
+          <div className="space-y-6 overflow-x-auto">
             {loading ? (
               <div className="text-center py-20 font-black italic text-slate-700 animate-pulse">Buscando...</div>
             ) : diasSemana.map(dia => {

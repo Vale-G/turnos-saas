@@ -62,8 +62,14 @@ export default function GestionServicios() {
       return
     }
 
+    if (parseFloat(precio) <= 0 || isNaN(parseFloat(precio))) {
+      setError('El precio debe ser mayor a 0'); return;
+    }
+    if (parseInt(duracion) < 15 || isNaN(parseInt(duracion))) {
+      setError('La duración mínima es 15 minutos'); return;
+    }
     const { error } = await supabase.from('Servicio').insert([
-      { nombre, precio: parseFloat(precio), duracion: parseInt(duracion), negocio_id: negocioId },
+      { nombre: nombre.trim(), precio: parseFloat(precio), duracion: parseInt(duracion), negocio_id: negocioId },
     ])
     if (error) setError(error.message)
     else { setNombre(''); setPrecio(''); setDuracion(''); await cargarServicios(negocioId) }

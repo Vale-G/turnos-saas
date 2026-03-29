@@ -291,6 +291,19 @@ export default function ReservaPro() {
         sessionStorage.setItem('turnly_wa_' + data.id, waUrl)
       }
 
+      // Notificar al dueño automáticamente
+      if (negocio.whatsapp) {
+        const waDueno = buildWhatsAppNuevoTurno({
+          telefono: negocio.whatsapp,
+          clienteNombre: user.user_metadata?.full_name ?? 'Cliente',
+          servicio: sel.servicio!.nombre,
+          barbero: sel.barbero!.nombre,
+          fecha: sel.fecha,
+          hora: sel.hora,
+          negocioNombre: negocio.nombre,
+        })
+        window.open(waDueno, '_blank')
+      }
       setPaso(4)
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Error creando turno')
@@ -417,6 +430,17 @@ export default function ReservaPro() {
                   <p className="text-slate-400 text-xs mt-0.5">
                     {metricas.proximoTurno.fecha} a las {metricas.proximoTurno.hora.slice(0, 5)} hs
                   </p>
+                  {metricas.proximoTurno.estado === 'pendiente' && (
+                    <button
+                      onClick={async () => {
+                        if (!confirm('¿Cancelar este turno?')) return
+                        await supabase.from('Turno').update({ estado: 'cancelado' }).eq('id', metricas.proximoTurno!.id)
+                        if (user) cargarMisTurnos(user.id)
+                      }}
+                      className="mt-3 w-full py-2 rounded-xl text-[10px] font-black uppercase text-red-400 border border-red-500/20 bg-red-500/10 hover:bg-red-500/20 transition-colors">
+                      Cancelar turno
+                    </button>
+                  )}
                 </div>
               )}
 

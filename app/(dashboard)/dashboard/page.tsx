@@ -23,6 +23,7 @@ export default function DashboardPrincipal() {
   const [staffCount, setStaffCount] = useState(0)
   const [serviciosCount, setServiciosCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [copiado, setCopiado] = useState(false)
   const router = useRouter()
  
   useEffect(() => {
@@ -54,8 +55,26 @@ export default function DashboardPrincipal() {
   }, [router])
  
   if (loading) return (
-    <div className="min-h-screen bg-[#020617] text-white flex items-center justify-center font-black uppercase italic text-emerald-500 animate-pulse">
-      Cargando...
+    <div className="min-h-screen bg-[#020617] text-white p-8">
+      <div className="max-w-5xl mx-auto">
+        <div className="flex justify-between items-end mb-10 pb-8 border-b border-white/5">
+          <div className="flex items-center gap-5">
+            <div className="w-16 h-16 bg-white/5 rounded-2xl animate-pulse" />
+            <div className="space-y-2">
+              <div className="h-8 w-48 bg-white/5 rounded-xl animate-pulse" />
+              <div className="h-3 w-32 bg-white/5 rounded animate-pulse" />
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
+          {[...Array(7)].map((_, i) => (
+            <div key={i} className="bg-white/4 p-7 rounded-[2.5rem] border border-white/5 animate-pulse">
+              <div className="h-6 w-24 bg-white/5 rounded mb-2" />
+              <div className="h-3 w-16 bg-white/5 rounded" />
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
  
@@ -200,7 +219,7 @@ export default function DashboardPrincipal() {
         )}
  
         {/* Grid de accesos */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-5">
           {navItems.map(item => (
             <div key={item.href} onClick={() => router.push(item.href)}
               className="bg-white/4 p-7 rounded-[2.5rem] border border-white/5 hover:border-white/15 transition-all cursor-pointer group relative overflow-hidden">
@@ -230,12 +249,17 @@ export default function DashboardPrincipal() {
               if (!negocio?.slug) return
               const url = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://turnos-saas-eight.vercel.app') + '/reservar/' + negocio.slug
               navigator.clipboard.writeText(url)
+              setCopiado(true)
+              setTimeout(() => setCopiado(false), 2000)
             }}
             className="bg-black/50 px-5 py-3 rounded-xl border border-white/10 font-mono text-sm hover:border-white/25 transition-colors flex items-center gap-3 group"
             style={{ color: colorPrincipal }}>
             {'/reservar/' + negocio?.slug}
-            <span className="text-[9px] text-slate-600 group-hover:text-white font-black uppercase transition-colors">
-              copiar
+            <span className={
+              "text-[9px] font-black uppercase transition-colors " +
+              (copiado ? "text-emerald-400" : "text-slate-600 group-hover:text-white")
+            }>
+              {copiado ? "¡copiado!" : "copiar"}
             </span>
           </button>
         </div>

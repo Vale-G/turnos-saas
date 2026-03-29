@@ -32,6 +32,18 @@ export default function RegistroNegocio() {
 
     // PARTE 2: Guardar los datos de la peluquería en la tabla "Negocio"
     if (authData.user) {
+      // Verificar que el slug no exista
+      const slugFinalCheck = slug.toLowerCase().trim().replace(/\s+/g, '-')
+      const { data: slugExiste } = await supabase
+        .from('Negocio')
+        .select('id')
+        .eq('slug', slugFinalCheck)
+        .single()
+      if (slugExiste) {
+        alert("Ese nombre de URL ya está en uso. Elegí otro.")
+        setLoading(false)
+        return
+      }
       const trialHasta = new Date()
       trialHasta.setDate(trialHasta.getDate() + 30)
 

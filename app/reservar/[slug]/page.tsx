@@ -21,6 +21,17 @@ type Servicio = { id: string; nombre: string; precio: number; duracion: number }
 type Staff    = { id: string; nombre: string; avatar_url?: string | null }
 type Turno    = { id: string; fecha: string; hora: string; estado: string; Servicio?: { nombre: string; precio: number } }
 type Sel      = { servicio: Servicio | null; barbero: Staff | null; fecha: string; hora: string }
+type TurnoInsert = {
+  negocio_id: string
+  servicio_id: string
+  staff_id: string
+  fecha: string
+  hora: string
+  cliente_id: string | null
+  cliente_nombre: string
+  estado: string
+  pago_estado: string
+}
 
 const PASO_LABELS = ['Servicio', 'Turno', 'Confirmar']
 const ESTADO_BADGE: Record<string, { bg: string; label: string }> = {
@@ -29,6 +40,8 @@ const ESTADO_BADGE: Record<string, { bg: string; label: string }> = {
   cancelado:  { bg: 'bg-rose-500',    label: 'Cancelado'  },
   completado: { bg: 'bg-slate-500',   label: 'Completado' },
 }
+
+const normalizarHoraSQL = (hora: string) => (hora.length === 5 ? hora + ':00' : hora)
 
 export default function ReservaPro() {
   const { slug } = useParams()
@@ -180,17 +193,18 @@ export default function ReservaPro() {
     setConfirmando(true)
     setErrorMsg(null)
     try {
-      const { data, error } = await supabase.from('Turno').insert({
+      const payload: TurnoInsert = {
         negocio_id: negocio.id,
         servicio_id: sel.servicio.id,
         staff_id: sel.barbero.id,
         fecha: sel.fecha,
-        hora: sel.hora + ':00',
+        hora: normalizarHoraSQL(sel.hora),
         cliente_id: null,
         cliente_nombre: nombreFinal + (telFinal ? ' · ' + telFinal : ''),
         estado: 'pendiente',
         pago_estado: 'pendiente',
-      }).select('id').single()
+      }
+      const { data, error } = await supabase.from('Turno').insert(payload).select('id').single()
       if (error || !data) throw new Error(error?.message ?? 'Error')
       setTurnoId(data.id)
       // Guardar link WA del dueño para mostrarlo en paso 6 (no abrir automáticamente)
@@ -247,17 +261,18 @@ export default function ReservaPro() {
     setConfirmando(true)
     setErrorMsg(null)
     try {
-      const { data, error } = await supabase.from('Turno').insert({
+      const payload: TurnoInsert = {
         negocio_id: negocio.id,
         servicio_id: sel.servicio.id,
         staff_id: sel.barbero.id,
         fecha: sel.fecha,
-        hora: sel.hora + ':00',
+        hora: normalizarHoraSQL(sel.hora),
         cliente_id: user.id,
         cliente_nombre: user.user_metadata?.full_name ?? user.email,
         estado: 'pendiente',
         pago_estado: 'pendiente',
-      }).select('id').single()
+      }
+      const { data, error } = await supabase.from('Turno').insert(payload).select('id').single()
 
       if (error || !data) throw new Error(error?.message ?? 'Error creando turno')
 

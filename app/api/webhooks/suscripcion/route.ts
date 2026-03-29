@@ -69,7 +69,13 @@ export async function POST(req: NextRequest) {
       const turnoId = negocioId
       if (estado === 'approved') {
         await supabaseAdmin.from('Turno')
-          .update({ sena_pagada: true, estado: 'confirmado' })
+          .update({
+            sena_pagada: true,
+            estado: 'confirmado',
+            pago_estado: 'approved',
+            pago_tipo: 'mercadopago',
+            pago_id: String(paymentId),
+          })
           .eq('id', turnoId)
         console.log('[Turnly] Seña aprobada turno:', turnoId)
       }

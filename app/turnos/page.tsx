@@ -2,14 +2,15 @@
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
+import { getNegocioDelUsuario } from '@/lib/getnegocio'
 import { useRouter } from 'next/navigation'
 
 type TurnoItem = {
   id: string; hora: string; cliente_nombre: string
   estado: string; fecha: string
   pago_tipo: string | null; pago_estado: string | null
-  Servicio?: { nombre: string; precio: number }
-  Staff?: { nombre: string }
+  servicio?: { nombre: string; precio: number }
+  staff?: { nombre: string }
 }
 
 type Vista = 'dia' | 'semana'
@@ -31,7 +32,7 @@ export default function AgendaTurnos() {
   const router = useRouter()
 
   const totalCobrado = useMemo(
-    () => turnos.filter(t => t.pago_estado === 'cobrado').reduce((a, t) => a + (t.Servicio?.precio ?? 0), 0),
+    () => turnos.filter(t => t.pago_estado === 'cobrado').reduce((a, t) => a + (t.servicio?.precio ?? 0), 0),
     [turnos]
   )
 
@@ -43,16 +44,13 @@ export default function AgendaTurnos() {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
-      let neg = null
-      const { data: byOwner } = await supabase.from('Negocio').select('id, tema').eq('owner_id', user.id).single()
-      if (byOwner) neg = byOwner
-      else { const { data: byId } = await supabase.from('Negocio').select('id, tema').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single(); neg = byId }
+      const neg = await getNegocioDelUsuario(user.id)
       if (!neg) { router.push('/dashboard'); return }
       setNegocioId(neg.id)
       setColorPrincipal(getThemeColor(neg.tema))
       const [{ data: stf }, { data: svcs }] = await Promise.all([
-        supabase.from('Staff').select('id, nombre').eq('negocio_id', neg.id).eq('activo', true),
-        supabase.from('Servicio').select('id, nombre, precio, duracion').eq('negocio_id', neg.id),
+        supabase.from('staff').select('id, nombre').eq('negocio_id', neg.id).eq('activo', true),
+        supabase.from('servicio').select('id, nombre, precio, duracion').eq('negocio_id', neg.id),
       ])
       _setStaffList(stf ?? [])
       _setServiciosList(svcs ?? [])
@@ -66,8 +64,8 @@ export default function AgendaTurnos() {
     let mounted = true
     async function load() {
       setLoading(true)
-      let query = supabase.from('Turno')
-        .select('*, Servicio(nombre, precio), Staff(nombre)')
+      let query = supabase.from('turno')
+        .select('*, servicio(nombre, precio), staff(nombre)')
         .eq('negocio_id', negocioId)
         .order('fecha', { ascending: true })
         .order('hora', { ascending: true })
@@ -99,30 +97,30 @@ export default function AgendaTurnos() {
   }
 
   const cambiarEstado = useCallback(async (id: string, estado: string) => {
-    await supabase.from('Turno').update({ estado }).eq('id', id)
+    await supabase.from('turno').update({ estado }).eq('id', id)
     setReloadKey(k => k + 1)
   }, [])
 
   const registrarPago = useCallback(async (id: string, tipo: string) => {
-    await supabase.from('Turno').update({ pago_tipo: tipo, pago_estado: 'cobrado', estado: 'completado' }).eq('id', id)
+    await supabase.from('turno').update({ pago_tipo: tipo, pago_estado: 'cobrado', estado: 'completado' }).eq('id', id)
     setTurnoEditando(null)
     setReloadKey(k => k + 1)
   }, [])
 
   const deshacerPago = useCallback(async (id: string) => {
-    await supabase.from('Turno').update({ pago_tipo: null, pago_estado: 'pendiente' }).eq('id', id)
+    await supabase.from('turno').update({ pago_tipo: null, pago_estado: 'pendiente' }).eq('id', id)
     setReloadKey(k => k + 1)
   }, [])
 
   const eliminarTurno = useCallback(async (id: string) => {
     if (!confirm('Seguro?')) return
-    await supabase.from('Turno').delete().eq('id', id)
+    await supabase.from('turno').delete().eq('id', id)
     setReloadKey(k => k + 1)
   }, [])
 
   const guardarEdicion = async () => {
     if (!turnoEditar) return
-    await supabase.from('Turno').update({
+    await supabase.from('turno').update({
       cliente_nombre: turnoEditar.cliente_nombre,
       fecha: turnoEditar.fecha,
       hora: turnoEditar.hora,
@@ -164,10 +162,10 @@ export default function AgendaTurnos() {
           </p>
           <div>
             <p className="font-black uppercase text-sm leading-tight">{t.cliente_nombre}</p>
-            <p className="text-[10px] text-slate-500">{t.Servicio?.nombre} · {t.Staff?.nombre}</p>
+            <p className="text-[10px] text-slate-500">{t.servicio?.nombre} · {t.staff?.nombre}</p>
             <p className={'text-[9px] font-black ' + (t.pago_estado === 'cobrado' ? 'text-emerald-400' : 'text-amber-400')}>
               {t.pago_estado === 'cobrado' ? 'Cobrado · ' + (t.pago_tipo ?? '') : 'Sin cobrar'}
-              {t.Servicio?.precio ? ' $' + t.Servicio.precio : ''}
+              {t.servicio?.precio ? ' $' + t.servicio.precio : ''}
             </p>
           </div>
         </div>

@@ -19,7 +19,7 @@ type Negocio = {
 }
 type Servicio = { id: string; nombre: string; precio: number; duracion: number }
 type Staff    = { id: string; nombre: string; avatar_url?: string | null }
-type Turno    = { id: string; fecha: string; hora: string; estado: string; Servicio?: { nombre: string; precio: number } }
+type Turno    = { id: string; fecha: string; hora: string; estado: string; servicio?: { nombre: string; precio: number } }
 type Sel      = { servicio: Servicio | null; barbero: Staff | null; fecha: string; hora: string }
 
 const PASO_LABELS = ['Servicio', 'Turno', 'Confirmar']
@@ -31,7 +31,8 @@ const ESTADO_BADGE: Record<string, { bg: string; label: string }> = {
 }
 
 export default function ReservaPro() {
-  const { slug } = useParams()
+  const { slug } = useParams<{ slug: string | string[] }>()
+  const slugParam = Array.isArray(slug) ? slug[0] : slug
   const [negocio,     setNegocio]     = useState<Negocio | null>(null)
   const [servicios,   setServicios]   = useState<Servicio[]>([])
   const [staffList,   setStaffList]   = useState<Staff[]>([])
@@ -46,29 +47,62 @@ export default function ReservaPro() {
   const [turnoId,     setTurnoId]     = useState<string | null>(null)
   const [errorMsg,    setErrorMsg]    = useState<string | null>(null)
   const [verPerfil,   setVerPerfil]   = useState(false)
+  const [isDemoFallback, setIsDemoFallback] = useState(false)
+  const [negocioInactivo, setNegocioInactivo] = useState(false)
 
   // Cargar negocio
   useEffect(() => {
     async function init() {
-      const { data: neg } = await supabase.from('Negocio').select('*').eq('slug', slug).single()
-      if (!neg) { setLoading(false); return }
+      if (!slugParam) { setLoading(false); return }
+      const { data: neg } = await supabase.from('negocio').select('*').eq('slug', slugParam).single()
+      if (!neg) {
+        if (slugParam === 'demo') {
+          setNegocio({
+            id: 'demo-local',
+            nombre: 'Demo Turnly',
+            slug: 'demo',
+            tema: 'violet',
+            hora_apertura: '09:00:00',
+            hora_cierre: '20:00:00',
+            dias_laborales: [1, 2, 3, 4, 5, 6],
+            whatsapp: '',
+          })
+          setServicios([
+            { id: 'demo-s1', nombre: 'Corte clásico', precio: 7000, duracion: 30 },
+            { id: 'demo-s2', nombre: 'Corte + barba', precio: 10000, duracion: 45 },
+            { id: 'demo-s3', nombre: 'Barba premium', precio: 6000, duracion: 30 },
+          ])
+          setStaffList([
+            { id: 'demo-b1', nombre: 'Franco' },
+            { id: 'demo-b2', nombre: 'Matías' },
+          ])
+          setIsDemoFallback(true)
+        }
+        setLoading(false)
+        return
+      }
+      if (neg.activo === false) {
+        setNegocioInactivo(true)
+        setLoading(false)
+        return
+      }
       setNegocio(neg)
       const [{ data: svcs }, { data: stf }] = await Promise.all([
-        supabase.from('Servicio').select('*').eq('negocio_id', neg.id),
-        supabase.from('Staff').select('*').eq('negocio_id', neg.id).eq('activo', true),
+        supabase.from('servicio').select('*').eq('negocio_id', neg.id),
+        supabase.from('staff').select('*').eq('negocio_id', neg.id).eq('activo', true),
       ])
       setServicios(svcs ?? [])
       setStaffList(stf ?? [])
       setLoading(false)
     }
     init()
-  }, [slug])
+  }, [slugParam])
 
   // Auth
   const cargarMisTurnos = useCallback(async (userId: string) => {
     const { data } = await supabase
-      .from('Turno')
-      .select('id, fecha, hora, estado, Servicio(nombre, precio)')
+      .from('turno')
+      .select('id, fecha, hora, estado, servicio(nombre, precio)')
       .eq('cliente_id', userId)
       .order('fecha', { ascending: false })
       .limit(8)
@@ -89,9 +123,29 @@ export default function ReservaPro() {
   // Horarios ocupados
   useEffect(() => {
     if (!sel.barbero || !sel.fecha) return
-    supabase.from('Turno').select('hora')
-      .eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha).not('estado', 'eq', 'cancelado')
-      .then(({ data }) => setOcupados((data ?? []).map((t: { hora: string }) => t.hora.slice(0, 5))))
+    let mounted = true
+    const staffId = sel.barbero.id
+    const fecha = sel.fecha
+    const cargarOcupados = async () => {
+      const { data } = await supabase.from('turno').select('hora')
+        .eq('staff_id', staffId).eq('fecha', fecha).not('estado', 'eq', 'cancelado')
+      if (mounted) {
+        setOcupados((data ?? []).map((t: { hora: string }) => t.hora.slice(0, 5)))
+      }
+    }
+    void cargarOcupados()
+    const channel = supabase
+      .channel(`turnos-ocupados-${staffId}-${fecha}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'turno' }, () => {
+        void cargarOcupados()
+      })
+      .subscribe()
+    const interval = setInterval(() => { void cargarOcupados() }, 15000)
+    return () => {
+      mounted = false
+      clearInterval(interval)
+      void supabase.removeChannel(channel)
+    }
   }, [sel.barbero, sel.fecha])
 
   // Métricas
@@ -103,13 +157,13 @@ export default function ReservaPro() {
       t.fecha >= new Date().toISOString().split('T')[0]
     )
     const frecuencia: Record<string, number> = {}
-    completados.forEach(t => { const n = t.Servicio?.nombre ?? '?'; frecuencia[n] = (frecuencia[n] ?? 0) + 1 })
+    completados.forEach(t => { const n = t.servicio?.nombre ?? '?'; frecuencia[n] = (frecuencia[n] ?? 0) + 1 })
     const favorito = Object.entries(frecuencia).sort((a, b) => b[1] - a[1])[0]?.[0]
     return {
       totalVisitas: completados.length,
       proximoTurno: proximos[0] ?? null,
       favorito,
-      totalGastado: completados.reduce((s, t) => s + (t.Servicio?.precio ?? 0), 0),
+      totalGastado: completados.reduce((s, t) => s + (t.servicio?.precio ?? 0), 0),
     }
   }, [misTurnos])
 
@@ -165,7 +219,7 @@ export default function ReservaPro() {
 
   const loginGoogle = () => supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: getOAuthRedirectUrl('/reservar/' + slug) },
+    options: { redirectTo: getOAuthRedirectUrl('/reservar/' + slugParam) },
   })
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -180,19 +234,42 @@ export default function ReservaPro() {
     setConfirmando(true)
     setErrorMsg(null)
     try {
-      const { data, error } = await supabase.from('Turno').insert({
-        negocio_id: negocio.id,
-        servicio_id: sel.servicio.id,
-        staff_id: sel.barbero.id,
-        fecha: sel.fecha,
-        hora: sel.hora + ':00',
-        cliente_id: null,
-        cliente_nombre: nombreFinal + (telFinal ? ' · ' + telFinal : ''),
-        estado: 'pendiente',
-        pago_estado: 'pendiente',
-      }).select('id').single()
-      if (error || !data) throw new Error(error?.message ?? 'Error')
-      setTurnoId(data.id)
+      const horaTurno = sel.hora + ':00'
+      const { data: existente } = await supabase.from('turno')
+        .select('id')
+        .eq('staff_id', sel.barbero.id)
+        .eq('fecha', sel.fecha)
+        .eq('hora', horaTurno)
+        .not('estado', 'eq', 'cancelado')
+        .limit(1)
+        .maybeSingle()
+      if (existente) {
+        setErrorMsg('Ese horario acaba de ocuparse. Elegí otro horario disponible.')
+        setOcupados(prev => prev.includes(sel.hora) ? prev : [...prev, sel.hora])
+        setSel(prev => ({ ...prev, hora: '' }))
+        return
+      }
+
+      if (isDemoFallback) {
+        setTurnoId('demo-' + Date.now())
+        setPaso(4)
+        return
+      }
+      const response = await fetch('/api/public-turno', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          negocio_id: negocio.id,
+          servicio_id: sel.servicio.id,
+          staff_id: sel.barbero.id,
+          fecha: sel.fecha,
+          hora: horaTurno,
+          cliente_nombre: nombreFinal + (telFinal ? ' · ' + telFinal : ''),
+        }),
+      })
+      const payload = await response.json()
+      if (!response.ok || !payload?.id) throw new Error(payload?.error ?? 'Error')
+      setTurnoId(payload.id)
       // Guardar link WA del dueño para mostrarlo en paso 6 (no abrir automáticamente)
       if (negocio.whatsapp) {
         const waDueno = buildWhatsAppNuevoTurno({
@@ -204,7 +281,7 @@ export default function ReservaPro() {
           hora: sel.hora,
           negocioNombre: negocio.nombre,
         })
-        sessionStorage.setItem('turnly_wa_dueno_' + data.id, waDueno)
+        sessionStorage.setItem('turnly_wa_dueno_' + payload.id, waDueno)
       }
 
       if (negocio.whatsapp) {
@@ -217,7 +294,7 @@ export default function ReservaPro() {
           hora: sel.hora,
           negocioNombre: negocio.nombre,
         })
-        sessionStorage.setItem('turnly_wa_' + data.id, waUrl)
+        sessionStorage.setItem('turnly_wa_' + payload.id, waUrl)
       }
       setPaso(4)
     } catch (err) {
@@ -227,10 +304,10 @@ export default function ReservaPro() {
     }
   }
 
-  const confirmarTurno = async () => {
+  const confirmarTurno = async (nombreCompletoManual?: string) => {
     // Verificar blacklist
-    if (user) {
-      const { data: nota } = await supabase.from('ClienteNota')
+    if (user && !isDemoFallback) {
+      const { data: nota } = await supabase.from('clientenota')
         .select('bloqueado').eq('negocio_id', negocio!.id).eq('cliente_id', user.id).single()
       if (nota?.bloqueado) {
         setErrorMsg('No podés reservar en este negocio. Contactá al local para más información.')
@@ -238,7 +315,7 @@ export default function ReservaPro() {
       }
     }
     // Nombre completo obligatorio siempre
-    const nombreCompleto = (user?.user_metadata?.full_name ?? '').trim()
+    const nombreCompleto = (nombreCompletoManual ?? user?.user_metadata?.full_name ?? '').trim()
     if (!nombreCompleto || nombreCompleto.split(' ').filter(Boolean).length < 2) {
       setErrorMsg('Por favor ingresá tu nombre y apellido completo para reservar.')
       return
@@ -247,14 +324,35 @@ export default function ReservaPro() {
     setConfirmando(true)
     setErrorMsg(null)
     try {
-      const { data, error } = await supabase.from('Turno').insert({
+      const horaTurno = sel.hora + ':00'
+      const { data: existente } = await supabase.from('turno')
+        .select('id')
+        .eq('staff_id', sel.barbero.id)
+        .eq('fecha', sel.fecha)
+        .eq('hora', horaTurno)
+        .not('estado', 'eq', 'cancelado')
+        .limit(1)
+        .maybeSingle()
+      if (existente) {
+        setErrorMsg('Ese horario acaba de ocuparse. Elegí otro horario disponible.')
+        setOcupados(prev => prev.includes(sel.hora) ? prev : [...prev, sel.hora])
+        setSel(prev => ({ ...prev, hora: '' }))
+        return
+      }
+
+      if (isDemoFallback) {
+        setTurnoId('demo-' + Date.now())
+        setPaso(4)
+        return
+      }
+      const { data, error } = await supabase.from('turno').insert({
         negocio_id: negocio.id,
         servicio_id: sel.servicio.id,
         staff_id: sel.barbero.id,
         fecha: sel.fecha,
-        hora: sel.hora + ':00',
+        hora: horaTurno,
         cliente_id: user.id,
-        cliente_nombre: user.user_metadata?.full_name ?? user.email,
+        cliente_nombre: nombreCompleto || user.email,
         estado: 'pendiente',
         pago_estado: 'pendiente',
       }).select('id').single()
@@ -307,9 +405,15 @@ export default function ReservaPro() {
     </div>
   )
   if (!negocio) return (
+    negocioInactivo ? (
+      <div className="min-h-screen bg-[#020617] flex items-center justify-center text-slate-300 font-bold text-center px-6">
+        Este negocio está temporalmente inactivo.
+      </div>
+    ) : (
     <div className="min-h-screen bg-[#020617] flex items-center justify-center text-slate-500 font-bold">
       Negocio no encontrado.
     </div>
+    )
   )
 
   return (
@@ -413,7 +517,7 @@ export default function ReservaPro() {
                 <div className="rounded-2xl p-4 mb-4 border"
                   style={{ background: colorP + '10', borderColor: colorP + '30' }}>
                   <p className="text-[9px] font-black uppercase tracking-widest mb-1" style={{ color: colorP }}>Proximo turno</p>
-                  <p className="font-black">{metricas.proximoTurno.Servicio?.nombre ?? 'Servicio'}</p>
+                  <p className="font-black">{metricas.proximoTurno.servicio?.nombre ?? 'Servicio'}</p>
                   <p className="text-slate-400 text-xs mt-0.5">
                     {metricas.proximoTurno.fecha} a las {metricas.proximoTurno.hora.slice(0, 5)} hs
                   </p>
@@ -430,7 +534,7 @@ export default function ReservaPro() {
                     <div key={t.id}
                       className="flex items-center justify-between bg-white/4 border border-white/8 rounded-xl px-4 py-3">
                       <div>
-                        <p className="text-xs font-black">{t.Servicio?.nombre ?? '-'}</p>
+                        <p className="text-xs font-black">{t.servicio?.nombre ?? '-'}</p>
                         <p className="text-[10px] text-slate-500">{t.fecha} · {t.hora.slice(0, 5)} hs</p>
                       </div>
                       <span className={badge.bg + ' text-[9px] font-black uppercase px-2 py-1 rounded-full text-black'}>
@@ -602,6 +706,7 @@ export default function ReservaPro() {
 
             <ConfirmarOGuest
               user={user}
+              userFullName={user?.user_metadata?.full_name ?? ''}
               colorP={colorP}
               confirmando={confirmando}
               errorMsg={errorMsg}
@@ -653,27 +758,46 @@ export default function ReservaPro() {
 }
 
 function ConfirmarOGuest({
-  user, colorP, confirmando, errorMsg, onConfirmar, onConfirmarGuest, onLoginGoogle
+  user, userFullName, colorP, confirmando, errorMsg, onConfirmar, onConfirmarGuest, onLoginGoogle
 }: {
   user: { email?: string } | null
+  userFullName: string
   colorP: string
   confirmando: boolean
   errorMsg: string | null
-  onConfirmar: () => void
+  onConfirmar: (nombreCompletoManual?: string) => void
   onConfirmarGuest: (nombre: string, tel: string) => void
   onLoginGoogle: () => void
 }) {
   const [modo, setModo] = useState<'google' | 'guest'>('google')
   const [nombre, setNombre] = useState('')
   const [tel, setTel] = useState('')
+  const [nombreCuenta, setNombreCuenta] = useState(userFullName)
+
+  useEffect(() => {
+    setNombreCuenta(userFullName)
+  }, [userFullName])
 
   if (user) return (
     <div className="space-y-3">
       <p className="text-[10px] text-slate-500 text-center">
         Reservando como <span className="text-white/60 font-bold">{user.email}</span>
       </p>
+      <div>
+        <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-2">
+          Nombre y apellido
+        </label>
+        <input
+          type="text"
+          value={nombreCuenta}
+          onChange={(e) => setNombreCuenta(e.target.value)}
+          placeholder="Ej: Valentina Gomez"
+          className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-white/25 transition-colors"
+        />
+      </div>
       {errorMsg && <p className="bg-red-500/10 border border-red-500/20 rounded-2xl px-4 py-3 text-red-400 text-sm font-bold">{errorMsg}</p>}
-      <button onClick={onConfirmar} disabled={confirmando}
+      <button onClick={() => onConfirmar(nombreCuenta)}
+        disabled={confirmando || nombreCuenta.trim().split(' ').filter(Boolean).length < 2}
         className="w-full py-5 rounded-[1.75rem] font-black italic text-lg text-black transition-all hover:opacity-90 disabled:opacity-50"
         style={{ backgroundColor: colorP }}>
         {confirmando ? 'Reservando...' : 'Confirmar Turno'}

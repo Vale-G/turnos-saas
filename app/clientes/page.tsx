@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
+import { getNegocioDelUsuario } from '@/lib/getnegocio'
 
 type ClienteResumen = {
   cliente_id: string
@@ -20,8 +21,8 @@ type TurnoCliente = {
   hora: string
   estado: string
   pago_estado: string | null
-  Servicio?: { nombre: string; precio: number }
-  Staff?: { nombre: string }
+  servicio?: { nombre: string; precio: number }
+  staff?: { nombre: string }
 }
 
 export default function Clientes() {
@@ -40,13 +41,7 @@ export default function Clientes() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      let neg = null
-      const { data: byOwner } = await supabase.from('Negocio').select('id, tema').eq('owner_id', user.id).single()
-      if (byOwner) neg = byOwner
-      else {
-        const { data: byId } = await supabase.from('Negocio').select('id, tema').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
-        neg = byId
-      }
+      const neg = await getNegocioDelUsuario(user.id)
       if (!neg) { router.push('/dashboard'); return }
       setNegocioId(neg.id)
       setColorPrincipal(getThemeColor(neg.tema))
@@ -59,8 +54,8 @@ export default function Clientes() {
     async function cargar() {
       setLoading(true)
       const { data } = await supabase
-        .from('Turno')
-        .select('id, fecha, hora, estado, pago_estado, cliente_id, cliente_nombre, Servicio(nombre, precio), Staff(nombre)')
+        .from('turno')
+        .select('id, fecha, hora, estado, pago_estado, cliente_id, cliente_nombre, servicio(nombre, precio), staff(nombre)')
         .eq('negocio_id', negocioId)
         .not('cliente_id', 'is', null)
         .order('fecha', { ascending: false })
@@ -84,14 +79,14 @@ export default function Clientes() {
         const c = mapa[t.cliente_id]
         c.turnos.push(t)
         if (t.estado !== 'cancelado') c.totalTurnos++
-        if (t.pago_estado === 'cobrado') c.totalGastado += t.Servicio?.precio ?? 0
+        if (t.pago_estado === 'cobrado') c.totalGastado += t.servicio?.precio ?? 0
       }
 
       // Servicio favorito
       for (const c of Object.values(mapa)) {
         const freq: Record<string, number> = {}
         c.turnos.forEach(t => {
-          if (t.Servicio?.nombre) freq[t.Servicio.nombre] = (freq[t.Servicio.nombre] ?? 0) + 1
+          if (t.servicio?.nombre) freq[t.servicio.nombre] = (freq[t.servicio.nombre] ?? 0) + 1
         })
         c.servicioFavorito = Object.entries(freq).sort((a, b) => b[1] - a[1])[0]?.[0] ?? ''
         c.ultimaVisita = c.turnos[0]?.fecha ?? ''
@@ -106,7 +101,7 @@ export default function Clientes() {
   const guardarNota = useCallback(async (clienteId: string, clienteNombre: string) => {
     if (!negocioId || !nota.trim()) return
     setGuardandoNota(true)
-    await supabase.from('ClienteNota').insert({
+    await supabase.from('clientenota').insert({
       negocio_id: negocioId,
       cliente_id: clienteId,
       cliente_nombre: clienteNombre,
@@ -123,7 +118,7 @@ export default function Clientes() {
   const toggleBlacklist = async (clienteId: string, estadoActual: boolean) => {
     if (!negocioId) return
     const nuevoEstado = !estadoActual
-    await supabase.from('ClienteNota')
+    await supabase.from('clientenota')
       .upsert({
         negocio_id: negocioId,
         cliente_id: clienteId,
@@ -203,12 +198,12 @@ export default function Clientes() {
                         <div key={t.id}
                           className="flex items-center justify-between bg-white/4 border border-white/8 rounded-xl px-4 py-2.5">
                           <div>
-                            <p className="text-xs font-black">{t.Servicio?.nombre ?? 'Servicio'}</p>
-                            <p className="text-[10px] text-slate-500">{t.fecha} · {t.hora?.slice(0, 5)} · {t.Staff?.nombre ?? ''}</p>
+                            <p className="text-xs font-black">{t.servicio?.nombre ?? 'Servicio'}</p>
+                            <p className="text-[10px] text-slate-500">{t.fecha} · {t.hora?.slice(0, 5)} · {t.staff?.nombre ?? ''}</p>
                           </div>
                           <div className="text-right">
                             <p className="text-[10px] font-black" style={{ color: colorPrincipal }}>
-                              {t.Servicio?.precio ? '$' + t.Servicio.precio : ''}
+                              {t.servicio?.precio ? '$' + t.servicio.precio : ''}
                             </p>
                             <p className={'text-[9px] font-black ' +
                               (t.estado === 'completado' ? 'text-slate-400' :

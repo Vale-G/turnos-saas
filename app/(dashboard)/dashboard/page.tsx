@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
 import { LIMITES } from '@/lib/permisos'
+import { getNegocioDelUsuario } from '@/lib/getnegocio'
 import { useRouter } from 'next/navigation'
  
 type NegocioDashboard = {
@@ -30,20 +31,13 @@ export default function DashboardPrincipal() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
  
-      // FIX: la versión anterior hacía la misma query dos veces.
-      // Ahora primero busca por owner_id, y si no hay resultado busca
-      // si el usuario es staff de algún negocio (caso edge).
-      const { data: neg } = await supabase
-        .from('Negocio')
-        .select('*')
-        .eq('owner_id', user.id)
-        .single()
- 
+      const neg = await getNegocioDelUsuario(user.id)
+
       if (neg) {
         setNegocio(neg)
         const [{ count: sc }, { count: svc }] = await Promise.all([
-          supabase.from('Staff').select('*', { count: 'exact', head: true }).eq('negocio_id', neg.id),
-          supabase.from('Servicio').select('*', { count: 'exact', head: true }).eq('negocio_id', neg.id),
+          supabase.from('staff').select('*', { count: 'exact', head: true }).eq('negocio_id', neg.id),
+          supabase.from('servicio').select('*', { count: 'exact', head: true }).eq('negocio_id', neg.id),
         ])
         setStaffCount(sc ?? 0)
         setServiciosCount(svc ?? 0)

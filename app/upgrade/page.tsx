@@ -3,6 +3,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
+import { getNegocioDelUsuario } from '@/lib/getnegocio'
 
 const FEATURES_BASICO = [
   'Reservas online ilimitadas',
@@ -46,20 +47,12 @@ function UpgradeContent() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      let neg = null
-      const { data: byOwner } = await supabase.from('Negocio')
-        .select('nombre, tema, suscripcion_tipo').eq('owner_id', user.id).single()
-      if (byOwner) neg = byOwner
-      else {
-        const { data: byId } = await supabase.from('Negocio')
-          .select('nombre, tema, suscripcion_tipo').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
-        neg = byId
-      }
+      const neg = await getNegocioDelUsuario(user.id)
       if (neg) { setNegocio(neg); setColorPrincipal(getThemeColor(neg.tema)) }
 
       // Cargar precios desde Config
       const { data: configs } = await supabase
-        .from('Config').select('clave, valor')
+        .from('config').select('clave, valor')
         .in('clave', ['precio_basico', 'precio_pro'])
       if (configs) {
         const pm: Record<string, number> = {}

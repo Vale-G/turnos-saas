@@ -7,7 +7,7 @@ export type VerticalNegocio = 'peluqueria' | 'spa' | 'consultorio' | 'gym' | 'ta
 export type PlanNegocio = 'trial' | 'basico' | 'pro'
 export type SubscriptionStatus = 'active' | 'past_due' | 'canceled'
 export type RolUsuario = 'superadmin' | 'owner' | 'staff' | 'cliente'
-export type EstadoTurno = 'pendiente' | 'confirmado' | 'finalizado' | 'cancelado'
+export type EstadoTurno = 'pendiente' | 'confirmado' | 'completado' | 'finalizado' | 'cancelado'
 export type CategoriaEgreso = 'alquiler' | 'luz' | 'agua' | 'productos' | 'sueldos' | 'impuestos' | 'otro'
 export type DiaSemana = 'L' | 'Ma' | 'Mi' | 'J' | 'V' | 'S' | 'D'
 
@@ -93,13 +93,16 @@ export interface Turno {
   staff_id: string
   
   // Cliente
-  nombre_cliente: string
+  nombre_cliente?: string
+  cliente_nombre?: string
   telefono_cliente?: string
   email_cliente?: string
   cliente_id?: string
   
   // Fecha y hora
-  hora_inicio: string // ISO timestamp
+  hora_inicio?: string // legacy ISO timestamp
+  fecha?: string // YYYY-MM-DD
+  hora?: string // HH:mm:ss
   hora_fin?: string
   
   // Estado
@@ -116,6 +119,8 @@ export interface Turno {
   // Relaciones (cuando se hace JOIN)
   Servicio?: Servicio
   Staff?: Staff
+  servicio?: Servicio
+  staff?: Staff
 }
 
 export interface Egreso {

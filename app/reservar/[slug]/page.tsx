@@ -46,12 +46,38 @@ export default function ReservaPro() {
   const [turnoId,     setTurnoId]     = useState<string | null>(null)
   const [errorMsg,    setErrorMsg]    = useState<string | null>(null)
   const [verPerfil,   setVerPerfil]   = useState(false)
+  const [isDemoFallback, setIsDemoFallback] = useState(false)
 
   // Cargar negocio
   useEffect(() => {
     async function init() {
       const { data: neg } = await supabase.from('negocio').select('*').eq('slug', slug).single()
-      if (!neg) { setLoading(false); return }
+      if (!neg) {
+        if (slug === 'demo') {
+          setNegocio({
+            id: 'demo-local',
+            nombre: 'Demo Turnly',
+            slug: 'demo',
+            tema: 'violet',
+            hora_apertura: '09:00:00',
+            hora_cierre: '20:00:00',
+            dias_laborales: [1, 2, 3, 4, 5, 6],
+            whatsapp: '',
+          })
+          setServicios([
+            { id: 'demo-s1', nombre: 'Corte clásico', precio: 7000, duracion: 30 },
+            { id: 'demo-s2', nombre: 'Corte + barba', precio: 10000, duracion: 45 },
+            { id: 'demo-s3', nombre: 'Barba premium', precio: 6000, duracion: 30 },
+          ])
+          setStaffList([
+            { id: 'demo-b1', nombre: 'Franco' },
+            { id: 'demo-b2', nombre: 'Matías' },
+          ])
+          setIsDemoFallback(true)
+        }
+        setLoading(false)
+        return
+      }
       setNegocio(neg)
       const [{ data: svcs }, { data: stf }] = await Promise.all([
         supabase.from('servicio').select('*').eq('negocio_id', neg.id),
@@ -180,6 +206,11 @@ export default function ReservaPro() {
     setConfirmando(true)
     setErrorMsg(null)
     try {
+      if (isDemoFallback) {
+        setTurnoId('demo-' + Date.now())
+        setPaso(4)
+        return
+      }
       const { data, error } = await supabase.from('turno').insert({
         negocio_id: negocio.id,
         servicio_id: sel.servicio.id,
@@ -229,7 +260,7 @@ export default function ReservaPro() {
 
   const confirmarTurno = async () => {
     // Verificar blacklist
-    if (user) {
+    if (user && !isDemoFallback) {
       const { data: nota } = await supabase.from('clientenota')
         .select('bloqueado').eq('negocio_id', negocio!.id).eq('cliente_id', user.id).single()
       if (nota?.bloqueado) {
@@ -247,6 +278,11 @@ export default function ReservaPro() {
     setConfirmando(true)
     setErrorMsg(null)
     try {
+      if (isDemoFallback) {
+        setTurnoId('demo-' + Date.now())
+        setPaso(4)
+        return
+      }
       const { data, error } = await supabase.from('turno').insert({
         negocio_id: negocio.id,
         servicio_id: sel.servicio.id,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { getNegocioDelUsuario } from '@/lib/getnegocio'
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,14 +37,8 @@ export async function POST(req: NextRequest) {
       ? (precioMap.precio_pro ?? 25000)
       : (precioMap.precio_basico ?? 5000)
 
-    // Buscar negocio
-    let neg = null
-    const { data: byOwner } = await supabase.from('Negocio').select('id, nombre, slug').eq('owner_id', user.id).single()
-    if (byOwner) neg = byOwner
-    else {
-      const { data: byId } = await supabase.from('Negocio').select('id, nombre, slug').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
-      neg = byId
-    }
+    // Buscar negocio en contexto server
+    const neg = await getNegocioDelUsuario(user.id, supabase)
     if (!neg) return NextResponse.json({ error: 'Negocio no encontrado' }, { status: 404 })
 
     const origin = req.headers.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'

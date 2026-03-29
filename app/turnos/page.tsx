@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getNegocioDelUsuario } from '@/lib/getnegocio'
 import { getThemeColor } from '@/lib/theme'
 import { useRouter } from 'next/navigation'
 
@@ -43,10 +44,7 @@ export default function AgendaTurnos() {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
-      let neg = null
-      const { data: byOwner } = await supabase.from('Negocio').select('id, tema').eq('owner_id', user.id).single()
-      if (byOwner) neg = byOwner
-      else { const { data: byId } = await supabase.from('Negocio').select('id, tema').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single(); neg = byId }
+      const neg = await getNegocioDelUsuario(user.id)
       if (!neg) { router.push('/dashboard'); return }
       setNegocioId(neg.id)
       setColorPrincipal(getThemeColor(neg.tema))

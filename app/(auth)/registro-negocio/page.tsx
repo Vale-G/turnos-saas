@@ -114,6 +114,12 @@ export default function RegistroNegocio() {
           >
             {loading ? 'Procesando...' : 'Crear mi cuenta'}
           </button>
+          <p className="text-slate-500 text-sm text-center mt-4">
+            ¿Ya tenés cuenta?{' '}
+            <a href="/login" className="text-emerald-500 font-black hover:underline">
+              Iniciar sesión
+            </a>
+          </p>
         </form>
       </div>
     </div>

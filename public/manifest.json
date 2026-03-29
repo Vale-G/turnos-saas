@@ -1,0 +1,12 @@
+{
+  "name": "Turnly by F&V Tech",
+  "short_name": "Turnly",
+  "description": "Sistema de turnos online para tu negocio. Desarrollado por F&V Tech.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#6366F1",
+  "icons": [
+    { "src": "/fvtech-logo.jpg", "sizes": "any", "type": "image/jpeg" }
+  ]
+}

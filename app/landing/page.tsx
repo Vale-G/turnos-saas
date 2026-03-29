@@ -35,11 +35,8 @@ export default function Landing() {
       {/* Nav */}
       <nav className="flex items-center justify-between px-6 py-5 max-w-5xl mx-auto">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-[#6366F1] rounded-xl flex items-center justify-center">
-            <svg width="18" height="18" viewBox="0 0 22 22" fill="none">
-              <circle cx="11" cy="11" r="8" stroke="white" strokeWidth="2"/>
-              <path d="M11 7v4l2.5 2.5" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
+          <div className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center bg-[#0F172A] border border-white/10">
+            <img src="/fvtech-logo.jpg" alt="F&V Tech" className="w-full h-full object-cover" />
           </div>
           <div className="flex flex-col items-start">
           <span className="text-xl font-black italic tracking-tighter">
@@ -232,14 +229,14 @@ export default function Landing() {
 
       {/* Footer */}
       <footer className="border-t border-white/5 px-6 py-8 text-center">
-        <div className="flex items-center justify-center gap-2 mb-3">
-          <div className="w-7 h-7 bg-[#6366F1] rounded-lg flex items-center justify-center">
-            <svg width="13" height="13" viewBox="0 0 22 22" fill="none">
-              <circle cx="11" cy="11" r="8" stroke="white" strokeWidth="2"/>
-              <path d="M11 7v4l2.5 2.5" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
+        <div className="flex items-center justify-center gap-3 mb-3">
+          <div className="w-10 h-10 rounded-xl overflow-hidden border border-white/10">
+            <img src="/fvtech-logo.jpg" alt="F&V Tech" className="w-full h-full object-cover" />
           </div>
-          <span className="font-black italic">turn<span className="text-[#6366F1]">ly</span></span>
+          <div className="text-left">
+            <span className="font-black italic block">turn<span className="text-[#6366F1]">ly</span></span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">by F&amp;V Tech</span>
+          </div>
         </div>
         <p className="text-slate-600 text-xs">Tus turnos, tu negocio. · Desarrollado por <span className="text-[#6366F1] font-bold">F&amp;V Tech</span> 🇦🇷</p>
       </footer>

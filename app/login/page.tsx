@@ -47,6 +47,12 @@ export default function Login() {
         <button className="w-full bg-white text-black font-black uppercase italic py-4 rounded-2xl hover:bg-emerald-500 transition-colors">
           {loading ? 'Entrando...' : 'Entrar al Panel'}
         </button>
+        <p className="text-slate-500 text-sm">
+          ¿No tenés cuenta?{' '}
+          <a href="/registro-negocio" className="text-emerald-500 font-black hover:underline">
+            Crear una gratis
+          </a>
+        </p>
       </form>
     </div>
   )

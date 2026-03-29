@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getNegocioDelUsuario } from '@/lib/getnegocio'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
  
@@ -38,12 +39,7 @@ export default function AjustesNegocio() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
  
-      // FIX: una sola query, sin duplicado
-      const { data } = await supabase
-        .from('Negocio')
-        .select('*')
-        .eq('owner_id', user.id)
-        .single()
+      const data = await getNegocioDelUsuario(user.id)
  
       if (data) {
         setNegocioId(data.id)

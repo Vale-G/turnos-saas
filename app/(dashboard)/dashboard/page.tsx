@@ -2,6 +2,7 @@
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { getNegocioDelUsuario } from '@/lib/getnegocio'
 import { getThemeColor } from '@/lib/theme'
 import { LIMITES } from '@/lib/permisos'
 import { useRouter } from 'next/navigation'
@@ -31,14 +32,7 @@ export default function DashboardPrincipal() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
  
-      // FIX: la versión anterior hacía la misma query dos veces.
-      // Ahora primero busca por owner_id, y si no hay resultado busca
-      // si el usuario es staff de algún negocio (caso edge).
-      const { data: neg } = await supabase
-        .from('Negocio')
-        .select('*')
-        .eq('owner_id', user.id)
-        .single()
+      const neg = await getNegocioDelUsuario(user.id)
  
       if (neg) {
         setNegocio(neg)

@@ -14,6 +14,16 @@
 // SOLUCIÓN: una sola función que hace UNA query limpia.
  
 import { supabase } from './supabase'
+
+type SupabaseLike = {
+  from: (table: string) => {
+    select: (query: string) => {
+      eq: (column: string, value: string) => {
+        single: () => Promise<{ data: unknown; error: unknown }>
+      }
+    }
+  }
+}
  
 export type NegocioBase = {
   id: string
@@ -37,9 +47,9 @@ export type NegocioBase = {
  * Obtiene el negocio del usuario autenticado.
  * Retorna null si el usuario no tiene negocio.
  */
-export async function getNegocioDelUsuario(userId: string): Promise<NegocioBase | null> {
-  const { data, error } = await supabase
-    .from('negocio')
+export async function getNegocioDelUsuario(userId: string, db: SupabaseLike = supabase): Promise<NegocioBase | null> {
+  const { data, error } = await db
+    .from('Negocio')
     .select('*')
     .eq('owner_id', userId)
     .single()

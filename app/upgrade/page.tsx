@@ -2,6 +2,7 @@
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { getNegocioDelUsuario } from '@/lib/getnegocio'
 import { getThemeColor } from '@/lib/theme'
 
 const FEATURES_BASICO = [
@@ -46,15 +47,7 @@ function UpgradeContent() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      let neg = null
-      const { data: byOwner } = await supabase.from('Negocio')
-        .select('nombre, tema, suscripcion_tipo').eq('owner_id', user.id).single()
-      if (byOwner) neg = byOwner
-      else {
-        const { data: byId } = await supabase.from('Negocio')
-          .select('nombre, tema, suscripcion_tipo').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
-        neg = byId
-      }
+      const neg = await getNegocioDelUsuario(user.id)
       if (neg) { setNegocio(neg); setColorPrincipal(getThemeColor(neg.tema)) }
 
       // Cargar precios desde Config

@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { getNegocioDelUsuario } from '@/lib/getnegocio'
 import { getThemeColor } from '@/lib/theme'
 
 type StatTurno = {
@@ -29,13 +30,7 @@ export default function Informes() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      let neg = null
-      const { data: byOwner } = await supabase.from('Negocio').select('id, tema, suscripcion_tipo').eq('owner_id', user.id).single()
-      if (byOwner) neg = byOwner
-      else {
-        const { data: byId } = await supabase.from('Negocio').select('id, tema, suscripcion_tipo').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
-        neg = byId
-      }
+      const neg = await getNegocioDelUsuario(user.id)
 
       if (!neg) { router.push('/dashboard'); return }
       if (neg.suscripcion_tipo !== 'pro') { router.push('/dashboard'); return }

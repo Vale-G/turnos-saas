@@ -38,7 +38,7 @@ export default function RegistroNegocio() {
       const slugFinal = slug.toLowerCase().trim().replace(/\s+/g, '-')
 
       const { error: dbError } = await supabase
-        .from('Negocio')
+        .from('negocio')
         .insert([{
           owner_id: authData.user.id,
           nombre: nombreNegocio,

@@ -3,6 +3,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
+const SUPERADMIN_EMAILS = ['valepro50020@gmail.com']
+
 type Negocio = {
   id: string; nombre: string; slug: string; owner_id: string
   activo: boolean; suscripcion_tipo: string
@@ -62,22 +64,23 @@ export default function SuperAdmin() {
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
-      console.log('Superadmin User:', user)
       if (!user) { router.push('/dashboard'); return }
-      const { data: rol, error } = await supabase
-  .from('adminrol')
-  .select('role') // Ahora pedimos la columna 'role'
-  .eq('user_id', user.id)
-  .single()
 
-console.log('Superadmin Rol encontrado:', rol)
+      const isWhitelistedEmail = SUPERADMIN_EMAILS.includes((user.email ?? '').toLowerCase())
+      let isSuperadminByRole = false
 
-// Si hay error o el rol no es superadmin, rebotamos
-if (error || !rol || rol.role !== 'superadmin') { 
-  console.error('Acceso denegado o error de tabla:', error)
-  router.push('/dashboard') 
-  return 
-}
+      const { data: roleRow } = await supabase
+        .from('adminrol')
+        .select('role')
+        .eq('user_id', user.id)
+        .single()
+      isSuperadminByRole = roleRow?.role === 'superadmin'
+
+      if (!isWhitelistedEmail && !isSuperadminByRole) {
+        router.push('/dashboard')
+        return
+      }
+
       await Promise.all([cargarNegocios(), cargarConfig()])
       setLoading(false)
     }

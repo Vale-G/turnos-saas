@@ -1,15 +1,10 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
 
+const SUPERADMIN_EMAILS = ['valepro50020@gmail.com']
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
-
-  if (!pathname.startsWith('/reservar/')) {
-    return NextResponse.next()
-  }
-
-  const slug = pathname.split('/')[2]
-  if (!slug) return NextResponse.next()
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,8 +17,33 @@ export async function proxy(request: NextRequest) {
     }
   )
 
+  if (pathname.startsWith('/superadmin')) {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.redirect(new URL('/login', request.url))
+
+    const isWhitelistedEmail = SUPERADMIN_EMAILS.includes((user.email ?? '').toLowerCase())
+    const { data: admin } = await supabase
+      .from('adminrol')
+      .select('role')
+      .eq('user_id', user.id)
+      .single()
+    const isSuperadminByRole = admin?.role === 'superadmin'
+
+    if (!isWhitelistedEmail && !isSuperadminByRole) {
+      return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
+    return NextResponse.next()
+  }
+
+  if (!pathname.startsWith('/reservar/')) {
+    return NextResponse.next()
+  }
+
+  const slug = pathname.split('/')[2]
+  if (!slug) return NextResponse.next()
+
   const { data: negocio } = await supabase
-    .from('Negocio')
+    .from('negocio')
     .select('activo')
     .eq('slug', slug)
     .single()
@@ -36,5 +56,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/reservar/:slug*'],
+  matcher: ['/reservar/:slug*', '/superadmin/:path*'],
 }

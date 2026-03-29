@@ -44,7 +44,8 @@ export default function CalendarioSemanal({
   // Obtener turnos de un slot específico
   const getTurnosEnSlot = (fecha: Date, staffId: string, hora: string) => {
     return turnos.filter(turno => {
-      const turnoFecha = parseISO(turno.hora_inicio)
+      const turnoDateTime = turno.hora_inicio ?? `${turno.fecha}T${turno.hora ?? '00:00:00'}`
+      const turnoFecha = parseISO(turnoDateTime)
       const turnoHora = format(turnoFecha, 'HH:mm')
       return (
         isSameDay(turnoFecha, fecha) &&
@@ -59,6 +60,7 @@ export default function CalendarioSemanal({
     switch (estado) {
       case 'pendiente': return 'bg-yellow-500/20 border-yellow-500/40 text-yellow-200'
       case 'confirmado': return 'bg-green-500/20 border-green-500/40 text-green-200'
+      case 'completado':
       case 'finalizado': return 'bg-slate-700/50 border-slate-600/40 text-slate-400'
       case 'cancelado': return 'bg-red-500/20 border-red-500/40 text-red-300'
       default: return 'bg-slate-700/50'
@@ -173,10 +175,10 @@ export default function CalendarioSemanal({
                             className={`p-3 rounded-xl border text-xs h-full ${getColorEstado(turnosEnSlot[0].estado)}`}
                           >
                             <p className="font-black leading-tight">
-                              {turnosEnSlot[0].nombre_cliente}
+                              {turnosEnSlot[0].cliente_nombre ?? turnosEnSlot[0].nombre_cliente ?? 'Cliente'}
                             </p>
                             <p className="text-[10px] opacity-70 mt-1">
-                              {turnosEnSlot[0].Servicio?.nombre}
+                              {turnosEnSlot[0].servicio?.nombre ?? turnosEnSlot[0].Servicio?.nombre}
                             </p>
                           </div>
                         )}

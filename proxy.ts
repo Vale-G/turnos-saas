@@ -1,7 +1,10 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
 
-const SUPERADMIN_EMAILS = ['valepro50020@gmail.com']
+const SUPERADMIN_EMAILS = (process.env.SUPERADMIN_EMAILS ?? '')
+  .split(',')
+  .map(email => email.trim().toLowerCase())
+  .filter(Boolean)
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl

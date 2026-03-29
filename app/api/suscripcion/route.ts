@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
 
     // Leer precio desde la DB (configurable por superadmin)
     const { data: configs } = await supabase
-      .from('Config').select('clave, valor')
+      .from('config').select('clave, valor')
       .in('clave', ['precio_basico', 'precio_pro'])
 
     const precioMap: Record<string, number> = {}
@@ -38,13 +38,13 @@ export async function POST(req: NextRequest) {
 
     // Buscar negocio
     let neg = null
-    const { data: byOwner } = await supabase.from('Negocio').select('id, nombre, slug').eq('owner_id', user.id).single()
+    const { data: byOwner } = await supabase.from('negocio').select('id, nombre, slug').eq('owner_id', user.id).single()
     if (byOwner) neg = byOwner
     else {
-      const { data: byId } = await supabase.from('Negocio').select('id, nombre, slug').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
+      const { data: byId } = await supabase.from('negocio').select('id, nombre, slug').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
       neg = byId
     }
-    if (!neg) return NextResponse.json({ error: 'Negocio no encontrado' }, { status: 404 })
+    if (!neg) return NextResponse.json({ error: 'negocio no encontrado' }, { status: 404 })
 
     const origin = req.headers.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
     const planNombre = plan === 'pro' ? 'Pro' : 'Basico'
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
     if (!mpRes.ok) throw new Error('MP error: ' + await mpRes.text())
     const preferencia = await mpRes.json()
 
-    await supabase.from('Suscripcion').insert({
+    await supabase.from('suscripcion').insert({
       negocio_id: neg.id, plan, estado: 'pendiente',
       mp_preference_id: preferencia.id, monto: precio,
     })

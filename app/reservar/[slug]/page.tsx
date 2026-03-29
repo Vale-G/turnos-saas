@@ -12,17 +12,17 @@ type Bloqueo = {
   recurrente: boolean; dia_semana?: number; fecha?: string
 }
 
-type Negocio = {
+type negocio = {
   id: string; nombre: string; slug: string; tema?: string
   hora_apertura?: string; hora_cierre?: string
   dias_laborales?: number[]; whatsapp?: string
 }
-type Servicio = { id: string; nombre: string; precio: number; duracion: number }
-type Staff    = { id: string; nombre: string; avatar_url?: string | null }
-type Turno    = { id: string; fecha: string; hora: string; estado: string; Servicio?: { nombre: string; precio: number } }
-type Sel      = { servicio: Servicio | null; barbero: Staff | null; fecha: string; hora: string }
+type servicio = { id: string; nombre: string; precio: number; duracion: number }
+type staff    = { id: string; nombre: string; avatar_url?: string | null }
+type turno    = { id: string; fecha: string; hora: string; estado: string; servicio?: { nombre: string; precio: number } }
+type Sel      = { servicio: servicio | null; barbero: staff | null; fecha: string; hora: string }
 
-const PASO_LABELS = ['Servicio', 'Turno', 'Confirmar']
+const PASO_LABELS = ['servicio', 'turno', 'Confirmar']
 const ESTADO_BADGE: Record<string, { bg: string; label: string }> = {
   pendiente:  { bg: 'bg-amber-500',   label: 'Pendiente'  },
   confirmado: { bg: 'bg-emerald-500', label: 'Confirmado' },
@@ -32,14 +32,14 @@ const ESTADO_BADGE: Record<string, { bg: string; label: string }> = {
 
 export default function ReservaPro() {
   const { slug } = useParams()
-  const [negocio,     setNegocio]     = useState<Negocio | null>(null)
-  const [servicios,   setServicios]   = useState<Servicio[]>([])
-  const [staffList,   setStaffList]   = useState<Staff[]>([])
+  const [negocio,     setNegocio]     = useState<negocio | null>(null)
+  const [servicios,   setServicios]   = useState<servicio[]>([])
+  const [staffList,   setStaffList]   = useState<staff[]>([])
   const [ocupados,    setOcupados]    = useState<string[]>([])
   const [bloqueos,    setBloqueos]    = useState<Bloqueo[]>([])
   const [loading,     setLoading]     = useState(true)
   const [user,        setUser]        = useState<User | null>(null)
-  const [misTurnos,   setMisTurnos]   = useState<Turno[]>([])
+  const [misTurnos,   setMisTurnos]   = useState<turno[]>([])
   const [paso,        setPaso]        = useState(1)
   const [sel,         setSel]         = useState<Sel>({ servicio: null, barbero: null, fecha: '', hora: '' })
   const [confirmando, setConfirmando] = useState(false)
@@ -50,12 +50,12 @@ export default function ReservaPro() {
   // Cargar negocio
   useEffect(() => {
     async function init() {
-      const { data: neg } = await supabase.from('Negocio').select('*').eq('slug', slug).single()
+      const { data: neg } = await supabase.from('negocio').select('*').eq('slug', slug).single()
       if (!neg) { setLoading(false); return }
       setNegocio(neg)
       const [{ data: svcs }, { data: stf }] = await Promise.all([
-        supabase.from('Servicio').select('*').eq('negocio_id', neg.id),
-        supabase.from('Staff').select('*').eq('negocio_id', neg.id).eq('activo', true),
+        supabase.from('servicio').select('*').eq('negocio_id', neg.id),
+        supabase.from('staff').select('*').eq('negocio_id', neg.id).eq('activo', true),
       ])
       setServicios(svcs ?? [])
       setStaffList(stf ?? [])
@@ -67,12 +67,12 @@ export default function ReservaPro() {
   // Auth
   const cargarMisTurnos = useCallback(async (userId: string) => {
     const { data } = await supabase
-      .from('Turno')
-      .select('id, fecha, hora, estado, Servicio(nombre, precio)')
+      .from('turno')
+      .select('id, fecha, hora, estado, servicio(nombre, precio)')
       .eq('cliente_id', userId)
       .order('fecha', { ascending: false })
       .limit(8)
-    setMisTurnos((data as unknown as Turno[]) ?? [])
+    setMisTurnos((data as unknown as turno[]) ?? [])
   }, [])
 
   useEffect(() => {
@@ -89,7 +89,7 @@ export default function ReservaPro() {
   // Horarios ocupados
   useEffect(() => {
     if (!sel.barbero || !sel.fecha) return
-    supabase.from('Turno').select('hora')
+    supabase.from('turno').select('hora')
       .eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha).not('estado', 'eq', 'cancelado')
       .then(({ data }) => setOcupados((data ?? []).map((t: { hora: string }) => t.hora.slice(0, 5))))
   }, [sel.barbero, sel.fecha])
@@ -103,13 +103,13 @@ export default function ReservaPro() {
       t.fecha >= new Date().toISOString().split('T')[0]
     )
     const frecuencia: Record<string, number> = {}
-    completados.forEach(t => { const n = t.Servicio?.nombre ?? '?'; frecuencia[n] = (frecuencia[n] ?? 0) + 1 })
+    completados.forEach(t => { const n = t.servicio?.nombre ?? '?'; frecuencia[n] = (frecuencia[n] ?? 0) + 1 })
     const favorito = Object.entries(frecuencia).sort((a, b) => b[1] - a[1])[0]?.[0]
     return {
       totalVisitas: completados.length,
       proximoTurno: proximos[0] ?? null,
       favorito,
-      totalGastado: completados.reduce((s, t) => s + (t.Servicio?.precio ?? 0), 0),
+      totalGastado: completados.reduce((s, t) => s + (t.servicio?.precio ?? 0), 0),
     }
   }, [misTurnos])
 
@@ -180,7 +180,7 @@ export default function ReservaPro() {
     setConfirmando(true)
     setErrorMsg(null)
     try {
-      const { data, error } = await supabase.from('Turno').insert({
+      const { data, error } = await supabase.from('turno').insert({
         negocio_id: negocio.id,
         servicio_id: sel.servicio.id,
         staff_id: sel.barbero.id,
@@ -230,7 +230,7 @@ export default function ReservaPro() {
   const confirmarTurno = async () => {
     // Verificar blacklist
     if (user) {
-      const { data: nota } = await supabase.from('ClienteNota')
+      const { data: nota } = await supabase.from('clientenota')
         .select('bloqueado').eq('negocio_id', negocio!.id).eq('cliente_id', user.id).single()
       if (nota?.bloqueado) {
         setErrorMsg('No podés reservar en este negocio. Contactá al local para más información.')
@@ -247,7 +247,7 @@ export default function ReservaPro() {
     setConfirmando(true)
     setErrorMsg(null)
     try {
-      const { data, error } = await supabase.from('Turno').insert({
+      const { data, error } = await supabase.from('turno').insert({
         negocio_id: negocio.id,
         servicio_id: sel.servicio.id,
         staff_id: sel.barbero.id,
@@ -308,7 +308,7 @@ export default function ReservaPro() {
   )
   if (!negocio) return (
     <div className="min-h-screen bg-[#020617] flex items-center justify-center text-slate-500 font-bold">
-      Negocio no encontrado.
+      negocio no encontrado.
     </div>
   )
 
@@ -413,7 +413,7 @@ export default function ReservaPro() {
                 <div className="rounded-2xl p-4 mb-4 border"
                   style={{ background: colorP + '10', borderColor: colorP + '30' }}>
                   <p className="text-[9px] font-black uppercase tracking-widest mb-1" style={{ color: colorP }}>Proximo turno</p>
-                  <p className="font-black">{metricas.proximoTurno.Servicio?.nombre ?? 'Servicio'}</p>
+                  <p className="font-black">{metricas.proximoTurno.servicio?.nombre ?? 'servicio'}</p>
                   <p className="text-slate-400 text-xs mt-0.5">
                     {metricas.proximoTurno.fecha} a las {metricas.proximoTurno.hora.slice(0, 5)} hs
                   </p>
@@ -430,7 +430,7 @@ export default function ReservaPro() {
                     <div key={t.id}
                       className="flex items-center justify-between bg-white/4 border border-white/8 rounded-xl px-4 py-3">
                       <div>
-                        <p className="text-xs font-black">{t.Servicio?.nombre ?? '-'}</p>
+                        <p className="text-xs font-black">{t.servicio?.nombre ?? '-'}</p>
                         <p className="text-[10px] text-slate-500">{t.fecha} · {t.hora.slice(0, 5)} hs</p>
                       </div>
                       <span className={badge.bg + ' text-[9px] font-black uppercase px-2 py-1 rounded-full text-black'}>
@@ -580,7 +580,7 @@ export default function ReservaPro() {
             <h2 className="text-2xl font-black italic uppercase tracking-tight">Confirma tu turno</h2>
 
             <div className="bg-white/4 border border-white/8 rounded-[2rem] p-5 space-y-3">
-              {([['Servicio', sel.servicio?.nombre ?? ''], ['Barbero', sel.barbero?.nombre ?? ''], ['Fecha', sel.fecha], ['Hora', sel.hora + ' hs']] as [string, string][]).map(([l, v]) => (
+              {([['servicio', sel.servicio?.nombre ?? ''], ['Barbero', sel.barbero?.nombre ?? ''], ['Fecha', sel.fecha], ['Hora', sel.hora + ' hs']] as [string, string][]).map(([l, v]) => (
                 <div key={l} className="flex justify-between items-center">
                   <span className="text-[9px] text-slate-500 font-black uppercase tracking-widest">{l}</span>
                   <span className="font-bold text-sm">{v}</span>
@@ -620,7 +620,7 @@ export default function ReservaPro() {
               OK
             </div>
             <div>
-              <h2 className="text-3xl font-black italic uppercase tracking-tighter">Turno Confirmado!</h2>
+              <h2 className="text-3xl font-black italic uppercase tracking-tighter">turno Confirmado!</h2>
               <p className="text-slate-500 text-xs mt-2 font-bold uppercase tracking-widest">
                 Nos vemos pronto en {negocio.nombre}
               </p>
@@ -676,7 +676,7 @@ function ConfirmarOGuest({
       <button onClick={onConfirmar} disabled={confirmando}
         className="w-full py-5 rounded-[1.75rem] font-black italic text-lg text-black transition-all hover:opacity-90 disabled:opacity-50"
         style={{ backgroundColor: colorP }}>
-        {confirmando ? 'Reservando...' : 'Confirmar Turno'}
+        {confirmando ? 'Reservando...' : 'Confirmar turno'}
       </button>
     </div>
   )

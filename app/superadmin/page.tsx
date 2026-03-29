@@ -3,13 +3,13 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-type Negocio = {
+type negocio = {
   id: string; nombre: string; slug: string; owner_id: string
   activo: boolean; suscripcion_tipo: string
   created_at: string; trial_hasta?: string | null
 }
 
-type Config = { precio_basico: number; precio_pro: number; dias_trial: number }
+type config = { precio_basico: number; precio_pro: number; dias_trial: number }
 
 type Metrica = {
   totalNegocios: number; activos: number; pro: number; basico: number
@@ -23,9 +23,9 @@ const diasTrialRestantes = (trial_hasta?: string | null) => {
 }
 
 export default function SuperAdmin() {
-  const [negocios, setNegocios] = useState<Negocio[]>([])
-  const [config, setConfig] = useState<Config>({ precio_basico: 5000, precio_pro: 25000, dias_trial: 30 })
-  const [configEdit, setConfigEdit] = useState<Config>({ precio_basico: 5000, precio_pro: 25000, dias_trial: 30 })
+  const [negocios, setNegocios] = useState<negocio[]>([])
+  const [config, setConfig] = useState<config>({ precio_basico: 5000, precio_pro: 25000, dias_trial: 30 })
+  const [configEdit, setConfigEdit] = useState<config>({ precio_basico: 5000, precio_pro: 25000, dias_trial: 30 })
   const [loading, setLoading] = useState(true)
   const [guardandoConfig, setGuardandoConfig] = useState(false)
   const [configGuardada, setConfigGuardada] = useState(false)

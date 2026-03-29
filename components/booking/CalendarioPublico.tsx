@@ -2,7 +2,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { Servicio } from '@/types/database.types'
+import { servicio } from '@/types/database.types'
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, isBefore, startOfDay } from 'date-fns'
 import { es } from 'date-fns/locale'
 
@@ -12,7 +12,7 @@ interface HorarioDisponible {
 }
 
 interface CalendarioPublicoProps {
-  servicioSeleccionado: Servicio | null
+  servicioSeleccionado: servicio | null
   horariosOcupados: string[] // Array de ISO timestamps
   onSeleccionarFecha: (fecha: Date, hora: string) => void
   colorPrimario?: string

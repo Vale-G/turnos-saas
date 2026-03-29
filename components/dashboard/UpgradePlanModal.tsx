@@ -2,7 +2,7 @@
 import { useRouter } from 'next/navigation'
 
 const FEATURES_PRO = [
-  'Staff y servicios ilimitados',
+  'staff y servicios ilimitados',
   'Informes y estadisticas avanzadas',
   'Historial completo de clientes',
   'Cobros con MercadoPago',

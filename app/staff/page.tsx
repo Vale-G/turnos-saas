@@ -19,7 +19,7 @@ export default function GestionStaff() {
 
   const cargarStaff = useCallback(async (nId: string) => {
     const { data } = await supabase
-      .from('Staff').select('*').eq('negocio_id', nId).order('created_at', { ascending: false })
+      .from('staff').select('*').eq('negocio_id', nId).order('created_at', { ascending: false })
     setStaff(data || [])
   }, [])
 
@@ -29,10 +29,10 @@ export default function GestionStaff() {
       if (!user) { router.push('/login'); return }
 
       let neg = null
-      const { data: byOwner } = await supabase.from('Negocio').select('id, tema, suscripcion_tipo').eq('owner_id', user.id).single()
+      const { data: byOwner } = await supabase.from('negocio').select('id, tema, suscripcion_tipo').eq('owner_id', user.id).single()
       if (byOwner) neg = byOwner
       else {
-        const { data: byId } = await supabase.from('Negocio').select('id, tema, suscripcion_tipo').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
+        const { data: byId } = await supabase.from('negocio').select('id, tema, suscripcion_tipo').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
         neg = byId
       }
       if (!neg) { router.push('/dashboard'); return }
@@ -58,21 +58,21 @@ export default function GestionStaff() {
       return
     }
 
-    const { error } = await supabase.from('Staff').insert([{ nombre, negocio_id: negocioId, activo: true }])
+    const { error } = await supabase.from('staff').insert([{ nombre, negocio_id: negocioId, activo: true }])
     if (error) setError(error.message)
     else { setNombre(''); await cargarStaff(negocioId) }
   }
 
   const borrarStaff = async (id: string) => {
     if (!negocioId || !confirm('Seguro?')) return
-    const { error } = await supabase.from('Staff').delete().eq('id', id)
+    const { error } = await supabase.from('staff').delete().eq('id', id)
     if (error) setError(error.message)
     else await cargarStaff(negocioId)
   }
 
   const toggleActivo = async (id: string, estadoActual: boolean) => {
     if (!negocioId) return
-    const { error } = await supabase.from('Staff').update({ activo: !estadoActual }).eq('id', id)
+    const { error } = await supabase.from('staff').update({ activo: !estadoActual }).eq('id', id)
     if (error) setError(error.message)
     else await cargarStaff(negocioId)
   }

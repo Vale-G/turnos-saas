@@ -26,7 +26,7 @@ export default function Bloqueos() {
   const router = useRouter()
 
   const cargar = useCallback(async (nId: string) => {
-    const { data } = await supabase.from('BloqueHorario')
+    const { data } = await supabase.from('bloquehorario')
       .select('*').eq('negocio_id', nId).order('created_at', { ascending: false })
     setBloqueos(data ?? [])
   }, [])
@@ -36,9 +36,9 @@ export default function Bloqueos() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
       let neg = null
-      const { data: byOwner } = await supabase.from('Negocio').select('id, tema').eq('owner_id', user.id).single()
+      const { data: byOwner } = await supabase.from('negocio').select('id, tema').eq('owner_id', user.id).single()
       if (byOwner) neg = byOwner
-      else { const { data: byId } = await supabase.from('Negocio').select('id, tema').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single(); neg = byId }
+      else { const { data: byId } = await supabase.from('negocio').select('id, tema').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single(); neg = byId }
       if (!neg) { router.push('/dashboard'); return }
       setNegocioId(neg.id)
       setColorP(getThemeColor(neg.tema))
@@ -53,7 +53,7 @@ export default function Bloqueos() {
     if (!negocioId) return
     setError(null)
     if (horaInicio >= horaFin) { setError('La hora de fin debe ser mayor que la de inicio'); return }
-    const { error } = await supabase.from('BloqueHorario').insert({
+    const { error } = await supabase.from('bloquehorario').insert({
       negocio_id: negocioId,
       hora_inicio: horaInicio,
       hora_fin: horaFin,
@@ -70,7 +70,7 @@ export default function Bloqueos() {
 
   const eliminar = async (id: string) => {
     if (!negocioId || !confirm('Eliminar bloqueo?')) return
-    await supabase.from('BloqueHorario').delete().eq('id', id)
+    await supabase.from('bloquehorario').delete().eq('id', id)
     await cargar(negocioId)
   }
 
@@ -143,7 +143,7 @@ export default function Bloqueos() {
           <div>
             <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-2">Motivo (opcional)</label>
             <input type="text" value={motivo} onChange={e => setMotivo(e.target.value)}
-              placeholder="Ej: Almuerzo, Turno médico..."
+              placeholder="Ej: Almuerzo, turno médico..."
               className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-white/25 transition-colors" />
           </div>
 

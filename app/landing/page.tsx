@@ -17,7 +17,7 @@ export default function Landing() {
 
   React.useEffect(() => {
     import('@/lib/supabase').then(({ supabase }) => {
-      supabase.from('Config').select('clave, valor')
+      supabase.from('config').select('clave, valor')
         .in('clave', ['precio_basico', 'precio_pro'])
         .then(({ data }) => {
           if (data) {
@@ -194,7 +194,7 @@ export default function Landing() {
               </div>
             </div>
             <div className="p-6 space-y-2.5">
-              {['Todo lo del Básico','Staff ilimitado','Informes avanzados','Historial de clientes','MercadoPago integrado','Recordatorios automáticos'].map(f => (
+              {['Todo lo del Básico','staff ilimitado','Informes avanzados','Historial de clientes','MercadoPago integrado','Recordatorios automáticos'].map(f => (
                 <div key={f} className="flex items-center gap-3">
                   <div className="w-4 h-4 rounded-full bg-emerald-500/20 flex items-center justify-center flex-shrink-0">
                     <svg width="8" height="8" viewBox="0 0 8 8" fill="none">

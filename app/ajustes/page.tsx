@@ -40,7 +40,7 @@ export default function AjustesNegocio() {
  
       // FIX: una sola query, sin duplicado
       const { data } = await supabase
-        .from('Negocio')
+        .from('negocio')
         .select('*')
         .eq('owner_id', user.id)
         .single()
@@ -69,7 +69,7 @@ export default function AjustesNegocio() {
     if (!user) return
  
     const { error } = await supabase
-      .from('Negocio')
+      .from('negocio')
       .update({
         nombre,
         whatsapp,
@@ -238,7 +238,7 @@ export default function AjustesNegocio() {
  
             <div>
               <label className="text-[10px] font-black uppercase text-slate-500 ml-2 block mb-2">
-                Descripción del Negocio
+                Descripción del negocio
               </label>
               <textarea
                 value={descripcion}
@@ -250,7 +250,7 @@ export default function AjustesNegocio() {
             {/* FIX: sección de logo mejorada con feedback */}
             <div>
               <label className="text-[10px] font-black uppercase text-slate-500 ml-2 block mb-2">
-                Logo del Negocio
+                Logo del negocio
               </label>
  
               {/* Preview del logo actual */}

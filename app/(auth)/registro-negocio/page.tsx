@@ -30,7 +30,7 @@ export default function RegistroNegocio() {
       return
     }
 
-    // PARTE 2: Guardar los datos de la peluquería en la tabla "Negocio"
+    // PARTE 2: Guardar los datos de la peluquería en la tabla "negocio"
     if (authData.user) {
       const trialHasta = new Date()
       trialHasta.setDate(trialHasta.getDate() + 30)
@@ -38,7 +38,7 @@ export default function RegistroNegocio() {
       const slugFinal = slug.toLowerCase().trim().replace(/\s+/g, '-')
 
       const { error: dbError } = await supabase
-        .from('Negocio')
+        .from('negocio')
         .insert([{
           owner_id: authData.user.id,
           nombre: nombreNegocio,

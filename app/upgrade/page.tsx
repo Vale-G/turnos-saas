@@ -13,7 +13,7 @@ const FEATURES_BASICO = [
 
 const FEATURES_PRO = [
   'Todo lo del plan Basico',
-  'Staff y servicios ilimitados',
+  'staff y servicios ilimitados',
   'Informes y estadisticas PRO',
   'Historial completo de clientes',
   'Cobros con MercadoPago',
@@ -47,19 +47,19 @@ function UpgradeContent() {
       if (!user) { router.push('/login'); return }
 
       let neg = null
-      const { data: byOwner } = await supabase.from('Negocio')
+      const { data: byOwner } = await supabase.from('negocio')
         .select('nombre, tema, suscripcion_tipo').eq('owner_id', user.id).single()
       if (byOwner) neg = byOwner
       else {
-        const { data: byId } = await supabase.from('Negocio')
+        const { data: byId } = await supabase.from('negocio')
           .select('nombre, tema, suscripcion_tipo').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
         neg = byId
       }
       if (neg) { setNegocio(neg); setColorPrincipal(getThemeColor(neg.tema)) }
 
-      // Cargar precios desde Config
+      // Cargar precios desde config
       const { data: configs } = await supabase
-        .from('Config').select('clave, valor')
+        .from('config').select('clave, valor')
         .in('clave', ['precio_basico', 'precio_pro'])
       if (configs) {
         const pm: Record<string, number> = {}

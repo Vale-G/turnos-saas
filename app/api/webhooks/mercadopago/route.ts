@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     }
 
     await supabaseAdmin
-      .from('Turno')
+      .from('turno')
       .update({ estado: estadoTurno[pago.status] ?? 'pendiente', pago_id: String(paymentId), pago_estado: pago.status })
       .eq('id', turnoId)
 

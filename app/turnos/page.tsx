@@ -11,6 +11,7 @@ type TurnoItem = {
   Servicio?: { nombre: string; precio: number }
   Staff?: { nombre: string }
 }
+type TurnoUpdate = Partial<Pick<TurnoItem, 'cliente_nombre' | 'fecha' | 'hora' | 'estado' | 'pago_tipo' | 'pago_estado'>>
 
 type Vista = 'dia' | 'semana'
 const ESTADOS_TURNO = ['pendiente', 'confirmado', 'completado', 'cancelado']
@@ -99,18 +100,20 @@ export default function AgendaTurnos() {
   }
 
   const cambiarEstado = useCallback(async (id: string, estado: string) => {
-    await supabase.from('Turno').update({ estado }).eq('id', id)
+    const payload: TurnoUpdate = { estado }
+    await supabase.from('Turno').update(payload).eq('id', id)
     setReloadKey(k => k + 1)
   }, [])
 
   const registrarPago = useCallback(async (id: string, tipo: string) => {
-    await supabase.from('Turno').update({ pago_tipo: tipo, pago_estado: 'cobrado', estado: 'completado' }).eq('id', id)
+    const payload: TurnoUpdate = { pago_tipo: tipo, pago_estado: 'cobrado', estado: 'completado' }
+    await supabase.from('Turno').update(payload).eq('id', id)
     setTurnoEditando(null)
     setReloadKey(k => k + 1)
   }, [])
 
   const deshacerPago = useCallback(async (id: string) => {
-    await supabase.from('Turno').update({ pago_tipo: null, pago_estado: 'pendiente' }).eq('id', id)
+    await supabase.from('Turno').update({ pago_tipo: null, pago_estado: 'pendiente' } satisfies { pago_tipo: null; pago_estado: string }).eq('id', id)
     setReloadKey(k => k + 1)
   }, [])
 
@@ -122,12 +125,13 @@ export default function AgendaTurnos() {
 
   const guardarEdicion = async () => {
     if (!turnoEditar) return
-    await supabase.from('Turno').update({
+    const payload: TurnoUpdate = {
       cliente_nombre: turnoEditar.cliente_nombre,
       fecha: turnoEditar.fecha,
       hora: turnoEditar.hora,
       estado: turnoEditar.estado,
-    }).eq('id', turnoEditar.id)
+    }
+    await supabase.from('Turno').update(payload).eq('id', turnoEditar.id)
     setTurnoEditar(null)
     setReloadKey(k => k + 1)
   }

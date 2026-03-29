@@ -25,6 +25,12 @@ export interface Negocio {
   vertical: VerticalNegocio
   logo_url?: string
   color_primario: string
+  tema?: string
+  whatsapp?: string
+  onboarding_completo?: boolean
+  hora_apertura?: string
+  hora_cierre?: string
+  dias_laborales?: number[]
   
   // Textos personalizables
   label_servicio: string
@@ -63,7 +69,7 @@ export interface Servicio {
   nombre: string
   descripcion?: string
   precio: number
-  duracion_minutos: number
+  duracion: number
   activo: boolean
   ocultar_precio: boolean
   created_at: string
@@ -99,11 +105,18 @@ export interface Turno {
   cliente_id?: string
   
   // Fecha y hora
-  hora_inicio: string // ISO timestamp
-  hora_fin?: string
+  fecha: string // "2026-03-29"
+  hora: string // "14:30:00"
   
   // Estado
   estado: EstadoTurno
+  pago_estado?: string
+  pago_tipo?: string
+  pago_id?: string
+  sena_pagada?: boolean
+  mp_preference_id?: string
+  requiere_sena?: boolean
+  monto_sena?: number
   
   // Notas
   notas_internas?: string

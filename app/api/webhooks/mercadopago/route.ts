@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
     if (!mpRes.ok) return NextResponse.json({ ok: false }, { status: 500 })
 
     const pago = await mpRes.json()
-    const turnoId = pago.external_reference
+    const turnoId = String(pago.external_reference ?? '').split('|')[0]
     if (!turnoId) return NextResponse.json({ ok: true })
 
     const estadoTurno: Record<string, string> = {
@@ -34,7 +34,12 @@ export async function POST(req: NextRequest) {
 
     await supabaseAdmin
       .from('Turno')
-      .update({ estado: estadoTurno[pago.status] ?? 'pendiente', pago_id: String(paymentId), pago_estado: pago.status })
+      .update({
+        estado: estadoTurno[pago.status] ?? 'pendiente',
+        pago_id: String(paymentId),
+        pago_estado: String(pago.status ?? 'pending'),
+        pago_tipo: 'mercadopago',
+      })
       .eq('id', turnoId)
 
     return NextResponse.json({ ok: true })

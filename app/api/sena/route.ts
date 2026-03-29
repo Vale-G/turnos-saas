@@ -6,8 +6,9 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
     const { turno_id, monto_sena, servicio_nombre, negocio_nombre } = body
+    const montoSena = Number(monto_sena)
 
-    if (!turno_id || !monto_sena) {
+    if (!turno_id || !Number.isFinite(montoSena) || montoSena <= 0) {
       return NextResponse.json({ error: 'Faltan datos' }, { status: 400 })
     }
 
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
         title: 'Seña — ' + servicio_nombre,
         description: 'Seña para turno en ' + negocio_nombre,
         quantity: 1,
-        unit_price: monto_sena,
+        unit_price: montoSena,
         currency_id: 'ARS',
       }],
       payer: { email: user.email },
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
 
     // Guardar preference_id en el turno
     await supabase.from('Turno')
-      .update({ mp_preference_id: preferencia.id, requiere_sena: true, monto_sena })
+      .update({ mp_preference_id: String(preferencia.id), requiere_sena: true, monto_sena: montoSena })
       .eq('id', turno_id)
 
     return NextResponse.json({

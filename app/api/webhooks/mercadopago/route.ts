@@ -52,7 +52,7 @@ async function registerWebhookEvent(
 export async function POST(req: NextRequest) {
   try {
     const ip = getClientIp(req)
-    const rate = consumeRateLimit(`webhook-mp:${ip}`, 120, 60_000)
+    const rate = await consumeRateLimit(`webhook-mp:${ip}`, 120, 60_000)
     if (!rate.ok) {
       return NextResponse.json({ ok: false }, { status: 429 })
     }

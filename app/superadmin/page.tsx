@@ -3,8 +3,6 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 
-const SUPERADMIN_EMAILS = ['valepro50020@gmail.com']
-
 type Negocio = {
   id: string; nombre: string; slug: string; owner_id: string
   activo: boolean; suscripcion_tipo: string
@@ -66,7 +64,6 @@ export default function SuperAdmin() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/dashboard'); return }
 
-      const isWhitelistedEmail = SUPERADMIN_EMAILS.includes((user.email ?? '').toLowerCase())
       let isSuperadminByRole = false
 
       const { data: roleRow } = await supabase
@@ -76,7 +73,7 @@ export default function SuperAdmin() {
         .single()
       isSuperadminByRole = roleRow?.role === 'superadmin'
 
-      if (!isWhitelistedEmail && !isSuperadminByRole) {
+      if (!isSuperadminByRole) {
         router.push('/dashboard')
         return
       }

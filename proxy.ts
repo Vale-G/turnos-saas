@@ -1,11 +1,6 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextRequest, NextResponse } from 'next/server'
 
-const SUPERADMIN_EMAILS = (process.env.SUPERADMIN_EMAILS ?? '')
-  .split(',')
-  .map(email => email.trim().toLowerCase())
-  .filter(Boolean)
-
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
@@ -24,7 +19,6 @@ export async function proxy(request: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.redirect(new URL('/login', request.url))
 
-    const isWhitelistedEmail = SUPERADMIN_EMAILS.includes((user.email ?? '').toLowerCase())
     const { data: admin } = await supabase
       .from('adminrol')
       .select('role')
@@ -32,7 +26,7 @@ export async function proxy(request: NextRequest) {
       .single()
     const isSuperadminByRole = admin?.role === 'superadmin'
 
-    if (!isWhitelistedEmail && !isSuperadminByRole) {
+    if (!isSuperadminByRole) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
     return NextResponse.next()

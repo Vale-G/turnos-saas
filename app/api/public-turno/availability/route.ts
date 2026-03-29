@@ -39,7 +39,7 @@ function parsePayload(raw: unknown): { data?: AvailabilityPayload; error?: strin
 export async function POST(req: NextRequest) {
   try {
     const ip = getClientIp(req)
-    const rate = consumeRateLimit(`public-availability:${ip}`, 60, 60_000)
+    const rate = await consumeRateLimit(`public-availability:${ip}`, 60, 60_000)
     if (!rate.ok) {
       return NextResponse.json({ error: 'Demasiadas consultas. Probá en unos segundos.' }, { status: 429 })
     }

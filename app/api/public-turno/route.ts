@@ -54,7 +54,7 @@ function parseAndValidatePayload(raw: unknown): { data?: PublicTurnoPayload; err
 export async function POST(req: NextRequest) {
   try {
     const ip = getClientIp(req)
-    const rate = consumeRateLimit(`public-turno:${ip}`, 20, 60_000)
+    const rate = await consumeRateLimit(`public-turno:${ip}`, 20, 60_000)
     if (!rate.ok) {
       return NextResponse.json({ error: 'Demasiados intentos. Probá de nuevo en unos segundos.' }, { status: 429 })
     }

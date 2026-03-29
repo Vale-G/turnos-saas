@@ -31,7 +31,8 @@ const ESTADO_BADGE: Record<string, { bg: string; label: string }> = {
 }
 
 export default function ReservaPro() {
-  const { slug } = useParams()
+  const { slug } = useParams<{ slug: string | string[] }>()
+  const slugParam = Array.isArray(slug) ? slug[0] : slug
   const [negocio,     setNegocio]     = useState<Negocio | null>(null)
   const [servicios,   setServicios]   = useState<Servicio[]>([])
   const [staffList,   setStaffList]   = useState<Staff[]>([])
@@ -51,9 +52,10 @@ export default function ReservaPro() {
   // Cargar negocio
   useEffect(() => {
     async function init() {
-      const { data: neg } = await supabase.from('negocio').select('*').eq('slug', slug).single()
+      if (!slugParam) { setLoading(false); return }
+      const { data: neg } = await supabase.from('negocio').select('*').eq('slug', slugParam).single()
       if (!neg) {
-        if (slug === 'demo') {
+        if (slugParam === 'demo') {
           setNegocio({
             id: 'demo-local',
             nombre: 'Demo Turnly',
@@ -88,7 +90,7 @@ export default function ReservaPro() {
       setLoading(false)
     }
     init()
-  }, [slug])
+  }, [slugParam])
 
   // Auth
   const cargarMisTurnos = useCallback(async (userId: string) => {
@@ -191,7 +193,7 @@ export default function ReservaPro() {
 
   const loginGoogle = () => supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: getOAuthRedirectUrl('/reservar/' + slug) },
+    options: { redirectTo: getOAuthRedirectUrl('/reservar/' + slugParam) },
   })
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

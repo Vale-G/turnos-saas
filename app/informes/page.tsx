@@ -30,10 +30,10 @@ export default function Informes() {
       if (!user) { router.push('/login'); return }
 
       let neg = null
-      const { data: byOwner } = await supabase.from('Negocio').select('id, tema, suscripcion_tipo').eq('owner_id', user.id).single()
+      const { data: byOwner } = await supabase.from('negocio').select('id, tema, suscripcion_tipo').eq('owner_id', user.id).single()
       if (byOwner) neg = byOwner
       else {
-        const { data: byId } = await supabase.from('Negocio').select('id, tema, suscripcion_tipo').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
+        const { data: byId } = await supabase.from('negocio').select('id, tema, suscripcion_tipo').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
         neg = byId
       }
 
@@ -57,7 +57,7 @@ export default function Informes() {
       const desdeStr = desde.toISOString().split('T')[0]
 
       const { data } = await supabase
-        .from('Turno')
+        .from('turno')
         .select('fecha, estado, pago_estado, pago_tipo, Servicio(nombre, precio), Staff(nombre)')
         .eq('negocio_id', negocioId)
         .gte('fecha', desdeStr)

@@ -50,12 +50,12 @@ export default function ReservaPro() {
   // Cargar negocio
   useEffect(() => {
     async function init() {
-      const { data: neg } = await supabase.from('Negocio').select('*').eq('slug', slug).single()
+      const { data: neg } = await supabase.from('negocio').select('*').eq('slug', slug).single()
       if (!neg) { setLoading(false); return }
       setNegocio(neg)
       const [{ data: svcs }, { data: stf }] = await Promise.all([
-        supabase.from('Servicio').select('*').eq('negocio_id', neg.id),
-        supabase.from('Staff').select('*').eq('negocio_id', neg.id).eq('activo', true),
+        supabase.from('servicio').select('*').eq('negocio_id', neg.id),
+        supabase.from('staff').select('*').eq('negocio_id', neg.id).eq('activo', true),
       ])
       setServicios(svcs ?? [])
       setStaffList(stf ?? [])
@@ -67,7 +67,7 @@ export default function ReservaPro() {
   // Auth
   const cargarMisTurnos = useCallback(async (userId: string) => {
     const { data } = await supabase
-      .from('Turno')
+      .from('turno')
       .select('id, fecha, hora, estado, Servicio(nombre, precio)')
       .eq('cliente_id', userId)
       .order('fecha', { ascending: false })
@@ -89,7 +89,7 @@ export default function ReservaPro() {
   // Horarios ocupados
   useEffect(() => {
     if (!sel.barbero || !sel.fecha) return
-    supabase.from('Turno').select('hora')
+    supabase.from('turno').select('hora')
       .eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha).not('estado', 'eq', 'cancelado')
       .then(({ data }) => setOcupados((data ?? []).map((t: { hora: string }) => t.hora.slice(0, 5))))
   }, [sel.barbero, sel.fecha])
@@ -180,7 +180,7 @@ export default function ReservaPro() {
     setConfirmando(true)
     setErrorMsg(null)
     try {
-      const { data, error } = await supabase.from('Turno').insert({
+      const { data, error } = await supabase.from('turno').insert({
         negocio_id: negocio.id,
         servicio_id: sel.servicio.id,
         staff_id: sel.barbero.id,
@@ -230,7 +230,7 @@ export default function ReservaPro() {
   const confirmarTurno = async () => {
     // Verificar blacklist
     if (user) {
-      const { data: nota } = await supabase.from('ClienteNota')
+      const { data: nota } = await supabase.from('clientenota')
         .select('bloqueado').eq('negocio_id', negocio!.id).eq('cliente_id', user.id).single()
       if (nota?.bloqueado) {
         setErrorMsg('No podés reservar en este negocio. Contactá al local para más información.')
@@ -247,7 +247,7 @@ export default function ReservaPro() {
     setConfirmando(true)
     setErrorMsg(null)
     try {
-      const { data, error } = await supabase.from('Turno').insert({
+      const { data, error } = await supabase.from('turno').insert({
         negocio_id: negocio.id,
         servicio_id: sel.servicio.id,
         staff_id: sel.barbero.id,
@@ -434,7 +434,7 @@ export default function ReservaPro() {
                     <button
                       onClick={async () => {
                         if (!confirm('¿Cancelar este turno?')) return
-                        await supabase.from('Turno').update({ estado: 'cancelado' }).eq('id', metricas.proximoTurno!.id)
+                        await supabase.from('turno').update({ estado: 'cancelado' }).eq('id', metricas.proximoTurno!.id)
                         if (user) cargarMisTurnos(user.id)
                       }}
                       className="mt-3 w-full py-2 rounded-xl text-[10px] font-black uppercase text-red-400 border border-red-500/20 bg-red-500/10 hover:bg-red-500/20 transition-colors">

@@ -40,7 +40,7 @@ export default function AjustesNegocio() {
  
       // FIX: una sola query, sin duplicado
       const { data } = await supabase
-        .from('Negocio')
+        .from('negocio')
         .select('*')
         .eq('owner_id', user.id)
         .single()
@@ -69,7 +69,7 @@ export default function AjustesNegocio() {
     if (!user) return
  
     const { error } = await supabase
-      .from('Negocio')
+      .from('negocio')
       .update({
         nombre,
         whatsapp,

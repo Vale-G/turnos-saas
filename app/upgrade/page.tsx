@@ -47,11 +47,11 @@ function UpgradeContent() {
       if (!user) { router.push('/login'); return }
 
       let neg = null
-      const { data: byOwner } = await supabase.from('Negocio')
+      const { data: byOwner } = await supabase.from('negocio')
         .select('nombre, tema, suscripcion_tipo').eq('owner_id', user.id).single()
       if (byOwner) neg = byOwner
       else {
-        const { data: byId } = await supabase.from('Negocio')
+        const { data: byId } = await supabase.from('negocio')
           .select('nombre, tema, suscripcion_tipo').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
         neg = byId
       }
@@ -59,7 +59,7 @@ function UpgradeContent() {
 
       // Cargar precios desde Config
       const { data: configs } = await supabase
-        .from('Config').select('clave, valor')
+        .from('config').select('clave, valor')
         .in('clave', ['precio_basico', 'precio_pro'])
       if (configs) {
         const pm: Record<string, number> = {}

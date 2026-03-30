@@ -35,7 +35,7 @@ export default function RegistroNegocio() {
       // Verificar que el slug no exista
       const slugFinalCheck = slug.toLowerCase().trim().replace(/\s+/g, '-')
       const { data: slugExiste } = await supabase
-        .from('Negocio')
+        .from('negocio')
         .select('id')
         .eq('slug', slugFinalCheck)
         .single()
@@ -50,7 +50,7 @@ export default function RegistroNegocio() {
       const slugFinal = slug.toLowerCase().trim().replace(/\s+/g, '-')
 
       const { error: dbError } = await supabase
-        .from('Negocio')
+        .from('negocio')
         .insert([{
           owner_id: authData.user.id,
           nombre: nombreNegocio,

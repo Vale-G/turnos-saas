@@ -42,10 +42,10 @@ export default function Clientes() {
       if (!user) { router.push('/login'); return }
 
       let neg = null
-      const { data: byOwner } = await supabase.from('Negocio').select('id, tema').eq('owner_id', user.id).single()
+      const { data: byOwner } = await supabase.from('negocio').select('id, tema').eq('owner_id', user.id).single()
       if (byOwner) neg = byOwner
       else {
-        const { data: byId } = await supabase.from('Negocio').select('id, tema').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
+        const { data: byId } = await supabase.from('negocio').select('id, tema').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
         neg = byId
       }
       if (!neg) { router.push('/onboarding'); return }
@@ -60,7 +60,7 @@ export default function Clientes() {
     async function cargar() {
       setLoading(true)
       const { data } = await supabase
-        .from('Turno')
+        .from('turno')
         .select('id, fecha, hora, estado, pago_estado, cliente_id, cliente_nombre, Servicio(nombre, precio), Staff(nombre)')
         .eq('negocio_id', negocioId)
         .not('cliente_id', 'is', null)
@@ -107,7 +107,7 @@ export default function Clientes() {
   const guardarNota = useCallback(async (clienteId: string, clienteNombre: string) => {
     if (!negocioId || !nota.trim()) return
     setGuardandoNota(true)
-    await supabase.from('ClienteNota').insert({
+    await supabase.from('clientenota').insert({
       negocio_id: negocioId,
       cliente_id: clienteId,
       cliente_nombre: clienteNombre,
@@ -124,7 +124,7 @@ export default function Clientes() {
   const toggleBlacklist = async (clienteId: string, estadoActual: boolean) => {
     if (!negocioId) return
     const nuevoEstado = !estadoActual
-    await supabase.from('ClienteNota')
+    await supabase.from('clientenota')
       .upsert({
         negocio_id: negocioId,
         cliente_id: clienteId,

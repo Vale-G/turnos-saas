@@ -22,7 +22,7 @@ export default function GestionServicios() {
 
   const cargarServicios = useCallback(async (nId: string) => {
     const { data } = await supabase
-      .from('Servicio').select('*').eq('negocio_id', nId).order('created_at', { ascending: false })
+      .from('servicio').select('*').eq('negocio_id', nId).order('created_at', { ascending: false })
     setServicios(data || [])
   }, [])
 
@@ -32,10 +32,10 @@ export default function GestionServicios() {
       if (!user) { router.push('/login'); return }
 
       let neg = null
-      const { data: byOwner } = await supabase.from('Negocio').select('id, tema, suscripcion_tipo').eq('owner_id', user.id).single()
+      const { data: byOwner } = await supabase.from('negocio').select('id, tema, suscripcion_tipo').eq('owner_id', user.id).single()
       if (byOwner) neg = byOwner
       else {
-        const { data: byId } = await supabase.from('Negocio').select('id, tema, suscripcion_tipo').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
+        const { data: byId } = await supabase.from('negocio').select('id, tema, suscripcion_tipo').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
         neg = byId
       }
       if (!neg) { router.push('/onboarding'); return }
@@ -68,7 +68,7 @@ export default function GestionServicios() {
     if (parseInt(duracion) < 15 || isNaN(parseInt(duracion))) {
       setError('La duración mínima es 15 minutos'); return;
     }
-    const { error } = await supabase.from('Servicio').insert([
+    const { error } = await supabase.from('servicio').insert([
       { nombre: nombre.trim(), precio: parseFloat(precio), duracion: parseInt(duracion), negocio_id: negocioId },
     ])
     if (error) setError(error.message)
@@ -77,14 +77,14 @@ export default function GestionServicios() {
 
   const borrarServicio = async (id: string) => {
     if (!negocioId || !confirm('Seguro?')) return
-    const { error } = await supabase.from('Servicio').delete().eq('id', id)
+    const { error } = await supabase.from('servicio').delete().eq('id', id)
     if (error) setError(error.message)
     else await cargarServicios(negocioId)
   }
 
   const guardarEdicion = async (id: string, n: string, p: string, d: string) => {
     if (!negocioId) return
-    const { error } = await supabase.from('Servicio')
+    const { error } = await supabase.from('servicio')
       .update({ nombre: n, precio: parseFloat(p), duracion: parseInt(d) }).eq('id', id)
     if (error) setError(error.message)
     else { setEditandoId(null); await cargarServicios(negocioId) }

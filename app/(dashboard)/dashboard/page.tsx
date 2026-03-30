@@ -35,7 +35,7 @@ export default function DashboardPrincipal() {
       // Ahora primero busca por owner_id, y si no hay resultado busca
       // si el usuario es staff de algún negocio (caso edge).
       const { data: neg } = await supabase
-        .from('Negocio')
+        .from('negocio')
         .select('*')
         .eq('owner_id', user.id)
         .single()
@@ -43,8 +43,8 @@ export default function DashboardPrincipal() {
       if (neg) {
         setNegocio(neg)
         const [{ count: sc }, { count: svc }] = await Promise.all([
-          supabase.from('Staff').select('*', { count: 'exact', head: true }).eq('negocio_id', neg.id),
-          supabase.from('Servicio').select('*', { count: 'exact', head: true }).eq('negocio_id', neg.id),
+          supabase.from('staff').select('*', { count: 'exact', head: true }).eq('negocio_id', neg.id),
+          supabase.from('servicio').select('*', { count: 'exact', head: true }).eq('negocio_id', neg.id),
         ])
         setStaffCount(sc ?? 0)
         setServiciosCount(svc ?? 0)

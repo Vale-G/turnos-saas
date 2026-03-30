@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     const preferencia = await mpRes.json()
 
     // Guardar preference_id en el turno
-    await supabase.from('Turno')
+    await supabase.from('turno')
       .update({ mp_preference_id: preferencia.id, requiere_sena: true, monto_sena })
       .eq('id', turno_id)
 

@@ -39,11 +39,11 @@ export default function Onboarding() {
       if (!user) { router.push('/login'); return }
 
       let neg = null
-      const { data: byOwner } = await supabase.from('Negocio')
+      const { data: byOwner } = await supabase.from('negocio')
         .select('id, nombre, tema, onboarding_completo').eq('owner_id', user.id).single()
       if (byOwner) neg = byOwner
       else {
-        const { data: byId } = await supabase.from('Negocio')
+        const { data: byId } = await supabase.from('negocio')
           .select('id, nombre, tema, onboarding_completo').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
         neg = byId
       }
@@ -66,7 +66,7 @@ export default function Onboarding() {
   const guardarPaso1 = async () => {
     if (!negocioId || !nombre.trim()) return
     setLoading(true); setError(null)
-    const { error } = await supabase.from('Negocio').update({
+    const { error } = await supabase.from('negocio').update({
       nombre: nombre.trim(),
       ...(logoUrl.trim() && { logo_url: logoUrl.trim() }),
     }).eq('id', negocioId)
@@ -79,7 +79,7 @@ export default function Onboarding() {
     setLoading(true); setError(null)
     const _map: Record<string,number> = {domingo:0,lunes:1,martes:2,miercoles:3,jueves:4,viernes:5,sabado:6}
     const diasNums = diasActivos.map(d => _map[d])
-    const { error } = await supabase.from('Negocio').update({
+    const { error } = await supabase.from('negocio').update({
       dias_laborales: diasNums,
       hora_apertura: horaApertura + ':00',
       hora_cierre: horaCierre + ':00',
@@ -93,7 +93,7 @@ export default function Onboarding() {
     if (!negocioId) return
     setLoading(true); setError(null)
     if (servicioNombre.trim() && servicioPrecio) {
-      const { error } = await supabase.from('Servicio').insert({
+      const { error } = await supabase.from('servicio').insert({
         negocio_id: negocioId,
         nombre: servicioNombre.trim(),
         precio: parseFloat(servicioPrecio),
@@ -101,7 +101,7 @@ export default function Onboarding() {
       })
       if (error) { setError(error.message); setLoading(false); return }
     }
-    await supabase.from('Negocio').update({ onboarding_completo: true }).eq('id', negocioId)
+    await supabase.from('negocio').update({ onboarding_completo: true }).eq('id', negocioId)
     setLoading(false)
     router.push('/dashboard?bienvenida=1')
   }

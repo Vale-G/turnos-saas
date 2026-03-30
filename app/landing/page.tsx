@@ -228,7 +228,7 @@ export default function Landing() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-white/5 px-6 py-12 text-center">
+      <footer className="border-t border-white/5 px-6 py-8 text-center">
         <div className="flex items-center justify-center gap-3 mb-3">
           <div className="w-10 h-10 rounded-xl overflow-hidden border border-white/10">
             <img src="/fvtech-logo.jpg" alt="F&V Tech" className="w-full h-full object-cover" />
@@ -238,17 +238,15 @@ export default function Landing() {
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">by F&V Tech</span>
           </div>
         </div>
-        <p className="text-slate-600 text-xs">Tus turnos, tu negocio. · Desarrollado por <span className="text-[#6366F1] font-bold">F&V Tech</span> 🇦🇷</p>
+        <p className="text-slate-600 text-xs mb-4">Tus turnos, tu negocio. · Desarrollado por <span className="text-[#6366F1] font-bold">F&V Tech</span> 🇦🇷</p>
         
-        {/* BOTÓN ADMIN RECUPERADO */}
-        <div className="mt-8">
-          <button 
-            onClick={() => router.push('/superadmin')}
-            className="text-[10px] text-slate-800 hover:text-slate-500 font-bold uppercase tracking-widest transition-colors"
-          >
-            Acceso Admin
-          </button>
-        </div>
+        {/* Acceso Admin discreto */}
+        <button 
+          onClick={() => router.push('/superadmin')}
+          className="text-[10px] text-slate-800 hover:text-slate-500 font-bold uppercase tracking-widest transition-colors mt-4"
+        >
+          Acceso Admin
+        </button>
       </footer>
 
     </div>

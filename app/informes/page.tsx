@@ -29,7 +29,10 @@ export default function Informes() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      const { data: neg } = await supabase.from('negocio').select('id, tema, suscripcion_tipo').eq('owner_id', user.id).single()
+      const { data: neg } = await supabase.from('negocio')
+        .select('id, tema, suscripcion_tipo')
+        .eq('owner_id', user.id)
+        .single()
 
       if (!neg) { router.push('/onboarding'); return }
       if (neg.suscripcion_tipo !== 'pro') { router.push('/dashboard'); return }
@@ -85,12 +88,6 @@ export default function Informes() {
   })
   const barberoRanking = Object.entries(porBarbero).sort((a, b) => b[1] - a[1])
 
-  const porPago: Record<string, number> = {}
-  cobrados.forEach(t => {
-    const tp = t.pago_tipo ?? 'sin registrar'
-    porPago[tp] = (porPago[tp] ?? 0) + 1
-  })
-
   const porDia: Record<string, number> = {}
   cobrados.forEach(t => {
     porDia[t.fecha] = (porDia[t.fecha] ?? 0) + (t.servicio?.precio ?? 0)
@@ -105,69 +102,56 @@ export default function Informes() {
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
           <button onClick={() => router.push('/dashboard')} className="text-slate-500 text-[10px] font-black uppercase mb-2 block hover:text-white transition-colors">Volver</button>
-          <div className="flex items-center gap-3"><h1 className="text-4xl font-black uppercase italic tracking-tighter" style={{ color: colorPrincipal }}>Informes</h1><span className="bg-amber-400 text-black text-[9px] font-black uppercase px-2 py-1 rounded-full">PRO</span></div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-4xl font-black uppercase italic tracking-tighter" style={{ color: colorPrincipal }}>Informes</h1>
+            <span className="bg-amber-400 text-black text-[9px] font-black uppercase px-2 py-1 rounded-full">PRO</span>
+          </div>
         </div>
 
         <div className="flex gap-2 mb-8">
-          {(['7d', '30d', '90d'] as Periodo[]).map(p => (
-            <button key={p} onClick={() => setPeriodo(p)} className={'px-4 py-2 rounded-xl text-xs font-black uppercase border transition-all ' + (periodo === p ? 'text-black border-transparent' : 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10')} style={periodo === p ? { backgroundColor: colorPrincipal } : {}}>{p === '7d' ? '7 días' : p === '30d' ? '30 días' : '90 días'}</button>
+          {['7d', '30d', '90d'].map(p => (
+            <button key={p} onClick={() => setPeriodo(p as any)} className={'px-4 py-2 rounded-xl text-xs font-black uppercase border transition-all ' + (periodo === p ? 'text-black border-transparent' : 'bg-white/5 text-slate-400 border-white/10')} style={periodo === p ? { backgroundColor: colorPrincipal } : {}}>{p}</button>
           ))}
         </div>
 
-        {loading ? <div className="text-center py-20 text-slate-700 font-black italic animate-pulse">Calculando...</div> : (
+        {loading ? <div className="text-center py-20 text-slate-700 font-black italic animate-pulse">Analizando...</div> : (
           <div className="space-y-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[
-                { label: 'Turnos', value: activos.length, color: 'text-white' },
-                { label: 'Cobrado', value: '$' + totalIngreso.toLocaleString('es-AR'), color: 'text-emerald-400' },
-                { label: 'Ticket promedio', value: '$' + Math.round(ticketPromedio).toLocaleString('es-AR'), color: colorPrincipal },
-                { label: 'Cancelados', value: turnos.filter(t => t.estado === 'cancelado').length, color: 'text-red-400' },
-              ].map(k => (
-                <div key={k.label} className="bg-white/4 border border-white/8 rounded-2xl p-5">
-                  <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-2">{k.label}</p>
-                  <p className="text-2xl font-black italic"><span className={k.color.startsWith('text-') ? k.color : ''} style={!k.color.startsWith('text-') ? {color: k.color} : {}}>{k.value}</span></p>
-                </div>
-              ))}
+              <div className="bg-white/4 border border-white/8 rounded-2xl p-5"><p className="text-[9px] font-black uppercase text-slate-500 mb-2">Ingresos</p><p className="text-2xl font-black text-emerald-400">${totalIngreso.toLocaleString()}</p></div>
+              <div className="bg-white/4 border border-white/8 rounded-2xl p-5"><p className="text-[9px] font-black uppercase text-slate-500 mb-2">Turnos</p><p className="text-2xl font-black">{activos.length}</p></div>
+              <div className="bg-white/4 border border-white/8 rounded-2xl p-5"><p className="text-[9px] font-black uppercase text-slate-500 mb-2">Ticket Prom.</p><p className="text-2xl font-black" style={{color: colorPrincipal}}>${Math.round(ticketPromedio).toLocaleString()}</p></div>
+              <div className="bg-white/4 border border-white/8 rounded-2xl p-5"><p className="text-[9px] font-black uppercase text-slate-500 mb-2">Cancelados</p><p className="text-2xl font-black text-rose-500">{turnos.length - activos.length}</p></div>
             </div>
 
-            {diasOrdenados.length > 0 && (
-              <div className="bg-white/4 border border-white/8 rounded-2xl p-5">
-                <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-4">Ingresos por día</p>
-                <div className="flex items-end gap-1 h-16">
-                  {diasOrdenados.map(([fecha, monto]) => (
-                    <div key={fecha} className="flex-1 flex flex-col items-center gap-1 group relative">
-                      <div className="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] font-black whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: colorPrincipal }}>${monto.toLocaleString('es-AR')}</div>
-                      <div className="w-full rounded-sm transition-all" style={{ height: Math.max(4, (monto / maxDia) * 56) + 'px', backgroundColor: colorPrincipal, opacity: 0.4 + 0.6 * (monto / maxDia) }} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-white/4 border border-white/8 rounded-2xl p-5">
-                <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-4">Servicios más pedidos</p>
-                {serviciosRanking.map(([nombre, stats], i) => (
-                  <div key={nombre} className="flex items-center gap-3 mb-3">
-                    <div className="flex-1">
-                      <div className="flex justify-between items-center mb-1"><span className="text-xs font-black">{nombre}</span><span className="text-[9px] text-slate-400">{stats.count} turnos</span></div>
-                      <div className="h-1.5 bg-white/8 rounded-full overflow-hidden"><div className="h-full rounded-full" style={{ width: (stats.count / (serviciosRanking[0][1].count) * 100) + '%', backgroundColor: colorPrincipal }} /></div>
-                    </div>
-                    <span className="text-[9px] text-emerald-400 font-black w-16 text-right">${stats.ingreso.toLocaleString('es-AR')}</span>
-                  </div>
+            {/* Sparkline de Ingresos */}
+            <div className="bg-white/4 border border-white/8 rounded-2xl p-6">
+              <p className="text-[9px] font-black uppercase text-slate-500 mb-4">Ingresos por día</p>
+              <div className="flex items-end gap-1 h-20">
+                {diasOrdenados.map(([f, m]) => (
+                  <div key={f} className="flex-1 rounded-t-sm" style={{ height: (m/maxDia * 100) + '%', backgroundColor: colorPrincipal, opacity: 0.6 }} title={`${f}: $${m}`} />
                 ))}
               </div>
-              <div className="bg-white/4 border border-white/8 rounded-2xl p-5">
-                <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-4">Barberos</p>
-                {barberoRanking.map(([nombre, count]) => (
-                  <div key={nombre} className="flex items-center gap-3 mb-3">
-                    <div className="flex-1">
-                      <div className="flex justify-between items-center mb-1"><span className="text-xs font-black">{nombre}</span><span className="text-[9px] text-slate-400">{count} turnos</span></div>
-                      <div className="h-1.5 bg-white/8 rounded-full overflow-hidden"><div className="h-full rounded-full" style={{ width: (count / (barberoRanking[0][1]) * 100) + '%', backgroundColor: colorPrincipal, opacity: 0.7 }} /></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+               <div className="bg-white/4 border border-white/8 rounded-2xl p-6">
+                 <p className="text-[9px] font-black uppercase text-slate-500 mb-4">Top Servicios</p>
+                 {serviciosRanking.map(([nombre, s]) => (
+                   <div key={nombre} className="flex justify-between items-center mb-3 text-sm">
+                     <span className="font-bold">{nombre}</span>
+                     <span className="text-slate-400">{s.count} veces</span>
+                   </div>
+                 ))}
+               </div>
+               <div className="bg-white/4 border border-white/8 rounded-2xl p-6">
+                 <p className="text-[9px] font-black uppercase text-slate-500 mb-4">Rendimiento Staff</p>
+                 {barberoRanking.map(([nombre, c]) => (
+                   <div key={nombre} className="flex justify-between items-center mb-3 text-sm">
+                     <span className="font-bold">{nombre}</span>
+                     <span className="text-emerald-400 font-black">{c} turnos</span>
+                   </div>
+                 ))}
+               </div>
             </div>
           </div>
         )}

@@ -26,7 +26,7 @@ export default function Login() {
       // 1. Verificar si es superadmin para redirección inteligente
       const { data: rol } = await supabase
         .from('adminrol')
-        .select('role, rol, tipo')
+        .select('role')
         .eq('user_id', data.user.id)
         .maybeSingle()
 

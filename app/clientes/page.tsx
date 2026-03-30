@@ -64,7 +64,7 @@ export default function Clientes() {
       
       for (const t of data as any[]) {
         // Generamos un ID único: si no tiene ID de usuario, usamos su nombre
-        const idGrupo = t.cliente_id || `invitado-${t.cliente_nombre}`
+        const idGrupo = t.cliente_id || 'inv-' + t.cliente_nombre || `invitado-${t.cliente_nombre}`
         
         if (!mapa[idGrupo]) {
           mapa[idGrupo] = {

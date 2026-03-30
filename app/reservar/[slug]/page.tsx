@@ -86,13 +86,34 @@ export default function ReservaPro() {
     return () => listener.subscription.unsubscribe()
   }, [cargarMisTurnos])
 
+  const cargarOcupados = useCallback(async () => {
+    if (!sel.barbero || !sel.fecha) {
+      setOcupados([])
+      return
+    }
+    const { data } = await supabase.from('turno').select('hora')
+      .eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha).not('estado', 'eq', 'cancelado')
+    setOcupados((data ?? []).map((t: { hora: string }) => t.hora.slice(0, 5)))
+  }, [sel.barbero, sel.fecha])
+
   // Horarios ocupados
   useEffect(() => {
-    if (!sel.barbero || !sel.fecha) return
-    supabase.from('turno').select('hora')
-      .eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha).not('estado', 'eq', 'cancelado')
-      .then(({ data }) => setOcupados((data ?? []).map((t: { hora: string }) => t.hora.slice(0, 5))))
-  }, [sel.barbero, sel.fecha])
+    cargarOcupados()
+  }, [cargarOcupados])
+
+  // Bloqueos horarios
+  useEffect(() => {
+    if (!negocio || !sel.barbero || !sel.fecha) {
+      setBloqueos([])
+      return
+    }
+
+    supabase.from('bloqueohorario')
+      .select('hora_inicio, hora_fin, recurrente, dia_semana, fecha')
+      .eq('negocio_id', negocio.id)
+      .or(`staff_id.is.null,staff_id.eq.${sel.barbero.id}`)
+      .then(({ data }) => setBloqueos((data ?? []) as Bloqueo[]))
+  }, [negocio, sel.barbero, sel.fecha])
 
   // Métricas
   const metricas = useMemo(() => {
@@ -180,18 +201,25 @@ export default function ReservaPro() {
     setConfirmando(true)
     setErrorMsg(null)
     try {
-      const { data, error } = await supabase.from('turno').insert({
-        negocio_id: negocio.id,
-        servicio_id: sel.servicio.id,
-        staff_id: sel.barbero.id,
-        fecha: sel.fecha,
-        hora: sel.hora + ':00',
-        cliente_id: null,
-        cliente_nombre: nombreFinal + (telFinal ? ' · ' + telFinal : ''),
-        estado: 'pendiente',
-        pago_estado: 'pendiente',
-      }).select('id').single()
-      if (error || !data) throw new Error(error?.message ?? 'Error')
+      const res = await fetch('/api/turnos/guest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          negocio_id: negocio.id,
+          servicio_id: sel.servicio.id,
+          staff_id: sel.barbero.id,
+          fecha: sel.fecha,
+          hora: sel.hora,
+          cliente_nombre: nombreFinal + (telFinal ? ' · ' + telFinal : ''),
+        }),
+      })
+
+      const payload = await res.json()
+      if (!res.ok) {
+        if (res.status === 409) await cargarOcupados()
+        throw new Error(payload?.error ?? 'No se pudo reservar')
+      }
+      const data = { id: payload.id as string }
       setTurnoId(data.id)
       // Guardar link WA del dueño para mostrarlo en paso 6 (no abrir automáticamente)
       if (negocio.whatsapp) {
@@ -221,7 +249,7 @@ export default function ReservaPro() {
       }
       setPaso(4)
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Error')
+      setErrorMsg(err instanceof Error ? err.message : 'No se pudo reservar')
     } finally {
       setConfirmando(false)
     }
@@ -259,7 +287,13 @@ export default function ReservaPro() {
         pago_estado: 'pendiente',
       }).select('id').single()
 
-      if (error || !data) throw new Error(error?.message ?? 'Error creando turno')
+      if (error || !data) {
+        if (error?.message?.includes('ux_turno_staff_fecha_hora_activo')) {
+          await cargarOcupados()
+          throw new Error('Ese horario acaba de ocuparse. Elegí otro.')
+        }
+        throw new Error(error?.message ?? 'Error creando turno')
+      }
 
       setTurnoId(data.id)
 

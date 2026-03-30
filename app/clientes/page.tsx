@@ -221,6 +221,21 @@ export default function Clientes() {
                       ))}
                     </div>
 
+                    <div className="flex items-center justify-between">
+                      <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest">Estado cliente</p>
+                      <button
+                        onClick={() => toggleBlacklist(c.cliente_id, !!c.bloqueado)}
+                        className={
+                          'px-3 py-1.5 rounded-lg text-[10px] font-black uppercase border transition-colors ' +
+                          (c.bloqueado
+                            ? 'text-emerald-300 border-emerald-400/30 bg-emerald-500/10'
+                            : 'text-red-300 border-red-400/30 bg-red-500/10')
+                        }
+                      >
+                        {c.bloqueado ? 'Desbloquear' : 'Bloquear'}
+                      </button>
+                    </div>
+
                     {/* Agregar nota */}
                     <div>
                       <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-2">Agregar nota</p>

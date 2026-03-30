@@ -26,7 +26,7 @@ export default function Bloqueos() {
   const router = useRouter()
 
   const cargar = useCallback(async (nId: string) => {
-    const { data } = await supabase.from('BloqueHorario')
+    const { data } = await supabase.from('bloquehorario')
       .select('*').eq('negocio_id', nId).order('created_at', { ascending: false })
     setBloqueos(data ?? [])
   }, [])
@@ -53,7 +53,7 @@ export default function Bloqueos() {
     if (!negocioId) return
     setError(null)
     if (horaInicio >= horaFin) { setError('La hora de fin debe ser mayor que la de inicio'); return }
-    const { error } = await supabase.from('BloqueHorario').insert({
+    const { error } = await supabase.from('bloquehorario').insert({
       negocio_id: negocioId,
       hora_inicio: horaInicio,
       hora_fin: horaFin,
@@ -70,7 +70,7 @@ export default function Bloqueos() {
 
   const eliminar = async (id: string) => {
     if (!negocioId || !confirm('Eliminar bloqueo?')) return
-    await supabase.from('BloqueHorario').delete().eq('id', id)
+    await supabase.from('bloquehorario').delete().eq('id', id)
     await cargar(negocioId)
   }
 

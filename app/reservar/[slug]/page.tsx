@@ -94,6 +94,20 @@ export default function ReservaPro() {
       .then(({ data }) => setOcupados((data ?? []).map((t: { hora: string }) => t.hora.slice(0, 5))))
   }, [sel.barbero, sel.fecha])
 
+  // Bloqueos horarios
+  useEffect(() => {
+    if (!negocio || !sel.barbero || !sel.fecha) {
+      setBloqueos([])
+      return
+    }
+
+    supabase.from('bloqueohorario')
+      .select('hora_inicio, hora_fin, recurrente, dia_semana, fecha')
+      .eq('negocio_id', negocio.id)
+      .or(`staff_id.is.null,staff_id.eq.${sel.barbero.id}`)
+      .then(({ data }) => setBloqueos((data ?? []) as Bloqueo[]))
+  }, [negocio, sel.barbero, sel.fecha])
+
   // Métricas
   const metricas = useMemo(() => {
     if (!misTurnos.length) return null

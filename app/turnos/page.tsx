@@ -1,16 +1,16 @@
 'use client'
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { toast } from 'sonner'
 import { getThemeColor } from '@/lib/theme'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 
 type TurnoItem = {
   id: string; hora: string; cliente_nombre: string
   estado: string; fecha: string
   pago_tipo: string | null; pago_estado: string | null
-  Servicio?: { nombre: string; precio: number }
-  Staff?: { nombre: string }
+  servicio?: { nombre: string; precio: number }
+  staff?: { nombre: string }
 }
 
 type Vista = 'dia' | 'semana'
@@ -28,48 +28,35 @@ export default function AgendaTurnos() {
   const [busqueda, setBusqueda] = useState('')
   const [turnoEditando, setTurnoEditando] = useState<string | null>(null)
   const [turnoEditar, setTurnoEditar] = useState<TurnoItem | null>(null)
-  const [_staffList, _setStaffList] = useState<{ id: string; nombre: string }[]>([])
-  const [_serviciosList, _setServiciosList] = useState<{ id: string; nombre: string; precio: number; duracion: number }[]>([])
   const router = useRouter()
 
   const totalCobrado = useMemo(
-    () => turnos.filter(t => t.pago_estado === 'cobrado').reduce((a, t) => a + (t.Servicio?.precio ?? 0), 0),
+    () => turnos.filter(t => t.pago_estado === 'cobrado').reduce((a, t) => a + (t.servicio?.precio ?? 0), 0),
     [turnos]
   )
 
   const estadoColor = (e: string) =>
     ({ confirmado: 'bg-emerald-500', pendiente: 'bg-amber-500', cancelado: 'bg-rose-500', completado: 'bg-slate-400' })[e] ?? 'bg-slate-500'
 
-  // Carga negocio
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
-      let neg = null
-      const { data: byOwner } = await supabase.from('negocio').select('id, tema').eq('owner_id', user.id).single()
-      if (byOwner) neg = byOwner
-      else { const { data: byId } = await supabase.from('negocio').select('id, tema').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single(); neg = byId }
+      const { data: neg } = await supabase.from('negocio').select('id, tema').eq('owner_id', user.id).single()
       if (!neg) { router.push('/onboarding'); return }
       setNegocioId(neg.id)
       setColorPrincipal(getThemeColor(neg.tema))
-      const [{ data: stf }, { data: svcs }] = await Promise.all([
-        supabase.from('staff').select('id, nombre').eq('negocio_id', neg.id).eq('activo', true),
-        supabase.from('servicio').select('id, nombre, precio, duracion').eq('negocio_id', neg.id),
-      ])
-      _setStaffList(stf ?? [])
-      _setServiciosList(svcs ?? [])
     }
     init()
   }, [router])
 
-  // Carga turnos
   useEffect(() => {
     if (!negocioId) return
     let mounted = true
     async function load() {
       setLoading(true)
       let query = supabase.from('turno')
-        .select('*, Servicio(nombre, precio), Staff(nombre)')
+        .select('*, servicio(nombre, precio), staff(nombre)')
         .eq('negocio_id', negocioId)
         .order('fecha', { ascending: true })
         .order('hora', { ascending: true })
@@ -88,7 +75,7 @@ export default function AgendaTurnos() {
       }
 
       const { data } = await query
-      if (mounted) { setTurnos((data as TurnoItem[]) ?? []); setLoading(false) }
+      if (mounted) { setTurnos((data as any[]) ?? []); setLoading(false) }
     }
     void load()
     return () => { mounted = false }
@@ -118,7 +105,7 @@ export default function AgendaTurnos() {
   }, [])
 
   const eliminarTurno = useCallback(async (id: string) => {
-    if (!confirm('Seguro?')) return
+    if (!confirm('¿Seguro?')) return
     await supabase.from('turno').delete().eq('id', id)
     setReloadKey(k => k + 1)
   }, [])
@@ -138,12 +125,11 @@ export default function AgendaTurnos() {
   const turnosFiltrados = busqueda.trim()
     ? turnos.filter(t =>
         t.cliente_nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-        t.Servicio?.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
-        t.Staff?.nombre?.toLowerCase().includes(busqueda.toLowerCase())
+        t.servicio?.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
+        t.staff?.nombre?.toLowerCase().includes(busqueda.toLowerCase())
       )
     : turnos
 
-  // Agrupar por fecha para vista semanal
   const turnosPorFecha = useMemo(() => {
     const mapa: Record<string, TurnoItem[]> = {}
     turnos.forEach(t => {
@@ -153,7 +139,6 @@ export default function AgendaTurnos() {
     return mapa
   }, [turnos])
 
-  // Labels de la semana actual
   const diasSemana = useMemo(() => {
     const inicio = new Date(fechaFiltro + 'T12:00:00')
     const lunes = new Date(inicio)
@@ -175,10 +160,10 @@ export default function AgendaTurnos() {
           </p>
           <div>
             <p className="font-black uppercase text-sm leading-tight">{t.cliente_nombre}</p>
-            <p className="text-[10px] text-slate-500">{t.Servicio?.nombre} · {t.Staff?.nombre}</p>
+            <p className="text-[10px] text-slate-500">{t.servicio?.nombre} · {t.staff?.nombre}</p>
             <p className={'text-[9px] font-black ' + (t.pago_estado === 'cobrado' ? 'text-emerald-400' : 'text-amber-400')}>
               {t.pago_estado === 'cobrado' ? 'Cobrado · ' + (t.pago_tipo ?? '') : 'Sin cobrar'}
-              {t.Servicio?.precio ? ' $' + t.Servicio.precio : ''}
+              {t.servicio?.precio ? ' $' + t.servicio.precio : ''}
             </p>
           </div>
         </div>
@@ -194,7 +179,6 @@ export default function AgendaTurnos() {
         </div>
       </div>
 
-      {/* Panel cobro */}
       {turnoEditando === t.id && (
         <div className="border-t border-white/8 p-4 bg-black/20 space-y-3">
           <div>
@@ -244,8 +228,6 @@ export default function AgendaTurnos() {
   return (
     <div className="min-h-screen bg-[#020617] text-white p-6">
       <div className="max-w-4xl mx-auto">
-
-        {/* Header */}
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-6">
           <div>
             <button onClick={() => router.push('/dashboard')}
@@ -255,7 +237,6 @@ export default function AgendaTurnos() {
             <h1 className="text-4xl font-black uppercase italic tracking-tighter" style={{ color: colorPrincipal }}>
               Agenda
             </h1>
-            {/* Caja */}
             <div className="mt-3 bg-white/4 border border-white/8 rounded-2xl p-4 flex gap-5">
               <div>
                 <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Cobrado</p>
@@ -270,7 +251,6 @@ export default function AgendaTurnos() {
           </div>
 
           <div className="flex flex-col gap-2 self-start md:mt-8">
-            {/* Toggle vista */}
             <div className="flex gap-1 bg-white/5 border border-white/8 p-1 rounded-xl">
               {(['dia', 'semana'] as Vista[]).map(v => (
                 <button key={v} onClick={() => setVista(v)}
@@ -281,7 +261,6 @@ export default function AgendaTurnos() {
                 </button>
               ))}
             </div>
-            {/* Selector fecha */}
             <div className="flex items-center gap-1 bg-white/5 border border-white/8 p-1.5 rounded-xl">
               <button onClick={() => moverFecha(-1)}
                 className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-sm font-black">
@@ -297,7 +276,6 @@ export default function AgendaTurnos() {
           </div>
         </div>
 
-        {/* Búsqueda */}
         <input
           type="text"
           placeholder="Buscar cliente, servicio o barbero..."
@@ -306,7 +284,6 @@ export default function AgendaTurnos() {
           className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-sm outline-none focus:border-white/25 transition-colors mb-4"
         />
 
-        {/* Modal editar turno */}
         {turnoEditar && (
           <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/75 px-4 pb-0 md:pb-4">
             <div className="w-full max-w-md bg-[#020617] border border-white/10 rounded-t-[2.5rem] md:rounded-[2.5rem] p-6 shadow-2xl">
@@ -364,7 +341,6 @@ export default function AgendaTurnos() {
           </div>
         )}
 
-        {/* Vista día */}
         {vista === 'dia' && (
           loading ? (
             <div className="text-center py-20 font-black italic text-slate-700 animate-pulse">Buscando...</div>
@@ -379,7 +355,6 @@ export default function AgendaTurnos() {
           )
         )}
 
-        {/* Vista semana */}
         {vista === 'semana' && (
           <div className="space-y-6 overflow-x-auto">
             {loading ? (

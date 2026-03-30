@@ -3,25 +3,34 @@ import { createClient } from '@supabase/supabase-js'
 import { createHmac } from 'crypto'
 
 function verificarFirmaMP(req: NextRequest, body: string): boolean {
-  // MP envía x-signature: ts=...,v1=...
   const xSignature = req.headers.get('x-signature')
   const xRequestId = req.headers.get('x-request-id')
-  if (!xSignature || !xRequestId) return true // en sandbox no siempre vienen
-  
+
+  if (!xSignature || !xRequestId) {
+    console.warn('[MP Webhook] Headers de firma faltantes')
+    return process.env.NODE_ENV !== 'production'
+  }
+
   const secret = process.env.MP_WEBHOOK_SECRET
-  if (!secret) return true // si no hay secret configurado, pasamos (dev)
+  if (!secret) {
+    console.error('[MP Webhook] MP_WEBHOOK_SECRET no configurado')
+    return false
+  }
 
   try {
     const parts = Object.fromEntries(xSignature.split(',').map(p => p.split('=')))
     const ts = parts['ts']
     const v1 = parts['v1']
-    if (!ts || !v1) return true
+    if (!ts || !v1) return false
 
     const manifest = `id:${xRequestId};request-id:${xRequestId};ts:${ts};`
     const hmac = createHmac('sha256', secret).update(manifest).digest('hex')
-    return hmac === v1
-  } catch {
-    return true // si falla la verificación, no bloqueamos (evitar falsos negativos)
+    const valido = hmac === v1
+    if (!valido) console.warn('[Turnly] Webhook firma inválida rechazado')
+    return valido
+  } catch (err) {
+    console.error('[MP Webhook] Error verificando firma:', err)
+    return false
   }
 }
 
@@ -33,10 +42,8 @@ export async function POST(req: NextRequest) {
     )
 
     const bodyText = await req.text()
-    
-    // Verificar firma MP en producción
-    if (process.env.NODE_ENV === 'production' && !verificarFirmaMP(req, bodyText)) {
-      console.warn('[Turnly] Webhook firma inválida rechazado')
+
+    if (!verificarFirmaMP(req, bodyText)) {
       return NextResponse.json({ ok: false }, { status: 401 })
     }
 
@@ -48,7 +55,6 @@ export async function POST(req: NextRequest) {
     const paymentId = data?.id
     if (!paymentId) return NextResponse.json({ ok: true })
 
-    // Consultar el pago a MP
     const mpRes = await fetch('https://api.mercadopago.com/v1/payments/' + paymentId, {
       headers: { Authorization: 'Bearer ' + process.env.MP_ACCESS_TOKEN },
     })
@@ -64,19 +70,16 @@ export async function POST(req: NextRequest) {
     const negocioId = parts[0]
     const tipo = parts[1] ?? 'pro'
 
-    // Si es seña de turno
     if (tipo === 'sena') {
       const turnoId = negocioId
       if (estado === 'approved') {
         await supabaseAdmin.from('turno')
           .update({ sena_pagada: true, estado: 'confirmado' })
           .eq('id', turnoId)
-        console.log('[Turnly] Seña aprobada turno:', turnoId)
       }
       return NextResponse.json({ ok: true })
     }
 
-    // Si es suscripción de plan
     if (estado === 'approved') {
       const planFinal = tipo === 'basico' ? 'basico' : 'pro'
       const vencimiento = new Date()

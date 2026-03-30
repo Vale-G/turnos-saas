@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { diasTrialRestantes } from '@/lib/planes'
 import { supabase } from '@/lib/supabase'
 
 type Negocio = {
@@ -16,11 +17,6 @@ type Metrica = {
   enTrial: number; trialVencido: number; mrr: number
 }
 
-const diasTrialRestantes = (trial_hasta?: string | null) => {
-  if (!trial_hasta) return 0
-  const diff = new Date(trial_hasta).getTime() - Date.now()
-  return Math.max(0, Math.ceil(diff / 86400000))
-}
 
 export default function SuperAdmin() {
   const [negocios, setNegocios] = useState<Negocio[]>([])

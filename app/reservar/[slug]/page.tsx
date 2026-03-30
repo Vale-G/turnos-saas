@@ -121,15 +121,19 @@ export default function ReservaPro() {
     const lista: string[] = []
     let act = negocio.hora_apertura
 
-    // Calcular si la fecha seleccionada es hoy en Argentina (UTC-3 fijo)
-    // Usamos el input[type=date] del selector que ya tiene YYYY-MM-DD en hora local
-    const msAR = Date.now() + (-3 * 60 * 60 * 1000)
-    const hoyAR = new Date(msAR)
-    const hoyStr = hoyAR.getUTCFullYear() + '-' + String(hoyAR.getUTCMonth() + 1).padStart(2, '0') + '-' + String(hoyAR.getUTCDate()).padStart(2, '0')
+    // Timezone Argentina via Intl (soporta DST sin dependencias externas)
+    const TZ_AR = 'America/Argentina/Buenos_Aires'
+    const ahoraAR = new Date()
+    const hoyStr = new Intl.DateTimeFormat('en-CA', { timeZone: TZ_AR }).format(ahoraAR)
     const esHoy = sel.fecha === hoyStr
+    const partes = new Intl.DateTimeFormat('en-US', {
+      timeZone: TZ_AR, hour: 'numeric', minute: 'numeric', hour12: false
+    }).formatToParts(ahoraAR)
+    const horaAR = parseInt(partes.find(p => p.type === 'hour')?.value ?? '0')
+    const minutoAR = parseInt(partes.find(p => p.type === 'minute')?.value ?? '0')
 
-    // Minutos actuales en Argentina
-    const minutosAhora = hoyAR.getUTCHours() * 60 + hoyAR.getUTCMinutes() + 15
+    // Minutos actuales en Argentina + 15min de buffer
+    const minutosAhora = horaAR * 60 + minutoAR + 15
 
     while (act < negocio.hora_cierre) {
       const hF = act.slice(0, 5)
@@ -168,14 +172,10 @@ export default function ReservaPro() {
     options: { redirectTo: getOAuthRedirectUrl('/auth/callback?next=/reservar/' + slug) },
   })
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [guestNombre, setGuestNombre] = useState('')
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [guestTel, setGuestTel] = useState('')
 
   const confirmarTurnoGuest = async (gNombre?: string, gTel?: string) => {
-    const nombreFinal = (gNombre ?? guestNombre ?? '').trim()
-    const telFinal = (gTel ?? guestTel ?? '').trim()
+    const nombreFinal = (gNombre ?? '').trim()
+    const telFinal = (gTel ?? '').trim()
     if (!negocio || !sel.servicio || !sel.barbero || !nombreFinal) return
     setConfirmando(true)
     setErrorMsg(null)
@@ -291,19 +291,6 @@ export default function ReservaPro() {
         sessionStorage.setItem('turnly_wa_' + data.id, waUrl)
       }
 
-      // Notificar al dueño automáticamente
-      if (negocio.whatsapp) {
-        const waDueno = buildWhatsAppNuevoTurno({
-          telefono: negocio.whatsapp,
-          clienteNombre: user.user_metadata?.full_name ?? 'Cliente',
-          servicio: sel.servicio!.nombre,
-          barbero: sel.barbero!.nombre,
-          fecha: sel.fecha,
-          hora: sel.hora,
-          negocioNombre: negocio.nombre,
-        })
-        window.open(waDueno, '_blank')
-      }
       setPaso(4)
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Error creando turno')

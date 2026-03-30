@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
@@ -82,8 +83,8 @@ export default function AjustesNegocio() {
       })
       .eq('owner_id', user.id)
  
-    if (error) alert(error.message)
-    else alert('¡Ajustes actualizados!')
+    if (error) toast.error(error.message)
+    else toast.success('¡Ajustes actualizados!')
     setGuardando(false)
   }
  

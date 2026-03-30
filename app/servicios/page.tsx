@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { toast } from 'sonner'
 import { getThemeColor } from '@/lib/theme'
 import { useRouter } from 'next/navigation'
 
@@ -71,14 +72,14 @@ export default function GestionServicios() {
     const { error } = await supabase.from('servicio').insert([
       { nombre: nombre.trim(), precio: parseFloat(precio), duracion: parseInt(duracion), negocio_id: negocioId },
     ])
-    if (error) setError(error.message)
+    if (error) { setError(error.message); toast.error(error.message) }
     else { setNombre(''); setPrecio(''); setDuracion(''); await cargarServicios(negocioId) }
   }
 
   const borrarServicio = async (id: string) => {
     if (!negocioId || !confirm('Seguro?')) return
     const { error } = await supabase.from('servicio').delete().eq('id', id)
-    if (error) setError(error.message)
+    if (error) { setError(error.message); toast.error(error.message) }
     else await cargarServicios(negocioId)
   }
 
@@ -86,7 +87,7 @@ export default function GestionServicios() {
     if (!negocioId) return
     const { error } = await supabase.from('servicio')
       .update({ nombre: n, precio: parseFloat(p), duracion: parseInt(d) }).eq('id', id)
-    if (error) setError(error.message)
+    if (error) { setError(error.message); toast.error(error.message) }
     else { setEditandoId(null); await cargarServicios(negocioId) }
   }
 

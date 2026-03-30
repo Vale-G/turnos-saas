@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { toast } from 'sonner'
 import { getThemeColor } from '@/lib/theme'
 import { useRouter } from 'next/navigation'
 
@@ -107,6 +108,7 @@ export default function AgendaTurnos() {
   const registrarPago = useCallback(async (id: string, tipo: string) => {
     await supabase.from('turno').update({ pago_tipo: tipo, pago_estado: 'cobrado', estado: 'completado' }).eq('id', id)
     setTurnoEditando(null)
+    toast.success('Cobro registrado')
     setReloadKey(k => k + 1)
   }, [])
 

@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -12,14 +13,9 @@ export default function Login() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
-      alert("Error al entrar: " + error.message)
+      toast.error('Error al entrar: ' + error.message)
       setLoading(false)
     } else {
       router.push('/dashboard')
@@ -33,18 +29,24 @@ export default function Login() {
           Hola <span className="text-white">De Nuevo</span>
         </h1>
         <div className="space-y-4 text-left">
-          <input 
-            type="email" placeholder="Tu Email" 
-            className="w-full bg-black border border-slate-800 p-4 rounded-2xl outline-none focus:border-emerald-500"
+          <input
+            type="email" placeholder="Tu Email"
+            className="w-full bg-black border border-slate-800 p-4 rounded-2xl outline-none focus:border-emerald-500 transition-colors"
             onChange={(e) => setEmail(e.target.value)}
+            required
           />
-          <input 
-            type="password" placeholder="Tu Contraseña" 
-            className="w-full bg-black border border-slate-800 p-4 rounded-2xl outline-none focus:border-emerald-500"
+          <input
+            type="password" placeholder="Tu Contraseña"
+            className="w-full bg-black border border-slate-800 p-4 rounded-2xl outline-none focus:border-emerald-500 transition-colors"
             onChange={(e) => setPassword(e.target.value)}
+            required
           />
         </div>
-        <button className="w-full bg-white text-black font-black uppercase italic py-4 rounded-2xl hover:bg-emerald-500 transition-colors">
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-white text-black font-black uppercase italic py-4 rounded-2xl hover:bg-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
           {loading ? 'Entrando...' : 'Entrar al Panel'}
         </button>
         <p className="text-slate-500 text-sm">

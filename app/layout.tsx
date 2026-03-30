@@ -1,6 +1,13 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
+import { Toaster } from 'sonner'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { validateEnv } from '@/lib/env'
+
+if (process.env.NODE_ENV === 'production') {
+  try { validateEnv() } catch (e) { console.error('[Turnly] ENV:', e) }
+}
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] })
@@ -21,10 +28,7 @@ export const metadata: Metadata = {
     description: 'Sistema de turnos online para tu negocio',
     images: ['/fvtech-logo.jpg'],
   },
-  icons: {
-    icon: '/fvtech-logo.jpg',
-    apple: '/fvtech-logo.jpg',
-  },
+  icons: { icon: '/fvtech-logo.jpg', apple: '/fvtech-logo.jpg' },
   manifest: '/manifest.json',
 }
 
@@ -32,7 +36,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        {children}
+        <Toaster richColors position="top-right" theme="dark" />
+        <ErrorBoundary>{children}</ErrorBoundary>
       </body>
     </html>
   )

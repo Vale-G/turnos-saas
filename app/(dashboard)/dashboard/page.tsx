@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
 import { LIMITES } from '@/lib/permisos'
+import { diasTrialRestantes } from '@/lib/planes'
 import { useRouter } from 'next/navigation'
  
 type NegocioDashboard = {
@@ -12,11 +13,6 @@ type NegocioDashboard = {
   trial_hasta?: string | null
 }
  
-function diasTrialRestantes(trial_hasta?: string | null): number {
-  if (!trial_hasta) return 0
-  const diff = new Date(trial_hasta).getTime() - Date.now()
-  return Math.max(0, Math.ceil(diff / 86400000))
-}
  
 export default function DashboardPrincipal() {
   const [negocio, setNegocio] = useState<NegocioDashboard | null>(null)

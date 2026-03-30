@@ -1,53 +1,90 @@
-'use client' // Esto le dice a Next.js que esta página es interactiva (tiene botones y escritura)
+'use client'
 
 import { useState } from 'react'
 import { supabase } from '../../../lib/supabase'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+
+function validarPassword(password: string): string | null {
+  if (password.length < 8) return 'Mínimo 8 caracteres'
+  if (!/[A-Z]/.test(password)) return 'Debe incluir al menos una mayúscula'
+  if (!/[0-9]/.test(password)) return 'Debe incluir al menos un número'
+  return null
+}
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+}
 
 export default function RegistroNegocio() {
-  // Aquí creamos las "cajitas" para guardar lo que escriba el usuario
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [passwordError, setPasswordError] = useState<string | null>(null)
   const [nombreNegocio, setNombreNegocio] = useState('')
-  const [slug, setSlug] = useState('') 
+  const [slug, setSlug] = useState('')
+  const [slugManual, setSlugManual] = useState(false)
   const [loading, setLoading] = useState(false)
-  
-  const router = useRouter() // Esto sirve para mandar al usuario a otra página después
+  const router = useRouter()
+
+  const handleNombreChange = (value: string) => {
+    setNombreNegocio(value)
+    if (!slugManual) setSlug(slugify(value))
+  }
+
+  const handleSlugChange = (value: string) => {
+    setSlugManual(true)
+    setSlug(slugify(value))
+  }
 
   const handleRegistro = async (e: React.FormEvent) => {
-    e.preventDefault() // Evita que la página se recargue sola
+    e.preventDefault()
+
+    const pwError = validarPassword(password)
+    if (pwError) { setPasswordError(pwError); return }
+    setPasswordError(null)
     setLoading(true)
 
-    // PARTE 1: Crear la cuenta de usuario (Email y Contraseña)
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: email,
-      password: password,
-    })
+    // Leer dias_trial desde config (con fallback a 30)
+    let diasTrial = 30
+    const { data: config } = await supabase
+      .from('config')
+      .select('valor')
+      .eq('clave', 'dias_trial')
+      .maybeSingle()
+    if (config?.valor) diasTrial = Number(config.valor)
+
+    const { data: authData, error: authError } = await supabase.auth.signUp({ email, password })
 
     if (authError) {
-      alert("Error: " + authError.message)
+      toast.error(authError.message)
       setLoading(false)
       return
     }
 
-    // PARTE 2: Guardar los datos de la peluquería en la tabla "Negocio"
     if (authData.user) {
-      // Verificar que el slug no exista
-      const slugFinalCheck = slug.toLowerCase().trim().replace(/\s+/g, '-')
+      const slugFinal = slug || slugify(nombreNegocio)
+
       const { data: slugExiste } = await supabase
         .from('negocio')
         .select('id')
-        .eq('slug', slugFinalCheck)
-        .single()
+        .eq('slug', slugFinal)
+        .maybeSingle()
+
       if (slugExiste) {
-        alert("Ese nombre de URL ya está en uso. Elegí otro.")
+        toast.error('Ese nombre de URL ya está en uso. Elegí otro.')
         setLoading(false)
         return
       }
-      const trialHasta = new Date()
-      trialHasta.setDate(trialHasta.getDate() + 30)
 
-      const slugFinal = slug.toLowerCase().trim().replace(/\s+/g, '-')
+      const trialHasta = new Date()
+      trialHasta.setDate(trialHasta.getDate() + diasTrial)
 
       const { error: dbError } = await supabase
         .from('negocio')
@@ -62,16 +99,15 @@ export default function RegistroNegocio() {
         }])
 
       if (dbError) {
-        alert("Error al guardar negocio: " + dbError.message)
+        toast.error('Error al guardar negocio: ' + dbError.message)
       } else {
-        alert("¡Cuenta creada! Ahora vamos al panel.")
-        router.push('/onboarding') // Lo enviamos a su panel de control
+        toast.success('¡Cuenta creada! Redirigiendo al panel...')
+        setTimeout(() => router.push('/onboarding'), 1200)
       }
     }
     setLoading(false)
   }
 
-  // PARTE 3: Lo que el usuario ve (El formulario)
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-slate-900/50 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl">
@@ -80,53 +116,73 @@ export default function RegistroNegocio() {
         </h1>
 
         <form onSubmit={handleRegistro} className="space-y-4">
-          {/* Nombre del negocio */}
-          <input 
-            type="text" 
-            placeholder="Nombre de tu negocio (ej: Turnly)" 
+          <input
+            type="text"
+            placeholder="Nombre de tu negocio (ej: Barbería El Flaco)"
+            value={nombreNegocio}
             className="w-full bg-black/50 border border-slate-800 p-4 rounded-2xl focus:border-emerald-500 outline-none transition-all"
-            onChange={(e) => setNombreNegocio(e.target.value)}
+            onChange={(e) => handleNombreChange(e.target.value)}
             required
           />
 
-          {/* URL del negocio */}
-          <div className="relative">
-            <input 
-              type="text" 
-              placeholder="tu-nombre-aqui" 
-              className="w-full bg-black/50 border border-slate-800 p-4 rounded-2xl focus:border-emerald-500 outline-none font-mono text-emerald-400"
-              onChange={(e) => setSlug(e.target.value)}
-              required
-            />
-            <span className="absolute right-4 top-4 text-[10px] text-slate-600 font-bold uppercase">URL</span>
+          <div className="space-y-1">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="tu-negocio-aqui"
+                value={slug}
+                className="w-full bg-black/50 border border-slate-800 p-4 rounded-2xl focus:border-emerald-500 outline-none font-mono text-emerald-400 transition-all"
+                onChange={(e) => handleSlugChange(e.target.value)}
+                required
+              />
+              <span className="absolute right-4 top-4 text-[10px] text-slate-600 font-bold uppercase">URL</span>
+            </div>
+            {slug && (
+              <p className="text-[11px] text-slate-500 ml-2">
+                Tu link de reservas:{' '}
+                <span className="text-emerald-400 font-mono font-bold">/reservar/{slug}</span>
+              </p>
+            )}
           </div>
 
-          <hr className="border-slate-800 my-6" />
+          <hr className="border-slate-800 my-2" />
 
-          {/* Datos de acceso */}
-          <input 
-            type="email" 
-            placeholder="Email de acceso" 
-            className="w-full bg-black/50 border border-slate-800 p-4 rounded-2xl focus:border-emerald-500 outline-none"
+          <input
+            type="email"
+            placeholder="Email de acceso"
+            className="w-full bg-black/50 border border-slate-800 p-4 rounded-2xl focus:border-emerald-500 outline-none transition-all"
             onChange={(e) => setEmail(e.target.value)}
             required
           />
-          <input 
-            type="password" 
-            placeholder="Contraseña segura" 
-            className="w-full bg-black/50 border border-slate-800 p-4 rounded-2xl focus:border-emerald-500 outline-none"
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
 
-          <button 
+          <div className="space-y-1">
+            <input
+              type="password"
+              placeholder="Contraseña segura"
+              className={`w-full bg-black/50 border p-4 rounded-2xl outline-none transition-all ${
+                passwordError
+                  ? 'border-red-500 focus:border-red-400'
+                  : 'border-slate-800 focus:border-emerald-500'
+              }`}
+              onChange={(e) => { setPassword(e.target.value); if (passwordError) setPasswordError(null) }}
+              required
+            />
+            {passwordError ? (
+              <p className="text-red-400 text-xs ml-2 font-bold">{passwordError}</p>
+            ) : (
+              <p className="text-slate-600 text-[11px] ml-2">Mín. 8 caracteres, una mayúscula y un número</p>
+            )}
+          </div>
+
+          <button
             type="submit"
             disabled={loading}
-            className="w-full bg-emerald-500 text-black font-black uppercase italic py-5 rounded-2xl hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+            className="w-full bg-emerald-500 text-black font-black uppercase italic py-5 rounded-2xl hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           >
-            {loading ? 'Procesando...' : 'Crear mi cuenta'}
+            {loading ? 'Procesando...' : 'Crear mi cuenta gratis'}
           </button>
-          <p className="text-slate-500 text-sm text-center mt-4">
+
+          <p className="text-slate-500 text-sm text-center">
             ¿Ya tenés cuenta?{' '}
             <a href="/login" className="text-emerald-500 font-black hover:underline">
               Iniciar sesión

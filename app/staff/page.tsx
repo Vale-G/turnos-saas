@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { toast } from 'sonner'
 import { getThemeColor } from '@/lib/theme'
 import { useRouter } from 'next/navigation'
 
@@ -59,21 +60,21 @@ export default function GestionStaff() {
     }
 
     const { error } = await supabase.from('staff').insert([{ nombre, negocio_id: negocioId, activo: true }])
-    if (error) setError(error.message)
+    if (error) { setError(error.message); toast.error(error.message) }
     else { setNombre(''); await cargarStaff(negocioId) }
   }
 
   const borrarStaff = async (id: string) => {
     if (!negocioId || !confirm('Seguro?')) return
     const { error } = await supabase.from('staff').delete().eq('id', id)
-    if (error) setError(error.message)
+    if (error) { setError(error.message); toast.error(error.message) }
     else await cargarStaff(negocioId)
   }
 
   const toggleActivo = async (id: string, estadoActual: boolean) => {
     if (!negocioId) return
     const { error } = await supabase.from('staff').update({ activo: !estadoActual }).eq('id', id)
-    if (error) setError(error.message)
+    if (error) { setError(error.message); toast.error(error.message) }
     else await cargarStaff(negocioId)
   }
 

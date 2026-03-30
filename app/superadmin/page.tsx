@@ -66,11 +66,11 @@ export default function SuperAdmin() {
       if (!user) { router.push('/login'); return }
       const { data: rol, error } = await supabase
         .from('adminrol')
-        .select('role, rol')
+        .select('*')
         .eq('user_id', user.id)
         .maybeSingle()
 
-      const rolValue = (rol?.role ?? rol?.rol ?? '').toLowerCase()
+      const rolValue = String(rol?.role ?? rol?.rol ?? rol?.tipo ?? '').toLowerCase()
       if (error || !rolValue || rolValue !== 'superadmin') {
         console.error('Acceso denegado o error de tabla:', error)
         router.push('/dashboard')

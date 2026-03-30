@@ -48,7 +48,7 @@ export default function AgendaTurnos() {
       const { data: byOwner } = await supabase.from('Negocio').select('id, tema').eq('owner_id', user.id).single()
       if (byOwner) neg = byOwner
       else { const { data: byId } = await supabase.from('Negocio').select('id, tema').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single(); neg = byId }
-      if (!neg) { router.push('/dashboard'); return }
+      if (!neg) { router.push('/onboarding'); return }
       setNegocioId(neg.id)
       setColorPrincipal(getThemeColor(neg.tema))
       const [{ data: stf }, { data: svcs }] = await Promise.all([

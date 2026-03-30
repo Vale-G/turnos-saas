@@ -37,7 +37,7 @@ export default function Informes() {
         neg = byId
       }
 
-      if (!neg) { router.push('/dashboard'); return }
+      if (!neg) { router.push('/onboarding'); return }
       if (neg.suscripcion_tipo !== 'pro') { router.push('/dashboard'); return }
 
       setNegocioId(neg.id)

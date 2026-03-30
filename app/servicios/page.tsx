@@ -38,7 +38,7 @@ export default function GestionServicios() {
         const { data: byId } = await supabase.from('Negocio').select('id, tema, suscripcion_tipo').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
         neg = byId
       }
-      if (!neg) { router.push('/dashboard'); return }
+      if (!neg) { router.push('/onboarding'); return }
 
       setNegocioId(neg.id)
       setColorPrincipal(getThemeColor(neg.tema))

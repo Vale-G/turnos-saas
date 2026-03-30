@@ -63,21 +63,19 @@ export default function SuperAdmin() {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
       console.log('Superadmin User:', user)
-      if (!user) { router.push('/dashboard'); return }
+      if (!user) { router.push('/login'); return }
       const { data: rol, error } = await supabase
-  .from('AdminRol')
-  .select('role') // Ahora pedimos la columna 'role'
-  .eq('user_id', user.id)
-  .single()
+        .from('AdminRol')
+        .select('role, rol')
+        .eq('user_id', user.id)
+        .maybeSingle()
 
-console.log('Superadmin Rol encontrado:', rol)
-
-// Si hay error o el rol no es superadmin, rebotamos
-if (error || !rol || rol.role !== 'superadmin') { 
-  console.error('Acceso denegado o error de tabla:', error)
-  router.push('/dashboard') 
-  return 
-}
+      const rolValue = (rol?.role ?? rol?.rol ?? '').toLowerCase()
+      if (error || !rolValue || rolValue !== 'superadmin') {
+        console.error('Acceso denegado o error de tabla:', error)
+        router.push('/dashboard')
+        return
+      }
       await Promise.all([cargarNegocios(), cargarConfig()])
       setLoading(false)
     }

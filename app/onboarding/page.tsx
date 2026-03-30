@@ -47,7 +47,7 @@ export default function Onboarding() {
           .select('id, nombre, tema, onboarding_completo').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
         neg = byId
       }
-      if (!neg) { router.push('/dashboard'); return }
+      if (!neg) { router.push('/onboarding'); return }
       if (neg.onboarding_completo) { router.push('/dashboard'); return }
 
       setNegocioId(neg.id)

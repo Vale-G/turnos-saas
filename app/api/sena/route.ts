@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
         pending: origin + '/reservar/sena-pendiente?turno=' + turno_id,
       },
       auto_return: 'approved',
-      notification_url: origin + '/api/webhooks/suscripcion',
+      notification_url: origin + '/api/webhooks/sena',
       statement_descriptor: 'TURNLY SENA',
     }
 

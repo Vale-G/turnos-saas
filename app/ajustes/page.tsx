@@ -77,7 +77,7 @@ export default function AjustesElite() {
               <div>
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2 block">URL Personalizada (Slug)</label>
                 <div className="flex bg-black/50 border border-white/10 rounded-2xl overflow-hidden focus-within:border-white/30 transition-all">
-                  <span className="p-5 text-xs font-black text-slate-600 bg-white/5">turnly.com/reservar/</span>
+                  <span className="p-5 text-xs font-black text-slate-600 bg-white/5">turnly.app/reservar/</span>
                   <input value={negocio.slug} onChange={e => setNegocio({...negocio, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-')})} className="w-full bg-transparent p-5 text-xs font-black outline-none" required />
                 </div>
               </div>
@@ -118,9 +118,16 @@ export default function AjustesElite() {
           <div className="bg-white/4 border border-white/5 p-10 rounded-[3.5rem] backdrop-blur-sm">
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-8">Diseño y Marca</p>
             <div className="flex flex-wrap gap-4">
-              {Object.entries(TEMAS).map(([key, color]) => (
-                <button type="button" key={key} onClick={() => setNegocio({...negocio, tema: key})} className={`w-14 h-14 rounded-full border-4 transition-all ${negocio.tema === key ? 'scale-110 shadow-2xl' : 'border-transparent hover:scale-105'}`} style={{ backgroundColor: color, borderColor: negocio.tema === key ? 'white' : 'transparent', boxShadow: negocio.tema === key ? `0 0 20px ${color}80` : 'none' }} />
-              ))}
+              {Object.entries(TEMAS).map(([key, obj]) => {
+                // FIX: El color es obj.color
+                const colorHex = (obj as any).color
+                return (
+                  <button type="button" key={key} onClick={() => setNegocio({...negocio, tema: key})} 
+                    className={`w-14 h-14 rounded-full border-4 transition-all ${negocio.tema === key ? 'scale-110 shadow-2xl' : 'border-transparent hover:scale-105'}`} 
+                    style={{ backgroundColor: colorHex, borderColor: negocio.tema === key ? 'white' : 'transparent', boxShadow: negocio.tema === key ? `0 0 20px ${colorHex}80` : 'none' }} 
+                  />
+                )
+              })}
             </div>
           </div>
 

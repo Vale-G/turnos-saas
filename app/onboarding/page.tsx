@@ -27,7 +27,6 @@ export default function OnboardingElite() {
       if (!user) return router.push('/registro-negocio')
       setUser(user)
       
-      // Si ya tiene negocio, lo mandamos al dashboard
       const { data: neg } = await supabase.from('negocio').select('id').eq('owner_id', user.id).single()
       if (neg) return router.push('/dashboard')
       
@@ -36,7 +35,6 @@ export default function OnboardingElite() {
     check()
   }, [router])
 
-  // Autogenerar slug basado en el nombre
   useEffect(() => {
     if (paso === 1 && nombre) {
       setSlug(nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-'))
@@ -47,7 +45,6 @@ export default function OnboardingElite() {
     e.preventDefault()
     setGuardando(true)
 
-    // Calculamos el Trial de 14 días para los usuarios nuevos
     const trialHasta = new Date()
     trialHasta.setDate(trialHasta.getDate() + 14)
 
@@ -69,7 +66,6 @@ export default function OnboardingElite() {
       return
     }
 
-    // Le creamos el rol de administrador
     await supabase.from('adminrol').insert({ user_id: user.id, role: 'owner', negocio_id: data.id })
 
     toast.success('¡Negocio creado con éxito! Bienvenido a Turnly 🚀')
@@ -82,8 +78,6 @@ export default function OnboardingElite() {
 
   return (
     <div className="min-h-screen bg-[#020617] text-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      
-      {/* Fondo con brillo dinámico basado en el tema elegido */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] blur-[150px] opacity-10 transition-colors duration-1000 pointer-events-none" style={{ backgroundColor: colorP }} />
 
       <div className="w-full max-w-xl relative z-10">
@@ -146,9 +140,16 @@ export default function OnboardingElite() {
               <div>
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4 block text-center">Elegí el color de tu marca</label>
                 <div className="flex flex-wrap justify-center gap-4">
-                  {Object.entries(TEMAS).map(([key, color]) => (
-                    <button type="button" key={key} onClick={() => setTema(key)} className={`w-16 h-16 rounded-full border-4 transition-all duration-300 ${tema === key ? 'scale-110 shadow-2xl' : 'border-transparent hover:scale-105 opacity-50 hover:opacity-100'}`} style={{ backgroundColor: color, borderColor: tema === key ? 'white' : 'transparent', boxShadow: tema === key ? `0 0 30px ${color}80` : 'none' }} />
-                  ))}
+                  {Object.entries(TEMAS).map(([key, obj]) => {
+                    // FIX: Extraer obj.color para no romper TS
+                    const colorHex = (obj as any).color
+                    return (
+                      <button type="button" key={key} onClick={() => setTema(key)} 
+                        className={`w-16 h-16 rounded-full border-4 transition-all duration-300 ${tema === key ? 'scale-110 shadow-2xl' : 'border-transparent hover:scale-105 opacity-50 hover:opacity-100'}`} 
+                        style={{ backgroundColor: colorHex, borderColor: tema === key ? 'white' : 'transparent', boxShadow: tema === key ? `0 0 30px ${colorHex}80` : 'none' }} 
+                      />
+                    )
+                  })}
                 </div>
               </div>
               <div className="pt-8 text-center bg-black/30 p-6 rounded-[2rem] border border-white/5 mt-8">

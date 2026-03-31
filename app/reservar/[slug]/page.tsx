@@ -6,14 +6,12 @@ import { getThemeColor } from '@/lib/theme'
 import { toast } from 'sonner'
 
 const BA_TZ = 'America/Argentina/Buenos_Aires'
-
 function toBaDateStr(date: Date): string { return new Intl.DateTimeFormat('en-CA', { timeZone: BA_TZ }).format(date) }
 function getBaMinutes(): number {
   const parts = new Intl.DateTimeFormat('en-US', { timeZone: BA_TZ, hour: 'numeric', minute: 'numeric', hour12: false }).formatToParts(new Date())
   return parseInt(parts.find(p => p.type === 'hour')?.value ?? '0') * 60 + parseInt(parts.find(p => p.type === 'minute')?.value ?? '0')
 }
 function getDayOfWeek(dateStr: string): number { return new Date(`${dateStr}T12:00:00-03:00`).getDay() }
-
 function generateDias() {
   const now = new Date()
   return Array.from({ length: 7 }, (_, i) => {
@@ -28,6 +26,7 @@ export default function ReservaPage() {
   const [servicios, setServicios] = useState<any[]>([])
   const [staffList, setStaffList] = useState<any[]>([])
   const [ocupados, setOcupados] = useState<string[]>([])
+  const [bloqueos, setBloqueos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [paso, setPaso] = useState(1)
   const [sel, setSel] = useState<any>({ servicio: null, barbero: null, fecha: '', hora: '' })
@@ -57,12 +56,15 @@ export default function ReservaPage() {
   useEffect(() => {
     if (!sel.barbero || !sel.fecha) return
     async function check() {
-      const { data } = await supabase.from('turno').select('hora').eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha).not('estado', 'eq', 'cancelado')
-      setOcupados((data ?? []).map((t: any) => t.hora.slice(0, 5)))
+      // Traemos turnos Y bloqueos
+      const [{ data: t }, { data: b }] = await Promise.all([
+        supabase.from('turno').select('hora').eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha).not('estado', 'eq', 'cancelado'),
+        supabase.from('bloqueo').select('hora_inicio, hora_fin').eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha)
+      ])
+      setOcupados((t ?? []).map((i: any) => i.hora.slice(0, 5)))
+      setBloqueos(b ?? [])
     }
     check()
-    const channel = supabase.channel('public:turno').on('postgres_changes', { event: '*', schema: 'public', table: 'turno', filter: `staff_id=eq.${sel.barbero.id}` }, check).subscribe()
-    return () => { supabase.removeChannel(channel) }
   }, [sel.barbero, sel.fecha])
 
   const horas = useMemo(() => {
@@ -72,24 +74,39 @@ export default function ReservaPage() {
     const cierre = negocio.hora_cierre || '18:00:00'
     const esHoy = sel.fecha === toBaDateStr(new Date())
     const minLimite = esHoy ? getBaMinutes() + 15 : 0
+
     while (curr < cierre) {
       const hF = curr.slice(0, 5)
       const [hh, mm] = hF.split(':').map(Number)
-      if (!ocupados.includes(hF) && (!esHoy || (hh * 60 + mm) >= minLimite)) list.push(hF)
+      const minActual = hh * 60 + mm
+      
+      // Chequeo si esta ocupado por un turno
+      const estaOcupado = ocupados.includes(hF)
+      
+      // Chequeo si cae adentro de un bloqueo manual
+      const estaBloqueado = bloqueos.some(b => {
+        const [hStart, mStart] = b.hora_inicio.split(':').map(Number)
+        const [hEnd, mEnd] = b.hora_fin.split(':').map(Number)
+        const mS = hStart * 60 + mStart
+        const mE = hEnd * 60 + mEnd
+        return minActual >= mS && minActual < mE
+      })
+
+      if (!estaOcupado && !estaBloqueado && (!esHoy || minActual >= minLimite)) {
+        list.push(hF)
+      }
+      
       let [h, m] = curr.split(':').map(Number); m += sel.servicio.duracion
       if (m >= 60) { h += Math.floor(m / 60); m %= 60 }
       curr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`
     }
     return list
-  }, [negocio, sel.servicio, sel.fecha, ocupados])
+  }, [negocio, sel.servicio, sel.fecha, ocupados, bloqueos])
 
   const handleFinal = async (nombre: string, tel: string, pagarSena: boolean, correoInvitado: string) => {
     setConfirmando(true)
     const cliNombre = user ? (user.user_metadata?.full_name || user.email) : `${nombre} · ${tel}`
     const correoFinal = user ? user.email : correoInvitado
-    
-    const { data: colision } = await supabase.from('turno').select('id').eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha).eq('hora', sel.hora + ':00').not('estado', 'eq', 'cancelado').single()
-    if (colision) { toast.error('Horario ocupado, elegí otro.'); setSel({...sel, hora: ''}); setConfirmando(false); return }
     
     const { data: turno, error } = await supabase.from('turno').insert({
       negocio_id: negocio.id, servicio_id: sel.servicio.id, staff_id: sel.barbero.id,
@@ -99,7 +116,6 @@ export default function ReservaPage() {
 
     if (error) { toast.error('Error al reservar'); setConfirmando(false); return }
 
-    // NOTIFICACIÓN POR EMAIL (Silenciosa de fondo)
     fetch('/api/notificar', {
       method: 'POST',
       body: JSON.stringify({ clienteNombre: cliNombre, clienteEmail: correoFinal, negocioNombre: negocio.nombre, fecha: sel.fecha, hora: sel.hora, servicio: sel.servicio.nombre, emailNegocio: negocio.email_contacto })

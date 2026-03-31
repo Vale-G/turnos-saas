@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { buildWhatsAppConfirmacion } from '@/lib/whatsapp'
 
 const BA_TZ = 'America/Argentina/Buenos_Aires'
 
@@ -25,9 +26,8 @@ const TIPOS_PAGO = ['efectivo', 'mercadopago', 'transferencia', 'otro']
 
 export default function AgendaTurnosElite() {
   const [turnos, setTurnos] = useState<TurnoItem[]>([])
-  const [negocioId, setNegocioId] = useState<string | null>(null)
+  const [negocio, setNegocio] = useState<any>(null)
   const [colorPrincipal, setColorPrincipal] = useState(getThemeColor())
-  // FIX TIMEZONE: Inicializa siempre con la fecha real de Argentina
   const [fechaFiltro, setFechaFiltro] = useState(toBaDateStr(new Date()))
   const [vista, setVista] = useState<Vista>('dia')
   const [loading, setLoading] = useState(true)
@@ -45,26 +45,28 @@ export default function AgendaTurnosElite() {
   const estadoColor = (e: string) =>
     ({ confirmado: 'bg-emerald-500', pendiente: 'bg-amber-500', cancelado: 'bg-rose-500', completado: 'bg-slate-400' })[e] ?? 'bg-slate-500'
 
+  // Inicializar Negocio
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
-      const { data: neg } = await supabase.from('negocio').select('id, tema').eq('owner_id', user.id).single()
+      const { data: neg } = await supabase.from('negocio').select('*').eq('owner_id', user.id).single()
       if (!neg) { router.push('/onboarding'); return }
-      setNegocioId(neg.id)
+      setNegocio(neg)
       setColorPrincipal(getThemeColor(neg.tema))
     }
     init()
   }, [router])
 
+  // Cargar Turnos
   useEffect(() => {
-    if (!negocioId) return
+    if (!negocio?.id) return
     let mounted = true
     async function load() {
       setLoading(true)
       let query = supabase.from('turno')
         .select('*, servicio(nombre, precio), staff(nombre)')
-        .eq('negocio_id', negocioId)
+        .eq('negocio_id', negocio.id)
         .order('fecha', { ascending: true })
         .order('hora', { ascending: true })
 
@@ -76,9 +78,7 @@ export default function AgendaTurnosElite() {
         lunes.setDate(inicio.getDate() - ((inicio.getDay() + 6) % 7))
         const domingo = new Date(lunes)
         domingo.setDate(lunes.getDate() + 6)
-        query = query
-          .gte('fecha', toBaDateStr(lunes))
-          .lte('fecha', toBaDateStr(domingo))
+        query = query.gte('fecha', toBaDateStr(lunes)).lte('fecha', toBaDateStr(domingo))
       }
 
       const { data } = await query
@@ -86,7 +86,25 @@ export default function AgendaTurnosElite() {
     }
     void load()
     return () => { mounted = false }
-  }, [negocioId, fechaFiltro, vista, reloadKey])
+  }, [negocio?.id, fechaFiltro, vista, reloadKey])
+
+  // SUPABASE REALTIME: Magia pura para la agenda
+  useEffect(() => {
+    if (!negocio?.id) return
+    
+    const channel = supabase.channel('realtime-turnos')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'turno', filter: `negocio_id=eq.${negocio.id}` }, (payload) => {
+        
+        if (payload.eventType === 'INSERT') toast.success('¡NUEVO TURNO RECIBIDO! 🚀')
+        else if (payload.eventType === 'DELETE') toast.error('UN TURNO FUE ELIMINADO 🗑️')
+        
+        // Forzamos recarga visual
+        setReloadKey(k => k + 1)
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [negocio?.id])
 
   const moverFecha = (dias: number) => {
     const d = new Date(fechaFiltro + 'T12:00:00-03:00')
@@ -102,7 +120,7 @@ export default function AgendaTurnosElite() {
   const registrarPago = useCallback(async (id: string, tipo: string) => {
     await supabase.from('turno').update({ pago_tipo: tipo, pago_estado: 'cobrado', estado: 'completado' }).eq('id', id)
     setTurnoEditando(null)
-    toast.success('Cobro registrado')
+    toast.success('Cobro registrado exitosamente')
     setReloadKey(k => k + 1)
   }, [])
 
@@ -130,6 +148,20 @@ export default function AgendaTurnosElite() {
     setReloadKey(k => k + 1)
   }
 
+  const abrirWhatsApp = (t: TurnoItem) => {
+    // Busca si hay un teléfono después de "·"
+    const partes = t.cliente_nombre.split('·')
+    const telefono = partes.length > 1 ? partes[1].trim() : null
+    
+    if (!telefono) {
+      toast.error('El cliente no dejó un teléfono válido')
+      return
+    }
+    
+    const url = buildWhatsAppConfirmacion(telefono, negocio?.nombre || 'Nuestra Barbería', t.fecha, t.hora.slice(0,5))
+    window.open(url, '_blank')
+  }
+
   const turnosFiltrados = busqueda.trim()
     ? turnos.filter(t =>
         t.cliente_nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -140,10 +172,7 @@ export default function AgendaTurnosElite() {
 
   const turnosPorFecha = useMemo(() => {
     const mapa: Record<string, TurnoItem[]> = {}
-    turnos.forEach(t => {
-      if (!mapa[t.fecha]) mapa[t.fecha] = []
-      mapa[t.fecha].push(t)
-    })
+    turnos.forEach(t => { if (!mapa[t.fecha]) mapa[t.fecha] = []; mapa[t.fecha].push(t) })
     return mapa
   }, [turnos])
 
@@ -160,28 +189,32 @@ export default function AgendaTurnosElite() {
   const TurnoCard = ({ t }: { t: TurnoItem }) => (
     <div className={'rounded-[2.5rem] border overflow-hidden transition-all ' +
       (t.estado === 'cancelado' ? 'opacity-40 border-white/5 bg-white/2' : 'border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20')}>
-      <div className="p-6 flex items-center gap-4 justify-between">
+      <div className="p-6 flex flex-col md:flex-row md:items-center gap-4 justify-between">
         <div className="flex items-center gap-5">
           <div className={'w-2 h-14 rounded-full flex-shrink-0 ' + estadoColor(t.estado)} />
           <p className="text-2xl font-black italic w-16 flex-shrink-0" style={{ color: colorPrincipal }}>
             {t.hora.slice(0, 5)}
           </p>
           <div>
-            <p className="font-black uppercase text-base leading-tight tracking-tight">{t.cliente_nombre}</p>
+            <p className="font-black uppercase text-base leading-tight tracking-tight">{t.cliente_nombre.split('·')[0].trim()}</p>
             <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">{t.servicio?.nombre} · {t.staff?.nombre}</p>
-            <p className={'text-[10px] font-black uppercase mt-1 ' + (t.pago_estado === 'cobrado' ? 'text-emerald-400' : 'text-amber-400')}>
-              {t.pago_estado === 'cobrado' ? 'COBRADO · ' + (t.pago_tipo ?? '') : 'SIN COBRAR'}
+            <p className={'text-[10px] font-black uppercase mt-1 tracking-widest ' + (t.pago_estado === 'cobrado' ? 'text-emerald-400' : 'text-amber-400')}>
+              {t.pago_estado === 'cobrado' ? 'COBRADO' : 'SIN COBRAR'}
               {t.servicio?.precio ? ' $' + t.servicio.precio.toLocaleString('es-AR') : ''}
             </p>
           </div>
         </div>
-        <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
+        <div className="flex gap-2 flex-shrink-0 justify-end">
+          <button onClick={() => abrirWhatsApp(t)}
+            className="w-10 h-10 flex items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all shadow-sm" title="Enviar WhatsApp">
+            💬
+          </button>
           <button onClick={() => setTurnoEditar({ ...t })}
-            className="px-4 py-2 rounded-xl text-[10px] font-black uppercase bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-slate-300 hover:text-white">
+            className="px-4 py-2 rounded-xl text-[10px] font-black uppercase bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-slate-300 hover:text-white shadow-sm">
             Editar
           </button>
           <button onClick={() => setTurnoEditando(turnoEditando === t.id ? null : t.id)}
-            className="px-4 py-2 rounded-xl text-[10px] font-black uppercase bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-slate-300 hover:text-white">
+            className="px-4 py-2 rounded-xl text-[10px] font-black uppercase bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-slate-300 hover:text-white shadow-sm">
             Cobro
           </button>
         </div>

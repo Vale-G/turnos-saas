@@ -1,43 +1,35 @@
-import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
-import './globals.css'
+import type { Metadata, Viewport } from "next"
+import { Inter } from "next/font/google"
+import "./globals.css"
 import { Toaster } from 'sonner'
-import { ErrorBoundary } from '@/components/ErrorBoundary'
-import { validateEnv } from '@/lib/env'
 
-if (process.env.NODE_ENV === 'production') {
-  try { validateEnv() } catch (e) { console.error('[Turnly] ENV:', e) }
+const inter = Inter({ subsets: ["latin"] })
+
+// ESTO FUERZA A QUE LA PESTAÑA Y EL ACCESO DIRECTO SEAN TUYOS
+export const metadata: Metadata = {
+  title: "Turnly | Elite SaaS para Barberías",
+  description: "El sistema de gestión y reservas definitivo para barberías y salones de lujo. by F&V Tech.",
+  icons: {
+    icon: "/fvtech-logo.jpg",
+    shortcut: "/fvtech-logo.jpg",
+    apple: "/fvtech-logo.jpg",
+  },
+  manifest: "/manifest.json",
 }
 
-const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
-const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] })
-
-export const metadata: Metadata = {
-  title: 'Turnly by F&V Tech — Sistema de Turnos Online',
-  description: 'Tus clientes reservan solos. Vos te concentrás en trabajar. Sistema de turnos online para barberías, peluquerías y más. Desarrollado por F&V Tech.',
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? 'https://turnos-saas-eight.vercel.app'),
-  openGraph: {
-    title: 'Turnly by F&V Tech — Sistema de Turnos Online',
-    description: 'Tus clientes reservan solos. Vos te concentrás en trabajar.',
-    type: 'website',
-    images: [{ url: '/fvtech-logo.jpg', width: 1270, height: 952, alt: 'F&V Tech Logo' }],
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Turnly by F&V Tech',
-    description: 'Sistema de turnos online para tu negocio',
-    images: ['/fvtech-logo.jpg'],
-  },
-  icons: { icon: '/fvtech-logo.jpg', apple: '/fvtech-logo.jpg' },
-  manifest: '/manifest.json',
+export const viewport: Viewport = {
+  themeColor: "#020617",
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <Toaster richColors position="top-right" theme="dark" />
-        <ErrorBoundary>{children}</ErrorBoundary>
+      <body className={`${inter.className} bg-[#020617] text-white min-h-screen selection:bg-emerald-500/30`}>
+        {children}
+        <Toaster theme="dark" position="top-center" richColors toastOptions={{ style: { borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.1)' } }} />
       </body>
     </html>
   )

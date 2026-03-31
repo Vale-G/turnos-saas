@@ -29,7 +29,7 @@ export default function AgendaTurnosElite() {
   
   const [turnoEditando, setTurnoEditando] = useState<string | null>(null)
   const [qrPago, setQrPago] = useState<string | null>(null)
-  const [turnoEditar, setTurnoEditar] = useState<TurnoItem | null>(null) // NUEVO ESTADO PARA EDITAR
+  const [turnoEditar, setTurnoEditar] = useState<TurnoItem | null>(null)
   
   const router = useRouter()
 
@@ -37,10 +37,28 @@ export default function AgendaTurnosElite() {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
-      const { data: neg } = await supabase.from('negocio').select('*').eq('owner_id', user.id).single()
-      if (!neg) { router.push('/onboarding'); return }
-      setNegocio(neg)
-      setColorPrincipal(getThemeColor(neg.tema))
+
+      // FIX STAFF: 1. Buscamos si es empleado
+      const { data: adm } = await supabase.from('adminrol').select('*').eq('user_id', user.id).maybeSingle()
+      let nId = adm?.negocio_id
+
+      // FIX STAFF: 2. Si no es empleado, buscamos si es dueño
+      if (!nId) {
+        const { data: n } = await supabase.from('negocio').select('id').eq('owner_id', user.id).maybeSingle()
+        nId = n?.id
+      }
+
+      // FIX STAFF: 3. Si encontramos local (sea dueño o empleado), lo dejamos entrar
+      if (nId) {
+        const { data: neg } = await supabase.from('negocio').select('*').eq('id', nId).single()
+        if (neg) {
+          setNegocio(neg)
+          setColorPrincipal(getThemeColor(neg.tema))
+        }
+      } else {
+        // Si no es dueño ni empleado, lo mandamos a crear un local
+        router.push('/onboarding')
+      }
     }
     init()
   }, [router])
@@ -59,7 +77,6 @@ export default function AgendaTurnosElite() {
     return () => { mounted = false }
   }, [negocio?.id, fechaFiltro, vista, reloadKey])
 
-  // Lógica de Edición y Eliminación
   const eliminarTurno = async (id: string) => {
     if (!confirm('¿Estás seguro de que querés ELIMINAR este turno? Esta acción no se puede deshacer.')) return
     await supabase.from('turno').delete().eq('id', id)
@@ -88,7 +105,6 @@ export default function AgendaTurnosElite() {
     setReloadKey(k => k + 1)
   }
 
-  // Lógica de Pagos y WhatsApp
   const cambiarEstado = async (id: string, estado: string) => { await supabase.from('turno').update({ estado }).eq('id', id); setReloadKey(k=>k+1) }
   const registrarPago = async (id: string, tipo: string) => { await supabase.from('turno').update({ pago_tipo: tipo, pago_estado: 'cobrado', estado: 'completado' }).eq('id', id); setTurnoEditando(null); toast.success('Cobrado'); setReloadKey(k=>k+1) }
   
@@ -123,7 +139,6 @@ export default function AgendaTurnosElite() {
           <div className="flex bg-white/5 border border-white/10 p-1.5 rounded-2xl"><input type="date" value={fechaFiltro} onChange={e => setFechaFiltro(e.target.value)} className="bg-transparent text-sm font-black uppercase outline-none px-4 [&::-webkit-calendar-picker-indicator]:invert cursor-pointer" /></div>
         </header>
 
-        {/* MODAL DE EDICIÓN / ELIMINACIÓN */}
         {turnoEditar && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
             <div className="w-full max-w-md bg-[#020617] border border-white/10 rounded-[3.5rem] p-10 shadow-2xl animate-in zoom-in-95">

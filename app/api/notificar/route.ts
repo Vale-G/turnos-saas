@@ -1,18 +1,20 @@
 import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
 
-// Instanciamos Resend con la variable de entorno
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 export async function POST(req: Request) {
   try {
+    // FIX: Inicializamos Resend ADENTRO de la función y con un fallback por las dudas,
+    // así el build de Vercel no explota analizando el archivo estáticamente.
+    const apiKey = process.env.RESEND_API_KEY || 're_dummy_key_para_build'
+    const resend = new Resend(apiKey)
+
     const body = await req.json()
     const { clienteNombre, clienteEmail, negocioNombre, fecha, hora, servicio, emailNegocio } = body
 
     // 1. Mandar ticket al Cliente
-    if (clienteEmail && clienteEmail.includes('@')) {
+    if (clienteEmail && clienteEmail.includes('@') && apiKey !== 're_dummy_key_para_build') {
       await resend.emails.send({
-        from: 'Turnly <onboarding@resend.dev>', // ATENCIÓN: Cambiar por tu dominio verificado cuando lo tengas (ej: no-reply@turnly.app)
+        from: 'Turnly <onboarding@resend.dev>',
         to: clienteEmail,
         subject: `✨ Turno Confirmado en ${negocioNombre}`,
         html: `
@@ -32,7 +34,7 @@ export async function POST(req: Request) {
     }
 
     // 2. Avisarle al Dueño del Local
-    if (emailNegocio && emailNegocio.includes('@')) {
+    if (emailNegocio && emailNegocio.includes('@') && apiKey !== 're_dummy_key_para_build') {
        await resend.emails.send({
          from: 'Turnly Avisos <onboarding@resend.dev>',
          to: emailNegocio,

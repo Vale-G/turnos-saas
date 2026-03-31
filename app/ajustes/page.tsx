@@ -18,6 +18,7 @@ export default function AjustesPage() {
   const [negocio, setNegocio] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [guardando, setGuardando] = useState(false)
+  const [subiendoLogo, setSubiendoLogo] = useState(false)
   const router = useRouter()
 
   const [nombre, setNombre] = useState('')
@@ -62,6 +63,32 @@ export default function AjustesPage() {
     init()
   }, [router])
 
+  const handleSubirLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      setSubiendoLogo(true)
+      if (!e.target.files || e.target.files.length === 0) return
+      
+      const file = e.target.files[0]
+      const fileExt = file.name.split('.').pop()
+      const fileName = `logo-${negocio?.id}-${Math.random()}.${fileExt}`
+
+      // Subir archivo al bucket "logos"
+      const { error: uploadError } = await supabase.storage.from('logos').upload(fileName, file)
+      if (uploadError) throw uploadError
+
+      // Obtener URL pública
+      const { data: { publicUrl } } = supabase.storage.from('logos').getPublicUrl(fileName)
+      
+      setLogoUrl(publicUrl)
+      toast.success('Logo cargado correctamente. ¡No olvides tocar GUARDAR AJUSTES!')
+    } catch (error) {
+      console.error(error)
+      toast.error('Error al subir. Verificá que creaste el bucket "logos" en Supabase y es público.')
+    } finally {
+      setSubiendoLogo(false)
+    }
+  }
+
   const guardarAjustes = async (e: React.FormEvent) => {
     e.preventDefault()
     setGuardando(true)
@@ -93,14 +120,30 @@ export default function AjustesPage() {
           <div className="bg-white/5 border border-white/10 p-8 rounded-[3rem]">
             <h2 className="text-xl font-black uppercase italic mb-6">1. Identidad de Marca</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              
+              {/* UPLOAD DE LOGO CON VISTA PREVIA */}
+              <div className="md:col-span-2 flex items-center gap-6 bg-black/50 border border-white/10 p-6 rounded-3xl">
+                <div className="w-24 h-24 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
+                  {logoUrl ? <img src={logoUrl} alt="Logo Local" className="w-full h-full object-cover" /> : <span className="text-3xl">🖼️</span>}
+                </div>
+                <div className="flex-1">
+                  <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Logo del Local</label>
+                  <input type="file" accept="image/*" onChange={handleSubirLogo} disabled={subiendoLogo} className="hidden" id="logo-upload" />
+                  <label htmlFor="logo-upload" className="bg-white/10 hover:bg-white/20 text-white text-xs font-black uppercase px-6 py-3 rounded-xl cursor-pointer transition-all inline-block border border-white/10">
+                    {subiendoLogo ? 'SUBIENDO...' : 'SELECCIONAR FOTO'}
+                  </label>
+                  <input type="url" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} placeholder="O pegá un link directo (https://...)" className="w-full bg-transparent border-b border-white/10 py-2 mt-4 text-[10px] font-mono outline-none focus:border-white/30 text-slate-400" />
+                </div>
+              </div>
+
               <div><label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Nombre del Local</label><input type="text" value={nombre} onChange={e => setNombre(e.target.value)} required className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black uppercase outline-none focus:border-white/30" /></div>
               <div><label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Link de Reservas (/reservar/...)</label><input type="text" value={slug} onChange={e => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))} required className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black outline-none focus:border-white/30" /></div>
-              <div className="md:col-span-2"><label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">URL del Logo (Link de imagen)</label><input type="url" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} placeholder="https://..." className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black outline-none focus:border-white/30" /></div>
+              
               <div className="md:col-span-2">
                 <label className="text-[10px] font-black uppercase text-slate-400 mb-4 block">Color Principal</label>
                 <div className="flex flex-wrap gap-4">
                   {TEMAS_DISPONIBLES.map(t => (
-                    <button type="button" key={t.id} onClick={() => setTema(t.id)} className={`w-12 h-12 rounded-full border-4 transition-all ${tema === t.id ? 'scale-110' : 'border-transparent opacity-50 hover:opacity-100'}`} style={{ backgroundColor: t.color, borderColor: tema === t.id ? 'white' : 'transparent' }} title={t.nombre} />
+                    <button type="button" key={t.id} onClick={() => setTema(t.id)} className={`w-12 h-12 rounded-full border-4 transition-all ${tema === t.id ? 'scale-110 shadow-[0_0_20px_rgba(255,255,255,0.3)]' : 'border-transparent opacity-50 hover:opacity-100'}`} style={{ backgroundColor: t.color, borderColor: tema === t.id ? 'white' : 'transparent' }} title={t.nombre} />
                   ))}
                 </div>
               </div>

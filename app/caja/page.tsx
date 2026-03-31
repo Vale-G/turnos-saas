@@ -22,6 +22,12 @@ export default function CajaElite() {
   const [fechaGasto, setFechaGasto] = useState(toBaDateStr(new Date()))
   const [mesFiltro, setMesFiltro] = useState(toBaDateStr(new Date()).slice(0, 7))
 
+  // REGLA DE REACT: Todos los Hooks van ARRIBA de los 'if'
+  const colorP = getThemeColor(negocio?.tema)
+  const totalIngresos = useMemo(() => ingresos.reduce((acc, t) => acc + (t.servicio?.precio || 0), 0), [ingresos])
+  const totalGastos = useMemo(() => gastos.reduce((acc, g) => acc + Number(g.monto), 0), [gastos])
+  const gananciaNeta = totalIngresos - totalGastos
+
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -82,6 +88,7 @@ export default function CajaElite() {
     toast.success('Gasto eliminado')
   }
 
+  // AHORA SÍ: Los early returns van después de los Hooks
   if (loading) return <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black italic text-white text-3xl animate-pulse tracking-tighter">CALCULANDO FINANZAS...</div>
 
   if (!tieneAcceso) return (
@@ -94,11 +101,6 @@ export default function CajaElite() {
        </div>
     </div>
   )
-
-  const colorP = getThemeColor(negocio?.tema)
-  const totalIngresos = useMemo(() => ingresos.reduce((acc, t) => acc + (t.servicio?.precio || 0), 0), [ingresos])
-  const totalGastos = useMemo(() => gastos.reduce((acc, g) => acc + Number(g.monto), 0), [gastos])
-  const gananciaNeta = totalIngresos - totalGastos
 
   return (
     <div className="min-h-screen bg-[#020617] text-white p-6 md:p-12 font-sans">

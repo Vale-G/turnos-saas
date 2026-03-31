@@ -26,11 +26,19 @@ export async function POST(req: NextRequest) {
       }
     )
 
-    // FIX: Permitir que "Invitados" paguen seña tomando el email del body, o un fallback genérico.
-    const { data: { user } } = await supabase.auth.getUser()
-    const emailComprador = user?.email || cliente_email || 'invitado@turnly.app'
+    // Buscamos a qué negocio pertenece el turno para obtener SU token de MercadoPago
+    const { data: turnoData } = await supabase.from('turno').select('negocio_id').eq('id', turno_id).single()
+    if (!turnoData) return NextResponse.json({ error: 'Turno no encontrado' }, { status: 404 })
 
-    const origin = req.headers.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+    const { data: negocioData } = await supabase.from('negocio').select('mp_access_token').eq('id', turnoData.negocio_id).single()
+    const ownerToken = negocioData?.mp_access_token
+
+    if (!ownerToken) {
+      return NextResponse.json({ error: 'El negocio no tiene configurado MercadoPago' }, { status: 400 })
+    }
+
+    const emailComprador = cliente_email || 'invitado@turnly.app'
+    const origin = req.headers.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'https://turnly.app'
 
     const mpBody = {
       items: [{
@@ -52,11 +60,12 @@ export async function POST(req: NextRequest) {
       statement_descriptor: 'TURNLY SENA',
     }
 
+    // USAMOS EL TOKEN DEL DUEÑO DEL LOCAL
     const mpRes = await fetch('https://api.mercadopago.com/checkout/preferences', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + process.env.MP_ACCESS_TOKEN,
+        Authorization: 'Bearer ' + ownerToken, 
       },
       body: JSON.stringify(mpBody),
     })

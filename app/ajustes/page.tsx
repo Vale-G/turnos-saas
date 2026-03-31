@@ -4,11 +4,24 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { getThemeColor, TEMAS } from '@/lib/theme'
 import { toast } from 'sonner'
+import Image from 'next/image'
 
 export default function AjustesElite() {
   const [negocio, setNegocio] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [guardando, setGuardando] = useState(false)
+  
+  // Estados para inputs
+  const [nombre, setNombre] = useState('')
+  const [slug, setSlug] = useState('')
+  const [whatsapp, setWhatsapp] = useState('')
+  const [mpToken, setMpToken] = useState('')
+  const [horaApertura, setHoraApertura] = useState('09:00')
+  const [horaCierre, setHoraCierre] = useState('18:00')
+  const [diasLaborales, setDiasLaborales] = useState<number[]>([1,2,3,4,5,6])
+  const [tema, setTema] = useState('emerald')
+  const [logoUrl, setLogoUrl] = useState('')
+
   const router = useRouter()
 
   useEffect(() => {
@@ -17,7 +30,17 @@ export default function AjustesElite() {
       if (!user) { router.push('/login'); return }
       const { data: neg } = await supabase.from('negocio').select('*').eq('owner_id', user.id).single()
       if (!neg) { router.push('/onboarding'); return }
+      
       setNegocio(neg)
+      setNombre(neg.nombre || '')
+      setSlug(neg.slug || '')
+      setWhatsapp(neg.whatsapp || '')
+      setMpToken(neg.mp_access_token || '')
+      setHoraApertura(neg.hora_apertura?.slice(0,5) || '09:00')
+      setHoraCierre(neg.hora_cierre?.slice(0,5) || '18:00')
+      setDiasLaborales(neg.dias_laborales || [1,2,3,4,5,6])
+      setTema(neg.tema || 'emerald')
+      setLogoUrl(neg.logo_url || '')
       setLoading(false)
     }
     init()
@@ -27,13 +50,9 @@ export default function AjustesElite() {
     e.preventDefault()
     setGuardando(true)
     const { error } = await supabase.from('negocio').update({
-      nombre: negocio.nombre,
-      slug: negocio.slug,
-      whatsapp: negocio.whatsapp,
-      hora_apertura: negocio.hora_apertura,
-      hora_cierre: negocio.hora_cierre,
-      dias_laborales: negocio.dias_laborales,
-      tema: negocio.tema
+      nombre, slug, whatsapp, mp_access_token: mpToken,
+      hora_apertura: horaApertura + ':00', hora_cierre: horaCierre + ':00',
+      dias_laborales: diasLaborales, tema
     }).eq('id', negocio.id)
     
     setGuardando(false)
@@ -42,17 +61,16 @@ export default function AjustesElite() {
   }
 
   const toggleDia = (dia: number) => {
-    const dias = negocio.dias_laborales || []
-    if (dias.includes(dia)) {
-      setNegocio({ ...negocio, dias_laborales: dias.filter((d: number) => d !== dia) })
+    if (diasLaborales.includes(dia)) {
+      setDiasLaborales(diasLaborales.filter(d => d !== dia))
     } else {
-      setNegocio({ ...negocio, dias_laborales: [...dias, dia].sort() })
+      setDiasLaborales([...diasLaborales, dia].sort())
     }
   }
 
   if (loading) return <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black italic text-white text-3xl animate-pulse tracking-tighter">CARGANDO AJUSTES...</div>
 
-  const colorP = getThemeColor(negocio?.tema)
+  const colorP = getThemeColor(tema)
   const diasSemana = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
 
   return (
@@ -72,44 +90,46 @@ export default function AjustesElite() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2 block">Nombre visible</label>
-                <input value={negocio.nombre} onChange={e => setNegocio({...negocio, nombre: e.target.value})} className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black uppercase outline-none focus:border-white/30 transition-all" required />
+                <input value={nombre} onChange={e => setNombre(e.target.value)} className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black uppercase outline-none focus:border-white/30 transition-all" required />
               </div>
               <div>
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2 block">URL Personalizada (Slug)</label>
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2 block">URL Personalizada</label>
                 <div className="flex bg-black/50 border border-white/10 rounded-2xl overflow-hidden focus-within:border-white/30 transition-all">
-                  <span className="p-5 text-xs font-black text-slate-600 bg-white/5">turnly.app/reservar/</span>
-                  <input value={negocio.slug} onChange={e => setNegocio({...negocio, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-')})} className="w-full bg-transparent p-5 text-xs font-black outline-none" required />
+                  <span className="p-5 text-xs font-black text-slate-600 bg-white/5">/reservar/</span>
+                  <input value={slug} onChange={e => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))} className="w-full bg-transparent p-5 text-xs font-black outline-none" required />
                 </div>
               </div>
               <div className="md:col-span-2">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2 block">WhatsApp de Contacto</label>
-                <input value={negocio.whatsapp || ''} onChange={e => setNegocio({...negocio, whatsapp: e.target.value})} placeholder="EJ: 5491123456789" className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black uppercase outline-none focus:border-white/30 transition-all placeholder:text-slate-800" />
+                <input value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="EJ: 5491123456789" className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black uppercase outline-none focus:border-white/30 transition-all placeholder:text-slate-800" />
               </div>
             </div>
           </div>
 
+          <div className="bg-white/4 border border-blue-500/20 p-10 rounded-[3.5rem] backdrop-blur-sm shadow-[0_0_40px_rgba(59,130,246,0.05)]">
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-400 mb-2">Cobros Automáticos (MercadoPago)</p>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-6">Para cobrar señas y evitar faltazos, pegá tu Access Token de Producción aquí. Si lo dejás vacío, las señas se deshabilitan.</p>
+            <input type="password" value={mpToken} onChange={e => setMpToken(e.target.value)} placeholder="APP_USR-123456789-..." className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black outline-none focus:border-blue-500/50 transition-all placeholder:text-slate-800" />
+          </div>
+
           <div className="bg-white/4 border border-white/5 p-10 rounded-[3.5rem] backdrop-blur-sm">
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-8">Horarios y Días Laborales</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-8">Horarios y Días</p>
             <div className="grid grid-cols-2 gap-6 mb-8">
               <div>
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2 block">Apertura</label>
-                <input type="time" value={negocio.hora_apertura?.slice(0,5)} onChange={e => setNegocio({...negocio, hora_apertura: e.target.value + ':00'})} className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-sm font-black outline-none focus:border-white/30 transition-all [&::-webkit-calendar-picker-indicator]:invert" required />
+                <input type="time" value={horaApertura} onChange={e => setHoraApertura(e.target.value)} className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-sm font-black outline-none focus:border-white/30 transition-all [&::-webkit-calendar-picker-indicator]:invert" required />
               </div>
               <div>
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2 block">Cierre</label>
-                <input type="time" value={negocio.hora_cierre?.slice(0,5)} onChange={e => setNegocio({...negocio, hora_cierre: e.target.value + ':00'})} className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-sm font-black outline-none focus:border-white/30 transition-all [&::-webkit-calendar-picker-indicator]:invert" required />
+                <input type="time" value={horaCierre} onChange={e => setHoraCierre(e.target.value)} className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-sm font-black outline-none focus:border-white/30 transition-all [&::-webkit-calendar-picker-indicator]:invert" required />
               </div>
             </div>
             <div>
                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4 block">Días que abrís</label>
                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                  {diasSemana.map((dia, idx) => {
-                   const activo = (negocio.dias_laborales || []).includes(idx)
-                   return (
-                     <button type="button" key={dia} onClick={() => toggleDia(idx)} className={`flex-shrink-0 w-16 h-16 rounded-2xl border font-black text-xs uppercase transition-all ${activo ? 'text-black border-transparent shadow-lg' : 'bg-black/50 border-white/10 hover:border-white/30 text-slate-500'}`} style={activo ? {backgroundColor: colorP} : {}}>
-                       {dia}
-                     </button>
-                   )
+                   const activo = diasLaborales.includes(idx)
+                   return <button type="button" key={dia} onClick={() => toggleDia(idx)} className={`flex-shrink-0 w-16 h-16 rounded-2xl border font-black text-xs uppercase transition-all ${activo ? 'text-black border-transparent shadow-lg' : 'bg-black/50 border-white/10 hover:border-white/30 text-slate-500'}`} style={activo ? {backgroundColor: colorP} : {}}>{dia}</button>
                  })}
                </div>
             </div>
@@ -119,14 +139,8 @@ export default function AjustesElite() {
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-8">Diseño y Marca</p>
             <div className="flex flex-wrap gap-4">
               {Object.entries(TEMAS).map(([key, obj]) => {
-                // FIX: El color es obj.color
                 const colorHex = (obj as any).color
-                return (
-                  <button type="button" key={key} onClick={() => setNegocio({...negocio, tema: key})} 
-                    className={`w-14 h-14 rounded-full border-4 transition-all ${negocio.tema === key ? 'scale-110 shadow-2xl' : 'border-transparent hover:scale-105'}`} 
-                    style={{ backgroundColor: colorHex, borderColor: negocio.tema === key ? 'white' : 'transparent', boxShadow: negocio.tema === key ? `0 0 20px ${colorHex}80` : 'none' }} 
-                  />
-                )
+                return <button type="button" key={key} onClick={() => setTema(key)} className={`w-14 h-14 rounded-full border-4 transition-all ${tema === key ? 'scale-110 shadow-2xl' : 'border-transparent hover:scale-105 opacity-60 hover:opacity-100'}`} style={{ backgroundColor: colorHex, borderColor: tema === key ? 'white' : 'transparent', boxShadow: tema === key ? `0 0 20px ${colorHex}80` : 'none' }} />
               })}
             </div>
           </div>
@@ -134,7 +148,6 @@ export default function AjustesElite() {
           <button type="submit" disabled={guardando} className="w-full py-6 rounded-[3rem] font-black uppercase italic text-xl text-black transition-all hover:scale-[1.02] active:scale-95 disabled:opacity-50 shadow-2xl" style={{ backgroundColor: colorP }}>
             {guardando ? 'GUARDANDO...' : 'GUARDAR CAMBIOS'}
           </button>
-
         </form>
       </div>
     </div>

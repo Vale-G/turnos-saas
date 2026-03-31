@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { getThemeColor, THEMES } from '@/lib/theme'
+import { getThemeColor, TEMAS } from '@/lib/theme'
 import { toast } from 'sonner'
 
 export default function AjustesElite() {
@@ -118,7 +118,7 @@ export default function AjustesElite() {
           <div className="bg-white/4 border border-white/5 p-10 rounded-[3.5rem] backdrop-blur-sm">
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-8">Diseño y Marca</p>
             <div className="flex flex-wrap gap-4">
-              {Object.entries(THEMES).map(([key, color]) => (
+              {Object.entries(TEMAS).map(([key, color]) => (
                 <button type="button" key={key} onClick={() => setNegocio({...negocio, tema: key})} className={`w-14 h-14 rounded-full border-4 transition-all ${negocio.tema === key ? 'scale-110 shadow-2xl' : 'border-transparent hover:scale-105'}`} style={{ backgroundColor: color, borderColor: negocio.tema === key ? 'white' : 'transparent', boxShadow: negocio.tema === key ? `0 0 20px ${color}80` : 'none' }} />
               ))}
             </div>

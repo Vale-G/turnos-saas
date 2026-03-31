@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { getThemeColor, THEMES } from '@/lib/theme'
+import { getThemeColor, TEMAS } from '@/lib/theme'
 import { toast } from 'sonner'
 
 export default function OnboardingElite() {
@@ -146,7 +146,7 @@ export default function OnboardingElite() {
               <div>
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4 block text-center">Elegí el color de tu marca</label>
                 <div className="flex flex-wrap justify-center gap-4">
-                  {Object.entries(THEMES).map(([key, color]) => (
+                  {Object.entries(TEMAS).map(([key, color]) => (
                     <button type="button" key={key} onClick={() => setTema(key)} className={`w-16 h-16 rounded-full border-4 transition-all duration-300 ${tema === key ? 'scale-110 shadow-2xl' : 'border-transparent hover:scale-105 opacity-50 hover:opacity-100'}`} style={{ backgroundColor: color, borderColor: tema === key ? 'white' : 'transparent', boxShadow: tema === key ? `0 0 30px ${color}80` : 'none' }} />
                   ))}
                 </div>

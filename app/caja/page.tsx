@@ -29,7 +29,7 @@ export default function CajaElite() {
       
       const { data: adm } = await supabase.from('adminrol').select('*').eq('user_id', user.id).maybeSingle()
       let negId = adm?.negocio_id
-      if (!negId && adm?.role !== 'superadmin') {
+      if (!negId) {
          const { data: n } = await supabase.from('negocio').select('id').eq('owner_id', user.id).maybeSingle()
          if (n) negId = n.id
       }
@@ -38,13 +38,11 @@ export default function CajaElite() {
         const { data: neg } = await supabase.from('negocio').select('*').eq('id', negId).single()
         if (neg) {
           setNegocio(neg)
-          // Lógica de acceso inquebrantable
           if (neg.suscripcion_tipo === 'pro' || neg.suscripcion_tipo === 'trial' || adm?.role === 'superadmin') {
             setTieneAcceso(true)
           }
         }
       } else if (adm?.role === 'superadmin') {
-         // Fallback para superadmin sin local asignado
          setTieneAcceso(true)
       }
       setLoading(false)
@@ -57,8 +55,9 @@ export default function CajaElite() {
     const startOfMonth = `${mesFiltro}-01`
     const endOfMonth = `${mesFiltro}-31`
 
+    // FIX: Ahora suma los turnos con estado "completado"
     const [{ data: turnos }, { data: gst }] = await Promise.all([
-      supabase.from('turno').select('fecha, servicio(precio)').eq('negocio_id', negocio.id).eq('pago_estado', 'cobrado').gte('fecha', startOfMonth).lte('fecha', endOfMonth),
+      supabase.from('turno').select('fecha, servicio(precio)').eq('negocio_id', negocio.id).eq('estado', 'completado').gte('fecha', startOfMonth).lte('fecha', endOfMonth),
       supabase.from('gasto').select('*').eq('negocio_id', negocio.id).gte('fecha', startOfMonth).lte('fecha', endOfMonth).order('fecha', { ascending: false })
     ])
     setIngresos(turnos || []); setGastos(gst || [])
@@ -86,16 +85,13 @@ export default function CajaElite() {
 
   if (loading) return <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black italic text-white text-3xl animate-pulse tracking-tighter">CALCULANDO FINANZAS...</div>
 
-  // PANTALLA DE BLOQUEO VISUAL
   if (!tieneAcceso) return (
     <div className="min-h-screen bg-[#020617] text-white p-6 md:p-12 flex items-center justify-center relative overflow-hidden">
        <button onClick={() => router.push('/dashboard')} className="absolute top-12 left-12 text-slate-500 text-[10px] font-black uppercase tracking-[0.4em] hover:text-white transition-colors z-20">← Volver al Dashboard</button>
-       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5"></div>
        <div className="relative z-10 max-w-lg w-full bg-white/5 border border-white/10 p-12 rounded-[3.5rem] text-center backdrop-blur-xl shadow-2xl">
-          <div className="w-24 h-24 bg-amber-400/10 border border-amber-400/30 text-amber-400 rounded-full flex items-center justify-center text-5xl mx-auto mb-8 shadow-inner">💰</div>
+          <div className="w-24 h-24 bg-amber-400/10 border border-amber-400/30 text-amber-400 rounded-full flex items-center justify-center text-5xl mx-auto mb-8">💰</div>
           <h1 className="text-4xl font-black uppercase italic tracking-tighter mb-4 text-white">Función <span className="text-amber-400">PRO</span></h1>
-          <p className="text-slate-400 text-sm font-medium mb-8 leading-relaxed">El módulo de control financiero y cálculo de ganancia neta es exclusivo del plan PRO Elite.</p>
-          <button onClick={() => window.open('https://wa.me/5491123456789?text=Hola,%20quiero%20pasar%20mi%20local%20a%20PRO', '_blank')} className="w-full py-5 rounded-[2rem] bg-amber-400 text-black font-black uppercase italic text-sm hover:bg-amber-300 transition-all shadow-[0_0_30px_rgba(251,191,36,0.3)] active:scale-95">Mejorar Plan Ahora</button>
+          <p className="text-slate-400 text-sm font-medium mb-8">La Caja y Ganancia Neta es exclusiva del plan PRO Elite.</p>
        </div>
     </div>
   )

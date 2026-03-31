@@ -1,20 +1,5 @@
-// lib/getNegocio.ts
-// Helper centralizado para obtener el negocio del usuario autenticado.
-//
-// PROBLEMA ORIGINAL: en múltiples páginas existía este patrón con bug:
-//
-//   const { data: byOwner } = await supabase.from('negocio').select('*').eq('owner_id', user.id).single()
-//   if (byOwner) { neg = byOwner }
-//   else {
-//     // ⚠️ BUG: hacía EXACTAMENTE la misma query de nuevo — siempre null si la primera falló
-//     const { data: byId } = await supabase.from('negocio').select('*').eq('owner_id', user.id).single()
-//     neg = byId
-//   }
-//
-// SOLUCIÓN: una sola función que hace UNA query limpia.
- 
 import { supabase } from './supabase'
- 
+
 export type NegocioBase = {
   id: string
   nombre: string
@@ -22,36 +7,37 @@ export type NegocioBase = {
   tema?: string | null
   logo_url?: string | null
   suscripcion_tipo?: string | null
-  trial_hasta?: string | null
-  activo?: boolean
-  onboarding_completo?: boolean
-  whatsapp?: string | null
-  descripcion?: string | null
-  hora_apertura?: string | null
-  hora_cierre?: string | null
-  dias_laborales?: number[] | null
   owner_id: string
+  [key: string]: any // Para abarcar el resto de campos
 }
- 
-/**
- * Obtiene el negocio del usuario autenticado.
- * Retorna null si el usuario no tiene negocio.
- */
-export async function getNegocioDelUsuario(userId: string): Promise<NegocioBase | null> {
-  const { data, error } = await supabase
-    .from('negocio')
-    .select('*')
-    .eq('owner_id', userId)
-    .single()
- 
-  if (error || !data) return null
-  return data as NegocioBase
+
+export async function getNegocioDelUsuario(userId: string) {
+  // 1. ¿Es empleado (staff o admin)?
+  const { data: adm } = await supabase.from('adminrol').select('negocio_id, role').eq('user_id', userId).maybeSingle()
+  
+  let nId = adm?.negocio_id
+  let role = adm?.role || null
+
+  // 2. ¿Es el dueño original?
+  if (!nId) {
+    const { data: n } = await supabase.from('negocio').select('id').eq('owner_id', userId).maybeSingle()
+    if (n) {
+      nId = n.id
+      role = 'owner'
+    }
+  }
+
+  // 3. Traer los datos completos del local
+  if (nId) {
+    const { data: neg, error } = await supabase.from('negocio').select('*').eq('id', nId).single()
+    if (!error && neg) {
+      return { negocio: neg as NegocioBase, role }
+    }
+  }
+
+  return { negocio: null, role: null }
 }
- 
-/**
- * Obtiene el usuario autenticado actual.
- * Retorna null si no hay sesión.
- */
+
 export async function getUsuarioActual() {
   const { data: { user } } = await supabase.auth.getUser()
   return user

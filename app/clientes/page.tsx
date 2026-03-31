@@ -3,7 +3,6 @@ import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
-import { toast } from 'sonner'
 
 export default function ClientesCRM() {
   const [turnos, setTurnos] = useState<any[]>([])
@@ -53,7 +52,7 @@ export default function ClientesCRM() {
   }, [turnos])
 
   const cargarNotas = async (cid: string) => {
-    const { data } = await supabase.from('config').select('valor').eq('clave', `nota_${negocio.id}_${cid}`).maybeSingle()
+    const { data } = await supabase.from('config').select('valor').eq('clave', `nota_${negocio?.id}_${cid}`).maybeSingle()
     setNotas(data?.valor ? JSON.parse(data.valor) : [])
   }
 
@@ -92,7 +91,7 @@ export default function ClientesCRM() {
                    </div>
                    <div>
                      <p className="text-[10px] font-black uppercase text-slate-500 mb-4">Historial</p>
-                     <div className="space-y-3">{clientes.find(c=>c.idString===clienteSeleccionado).historial.map((t, i) => <div key={i} className="bg-white/5 p-4 rounded-2xl text-xs flex justify-between"><span>{t.fecha}</span><span className="font-black uppercase">{t.estado}</span></div>)}</div>
+                     <div className="space-y-3">{clientes.find(c=>c.idString===clienteSeleccionado)?.historial.map((t: any, i: number) => <div key={i} className="bg-white/5 p-4 rounded-2xl text-xs flex justify-between"><span>{t.fecha}</span><span className="font-black uppercase">{t.estado}</span></div>)}</div>
                    </div>
                 </div>
               </div>
@@ -102,3 +101,4 @@ export default function ClientesCRM() {
       </div>
     </div>
   )
+}

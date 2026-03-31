@@ -32,26 +32,36 @@ export default function DashboardPrincipal() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      // Buscamos el rol del usuario (Owner o Staff)
       let currentRol = 'owner'
       let negocioId = null
 
-      const { data: adminData } = await supabase.from('adminrol').select('*').eq('user_id', user.id).single()
+      // FIX 1: Usamos maybeSingle() para que no rompa si no encuentra datos
+      const { data: adminData } = await supabase.from('adminrol').select('*').eq('user_id', user.id).maybeSingle()
+      
       if (adminData) {
         currentRol = adminData.role
         negocioId = adminData.negocio_id
-      } else {
-        // Fallback por si es una cuenta vieja sin adminrol
-        const { data: negViejo } = await supabase.from('negocio').select('id').eq('owner_id', user.id).single()
-        if (negViejo) negocioId = negViejo.id
+      }
+
+      // FIX 2: Si es superadmin, lo mandamos a su panel directo y cortamos acá
+      if (currentRol === 'superadmin') {
+        router.push('/superadmin')
+        return
+      }
+
+      // FIX 3: Si tiene cuenta pero adminrol no tiene el negocio_id (cuentas viejas), lo buscamos a la fuerza
+      if (!negocioId) {
+        const { data: negViejo } = await supabase.from('negocio').select('id').eq('owner_id', user.id).maybeSingle()
+        if (negViejo) {
+          negocioId = negViejo.id
+        }
       }
 
       setRol(currentRol)
 
       if (negocioId) {
-        const { data: neg } = await supabase.from('negocio').select('*').eq('id', negocioId).single()
+        const { data: neg } = await supabase.from('negocio').select('*').eq('id', negocioId).maybeSingle()
         if (neg) {
-          // SISTEMA DE PAYWALL (Bloqueo automático)
           const diasRestantes = diasTrialRestantes(neg.trial_hasta)
           if (neg.suscripcion_tipo === 'trial' && diasRestantes < 0) {
             router.push('/negocio-inactivo')
@@ -72,6 +82,9 @@ export default function DashboardPrincipal() {
              setStaffCount(sc ?? 0)
              setServiciosCount(svc ?? 0)
           }
+        } else {
+          router.push('/onboarding')
+          return
         }
       } else {
         router.push('/onboarding')
@@ -92,7 +105,6 @@ export default function DashboardPrincipal() {
   const diasTrial = diasTrialRestantes(negocio?.trial_hasta)
   const esStaff = rol === 'staff'
 
-  // Si es STAFF, le ocultamos el negocio pesado (Caja, Informes, Ajustes, etc.)
   const navItems = esStaff ? [
     { label: 'Agenda', desc: 'Ver turnos del día.', href: '/turnos', badge: null, proOnly: false },
     { label: 'Clientes', desc: 'Ver base de clientes.', href: '/clientes', badge: null, proOnly: false }

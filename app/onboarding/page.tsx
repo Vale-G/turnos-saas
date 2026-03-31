@@ -27,11 +27,15 @@ export default function OnboardingElite() {
       if (!user) return router.push('/registro-negocio')
       setUser(user)
       
-      const { data: neg } = await supabase.from('negocio').select('id').eq('owner_id', user.id).single()
-      if (neg) return router.push('/dashboard')
+      // FIX: Si el usuario ya tiene negocio, o si es superadmin, lo sacamos de aca.
+      const { data: neg } = await supabase.from('negocio').select('id').eq('owner_id', user.id).maybeSingle()
+      if (neg) {
+        const { data: adm } = await supabase.from('adminrol').select('role').eq('user_id', user.id).maybeSingle()
+        if (adm?.role === 'superadmin') return router.push('/superadmin')
+        return router.push('/dashboard')
+      }
       
-      // Cargamos cuántos días de trial dar desde la base de datos
-      const { data: cfg } = await supabase.from('config').select('valor').eq('clave', 'dias_trial').single()
+      const { data: cfg } = await supabase.from('config').select('valor').eq('clave', 'dias_trial').maybeSingle()
       if (cfg) setDiasTrial(Number(cfg.valor))
 
       setLoading(false)
@@ -53,15 +57,9 @@ export default function OnboardingElite() {
     trialHasta.setDate(trialHasta.getDate() + diasTrial)
 
     const { data, error } = await supabase.from('negocio').insert({
-      owner_id: user.id,
-      nombre,
-      slug,
-      whatsapp,
-      tema,
-      hora_apertura: apertura + ':00',
-      hora_cierre: cierre + ':00',
-      suscripcion_tipo: 'trial',
-      trial_hasta: trialHasta.toISOString().split('T')[0]
+      owner_id: user.id, nombre, slug, whatsapp, tema,
+      hora_apertura: apertura + ':00', hora_cierre: cierre + ':00',
+      suscripcion_tipo: 'trial', trial_hasta: trialHasta.toISOString().split('T')[0]
     }).select('id').single()
 
     if (error) {
@@ -103,12 +101,12 @@ export default function OnboardingElite() {
               <h2 className="text-2xl font-black uppercase italic tracking-tighter mb-8">Tu Marca</h2>
               <div>
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block">Nombre de tu Negocio</label>
-                <input autoFocus value={nombre} onChange={e => setNombre(e.target.value)} placeholder="EJ: F&V BARBERSHOP" required className="w-full bg-black/50 border border-white/10 p-6 rounded-2xl text-sm font-black uppercase outline-none focus:border-white/30 transition-all placeholder:text-slate-800" />
+                <input autoFocus value={nombre} onChange={e => setNombre(e.target.value)} placeholder="EJ: ESTÉTICA GLAM" required className="w-full bg-black/50 border border-white/10 p-6 rounded-2xl text-sm font-black uppercase outline-none focus:border-white/30 transition-all placeholder:text-slate-800" />
               </div>
               <div className="pt-2">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block">Link Único de Reservas</label>
                 <div className="flex items-center bg-black/50 border border-white/10 rounded-2xl overflow-hidden focus-within:border-white/30 transition-all p-2">
-                  <span className="pl-4 pr-2 text-xs font-black text-slate-600">turnly.app/reservar/</span>
+                  <span className="pl-4 pr-2 text-xs font-black text-slate-600">/reservar/</span>
                   <input value={slug} onChange={e => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))} required className="w-full bg-transparent py-4 pr-4 text-xs font-black outline-none text-white" />
                 </div>
               </div>
@@ -120,9 +118,8 @@ export default function OnboardingElite() {
               <button type="button" onClick={() => setPaso(1)} className="text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-white mb-4 block">← Volver</button>
               <h2 className="text-2xl font-black uppercase italic tracking-tighter mb-8">Tus Reglas</h2>
               <div>
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block">WhatsApp de Contacto (Opcional)</label>
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block">WhatsApp de Contacto</label>
                 <input type="tel" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="EJ: 5491123456789" className="w-full bg-black/50 border border-white/10 p-6 rounded-2xl text-sm font-black uppercase outline-none focus:border-white/30 transition-all placeholder:text-slate-800" />
-                <p className="text-[9px] text-slate-500 mt-2 font-bold uppercase tracking-widest">Para que tus clientes puedan hablarte directo.</p>
               </div>
               <div className="grid grid-cols-2 gap-4 pt-2">
                 <div>
@@ -158,13 +155,13 @@ export default function OnboardingElite() {
               <div className="pt-8 text-center bg-black/30 p-6 rounded-[2rem] border border-white/5 mt-8">
                  <p className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-2">Resumen</p>
                  <p className="text-xl font-black uppercase italic tracking-tighter" style={{color: colorP}}>{nombre}</p>
-                 <p className="text-xs text-slate-400 font-black mt-1">turnly.app/reservar/{slug}</p>
+                 <p className="text-xs text-slate-400 font-black mt-1">/reservar/{slug}</p>
               </div>
             </div>
           )}
 
           <button type="submit" disabled={guardando || (paso === 1 && !nombre)} className={`w-full py-6 rounded-[2.5rem] font-black uppercase italic text-lg transition-all mt-10 shadow-2xl active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${paso === 3 ? 'text-black' : 'bg-white text-black'}`} style={paso === 3 ? { backgroundColor: colorP } : {}}>
-            {guardando ? 'CREANDO NEGOCIO...' : paso === 3 ? '¡LANZAR MI SAAS!' : 'CONTINUAR'}
+            {guardando ? 'CREANDO...' : paso === 3 ? '¡LANZAR MI SAAS!' : 'CONTINUAR'}
           </button>
         </form>
       </div>

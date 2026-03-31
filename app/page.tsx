@@ -1,8 +1,28 @@
 'use client'
 import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
 
 export default function LandingComercial() {
   const router = useRouter()
+  // Valores por defecto mientras carga
+  const [config, setConfig] = useState({ precio_basico: 10000, precio_pro: 25000, dias_trial: 14 })
+
+  useEffect(() => {
+    async function loadConfig() {
+      const { data } = await supabase.from('config').select('*')
+      if (data) {
+        const configMap: any = {}
+        data.forEach(r => configMap[r.clave] = Number(r.valor))
+        setConfig({
+          precio_basico: configMap.precio_basico || 10000,
+          precio_pro: configMap.precio_pro || 25000,
+          dias_trial: configMap.dias_trial || 14
+        })
+      }
+    }
+    loadConfig()
+  }, [])
 
   return (
     <div className="min-h-screen bg-[#020617] text-white selection:bg-emerald-500/30 overflow-hidden font-sans">
@@ -21,7 +41,7 @@ export default function LandingComercial() {
 
       <main className="relative z-10 max-w-6xl mx-auto px-6 pt-20 pb-32 text-center">
         <div className="inline-block border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 text-[10px] font-black uppercase tracking-[0.3em] px-5 py-2 rounded-full mb-8 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-          El Software Definitivo para Barberías
+          El Software Definitivo para Negocios y Profesionales
         </div>
         
         <h1 className="text-5xl md:text-8xl font-black uppercase italic tracking-tighter leading-[0.9] mb-8 text-transparent bg-clip-text bg-gradient-to-b from-white to-slate-400">
@@ -34,7 +54,7 @@ export default function LandingComercial() {
 
         <div className="flex flex-col sm:flex-row justify-center gap-4 mb-24">
           <button onClick={() => router.push('/registro-negocio')} className="bg-emerald-500 text-black font-black uppercase italic text-lg px-12 py-6 rounded-[2.5rem] hover:bg-emerald-400 transition-all shadow-[0_0_40px_rgba(16,185,129,0.3)] hover:scale-105 active:scale-95">
-            Comenzar Prueba de 14 Días
+            Comenzar Prueba de {config.dias_trial} Días
           </button>
         </div>
 
@@ -58,14 +78,14 @@ export default function LandingComercial() {
           </div>
         </div>
 
-        {/* PRECIOS */}
+        {/* PRECIOS DINÁMICOS */}
         <div className="max-w-4xl mx-auto">
           <h2 className="text-4xl font-black uppercase italic tracking-tighter mb-12">Planes Simples y Claros</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-left">
             <div className="bg-black border border-white/10 p-12 rounded-[3.5rem]">
               <h3 className="text-3xl font-black italic uppercase mb-2">Básico</h3>
-              <p className="text-slate-500 text-sm mb-8">Ideal para barberos independientes.</p>
-              <p className="text-5xl font-black italic mb-8">$10.000 <span className="text-xl text-slate-500">/mes</span></p>
+              <p className="text-slate-500 text-sm mb-8">Ideal para profesionales independientes.</p>
+              <p className="text-5xl font-black italic mb-8">${config.precio_basico.toLocaleString('es-AR')} <span className="text-xl text-slate-500">/mes</span></p>
               <ul className="space-y-4 mb-10 text-sm font-bold text-slate-300">
                 <li>✓ 1 Profesional</li>
                 <li>✓ Hasta 10 Servicios</li>
@@ -80,7 +100,7 @@ export default function LandingComercial() {
               <div className="absolute top-6 right-6 bg-emerald-500 text-black text-[10px] font-black uppercase px-3 py-1 rounded-full">Recomendado</div>
               <h3 className="text-3xl font-black italic uppercase mb-2 text-emerald-400">PRO Elite</h3>
               <p className="text-slate-400 text-sm mb-8">Para locales que quieren escalar.</p>
-              <p className="text-5xl font-black italic mb-8 text-white">$25.000 <span className="text-xl text-slate-500">/mes</span></p>
+              <p className="text-5xl font-black italic mb-8 text-white">${config.precio_pro.toLocaleString('es-AR')} <span className="text-xl text-slate-500">/mes</span></p>
               <ul className="space-y-4 mb-10 text-sm font-bold text-white">
                 <li>✓ Profesionales Ilimitados</li>
                 <li>✓ Servicios Ilimitados</li>
@@ -88,7 +108,7 @@ export default function LandingComercial() {
                 <li>✓ Control de Caja y Ganancia Neta</li>
                 <li>✓ Informes y Estadísticas</li>
               </ul>
-              <button onClick={() => router.push('/registro-negocio')} className="w-full py-5 rounded-full bg-emerald-500 text-black font-black uppercase text-sm hover:bg-emerald-400 transition-colors shadow-lg shadow-emerald-500/20">Probar 14 Días Gratis</button>
+              <button onClick={() => router.push('/registro-negocio')} className="w-full py-5 rounded-full bg-emerald-500 text-black font-black uppercase text-sm hover:bg-emerald-400 transition-colors shadow-lg shadow-emerald-500/20">Probar {config.dias_trial} Días Gratis</button>
             </div>
           </div>
         </div>

@@ -10,8 +10,8 @@ export default function OnboardingElite() {
   const [loading, setLoading] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [user, setUser] = useState<any>(null)
+  const [diasTrial, setDiasTrial] = useState(14)
   
-  // Datos del negocio
   const [nombre, setNombre] = useState('')
   const [slug, setSlug] = useState('')
   const [whatsapp, setWhatsapp] = useState('')
@@ -30,6 +30,10 @@ export default function OnboardingElite() {
       const { data: neg } = await supabase.from('negocio').select('id').eq('owner_id', user.id).single()
       if (neg) return router.push('/dashboard')
       
+      // Cargamos cuántos días de trial dar desde la base de datos
+      const { data: cfg } = await supabase.from('config').select('valor').eq('clave', 'dias_trial').single()
+      if (cfg) setDiasTrial(Number(cfg.valor))
+
       setLoading(false)
     }
     check()
@@ -46,7 +50,7 @@ export default function OnboardingElite() {
     setGuardando(true)
 
     const trialHasta = new Date()
-    trialHasta.setDate(trialHasta.getDate() + 14)
+    trialHasta.setDate(trialHasta.getDate() + diasTrial)
 
     const { data, error } = await supabase.from('negocio').insert({
       owner_id: user.id,
@@ -141,7 +145,6 @@ export default function OnboardingElite() {
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4 block text-center">Elegí el color de tu marca</label>
                 <div className="flex flex-wrap justify-center gap-4">
                   {Object.entries(TEMAS).map(([key, obj]) => {
-                    // FIX: Extraer obj.color para no romper TS
                     const colorHex = (obj as any).color
                     return (
                       <button type="button" key={key} onClick={() => setTema(key)} 

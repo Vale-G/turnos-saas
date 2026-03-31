@@ -66,7 +66,7 @@ export default function DashboardPrincipal() {
   ]
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white p-6 md:p-12">
+    <div className="min-h-screen bg-[#020617] text-white p-6 md:p-12 font-sans">
       <div className="max-w-5xl mx-auto">
         <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12 border-b border-white/5 pb-10">
           <div className="flex items-center gap-6">
@@ -105,7 +105,8 @@ export default function DashboardPrincipal() {
           </div>
           <button onClick={() => {
               if (!negocio?.slug) return
-              const url = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://turnly.app') + '/reservar/' + negocio.slug
+              // FIX: Usa el dominio dinámico real
+              const url = window.location.origin + '/reservar/' + negocio.slug
               navigator.clipboard.writeText(url)
               setCopiado(true); setTimeout(() => setCopiado(false), 2000)
             }}

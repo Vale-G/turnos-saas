@@ -5,10 +5,10 @@ import { cookies } from 'next/headers'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { turno_id, monto_sena, servicio_nombre, negocio_nombre } = body
+    const { turno_id, monto_sena, servicio_nombre, negocio_nombre, cliente_email } = body
 
     if (!turno_id || !monto_sena) {
-      return NextResponse.json({ error: 'Faltan datos' }, { status: 400 })
+      return NextResponse.json({ error: 'Faltan datos requeridos (turno_id, monto_sena)' }, { status: 400 })
     }
 
     const cookieStore = await cookies()
@@ -26,8 +26,9 @@ export async function POST(req: NextRequest) {
       }
     )
 
+    // FIX: Permitir que "Invitados" paguen seña tomando el email del body, o un fallback genérico.
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    const emailComprador = user?.email || cliente_email || 'invitado@turnly.app'
 
     const origin = req.headers.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
 
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
         unit_price: monto_sena,
         currency_id: 'ARS',
       }],
-      payer: { email: user.email },
+      payer: { email: emailComprador },
       external_reference: turno_id + '|sena',
       back_urls: {
         success: origin + '/reservar/sena-ok?turno=' + turno_id,
@@ -60,10 +61,9 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify(mpBody),
     })
 
-    if (!mpRes.ok) throw new Error('MP error: ' + await mpRes.text())
+    if (!mpRes.ok) throw new Error('Error en MP: ' + await mpRes.text())
     const preferencia = await mpRes.json()
 
-    // Guardar preference_id en el turno
     await supabase.from('turno')
       .update({ mp_preference_id: preferencia.id, requiere_sena: true, monto_sena })
       .eq('id', turno_id)
@@ -75,6 +75,6 @@ export async function POST(req: NextRequest) {
     })
   } catch (err) {
     console.error('[Turnly] Error seña:', err)
-    return NextResponse.json({ error: err instanceof Error ? err.message : 'Error' }, { status: 500 })
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Error interno' }, { status: 500 })
   }
 }

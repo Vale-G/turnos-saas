@@ -1,89 +1,23 @@
-// lib/whatsapp.ts
-// Genera links wa.me — no requiere API de pago
-
-export function buildWhatsAppConfirmacion({
-  telefono,
-  clienteNombre,
-  servicio,
-  barbero,
-  fecha,
-  hora,
-  negocioNombre,
-}: {
-  telefono: string
-  clienteNombre: string
-  servicio: string
-  barbero: string
-  fecha: string
+export function buildWhatsAppConfirmacion(
+  telefono: string,
+  negocioNombre: string,
+  fecha: string,
   hora: string
-  negocioNombre: string
-}) {
-  const fechaFormateada = new Date(fecha + 'T00:00:00')
-    .toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })
+) {
+  // Limpiamos el teléfono (sacamos espacios, guiones, símbolos)
+  const t = telefono.replace(/\D/g, '')
 
-  const mensaje = [
-    `✂️ *Nuevo turno confirmado en ${negocioNombre}*`,
-    ``,
-    `👤 Cliente: ${clienteNombre}`,
-    `💈 Servicio: ${servicio}`,
-    `👨‍🦲 Con: ${barbero}`,
-    `📅 Fecha: ${fechaFormateada}`,
-    `🕐 Hora: ${hora} hs`,
-    ``,
-    `_Reservado desde turnly.app_`,
-  ].join('\n')
+  const mensaje = `Hola! 👋 Te escribimos de *${negocioNombre}*.
+  
+Queremos confirmarte que tu turno quedó agendado con éxito:
+📅 *Fecha:* ${fecha}
+⏰ *Hora:* ${hora} hs
 
-  const numeroLimpio = telefono.replace(/\D/g, '')
-  return `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(mensaje)}`
-}
+📍 Te esperamos con unos minutos de anticipación.
+❌ Si no podés asistir, por favor avisanos respondiendo este mensaje para liberar el lugar.
 
-export function buildWhatsAppRecordatorio({
-  telefono,
-  clienteNombre,
-  servicio,
-  hora,
-  negocioNombre,
-}: {
-  telefono: string
-  clienteNombre: string
-  servicio: string
-  fecha: string
-  hora: string
-  negocioNombre: string
-}) {
-  const mensaje = [
-    `⏰ *Recordatorio de turno — ${negocioNombre}*`,
-    ``,
-    `Hola ${clienteNombre}! Te recordamos que mañana tenés turno:`,
-    `💈 ${servicio} a las ${hora} hs`,
-    ``,
-    `¿Necesitás cancelar? Respondé este mensaje.`,
-  ].join('\n')
+¡Nos vemos pronto! ✂️🔥`
 
-  const numeroLimpio = telefono.replace(/\D/g, '')
-  return `https://wa.me/${numeroLimpio}?text=${encodeURIComponent(mensaje)}`
-}
-
-export function buildWhatsAppNuevoTurno({
-  telefono, clienteNombre, servicio, barbero, fecha, hora, negocioNombre
-}: {
-  telefono: string; clienteNombre: string; servicio: string
-  barbero: string; fecha: string; hora: string; negocioNombre: string
-}): string {
-  const fechaFormateada = new Date(fecha + 'T12:00:00').toLocaleDateString('es-AR', {
-    weekday: 'long', day: 'numeric', month: 'long'
-  })
-  const texto = [
-    '🔔 *Nuevo turno en ' + negocioNombre + '*',
-    '',
-    '👤 Cliente: ' + clienteNombre,
-    '✂️ Servicio: ' + servicio,
-    '💈 Con: ' + barbero,
-    '📅 ' + fechaFormateada,
-    '🕐 ' + hora,
-    '',
-    '_Notificación automática de Turnly_'
-  ].join('\n')
-  const numero = telefono.replace(/\D/g, '')
-  return 'https://wa.me/' + numero + '?text=' + encodeURIComponent(texto)
+  const url = `https://wa.me/${t}?text=${encodeURIComponent(mensaje)}`
+  return url
 }

@@ -2,302 +2,167 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { getThemeColor } from '@/lib/theme'
-import Image from 'next/image'
+import { getThemeColor, THEMES } from '@/lib/theme'
+import { toast } from 'sonner'
 
-const DIAS = ['Lunes','Martes','Miercoles','Jueves','Viernes','Sabado','Domingo']
-const DIAS_KEYS = ['lunes','martes','miercoles','jueves','viernes','sabado','domingo']
-
-export default function Onboarding() {
+export default function OnboardingElite() {
   const [paso, setPaso] = useState(1)
-  const [negocioId, setNegocioId] = useState<string | null>(null)
-  const [colorP, setColorP] = useState('#6366F1')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  // Paso 1 — Logo y nombre
+  const [loading, setLoading] = useState(true)
+  const [guardando, setGuardando] = useState(false)
+  const [user, setUser] = useState<any>(null)
+  
+  // Datos del negocio
   const [nombre, setNombre] = useState('')
-  const [logoUrl, setLogoUrl] = useState('')
-  const [logoPreview, setLogoPreview] = useState(false)
-
-  // Paso 2 — Horarios
-  const [diasActivos, setDiasActivos] = useState(['lunes','martes','miercoles','jueves','viernes','sabado'])
-  const [horaApertura, setHoraApertura] = useState('09:00')
-  const [horaCierre, setHoraCierre] = useState('19:00')
+  const [slug, setSlug] = useState('')
   const [whatsapp, setWhatsapp] = useState('')
-
-  // Paso 3 — Primer servicio
-  const [servicioNombre, setServicioNombre] = useState('')
-  const [servicioPrecio, setServicioPrecio] = useState('')
-  const [servicioDuracion, setServicioDuracion] = useState('30')
+  const [tema, setTema] = useState('emerald')
+  const [apertura, setApertura] = useState('09:00')
+  const [cierre, setCierre] = useState('20:00')
 
   const router = useRouter()
 
   useEffect(() => {
-    async function init() {
+    async function check() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
-
-      let neg = null
-      const { data: byOwner } = await supabase.from('negocio')
-        .select('id, nombre, tema, onboarding_completo').eq('owner_id', user.id).single()
-      if (byOwner) neg = byOwner
-      else {
-        const { data: byId } = await supabase.from('negocio')
-          .select('id, nombre, tema, onboarding_completo').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
-        neg = byId
-      }
-      if (!neg) { router.push('/onboarding'); return }
-      if (neg.onboarding_completo) { router.push('/dashboard'); return }
-
-      setNegocioId(neg.id)
-      setNombre(neg.nombre ?? '')
-      setColorP(getThemeColor(neg.tema))
+      if (!user) return router.push('/registro-negocio')
+      setUser(user)
+      
+      // Si ya tiene negocio, lo mandamos al dashboard
+      const { data: neg } = await supabase.from('negocio').select('id').eq('owner_id', user.id).single()
+      if (neg) return router.push('/dashboard')
+      
+      setLoading(false)
     }
-    init()
+    check()
   }, [router])
 
-  const toggleDia = (dia: string) => {
-    setDiasActivos(prev =>
-      prev.includes(dia) ? prev.filter(d => d !== dia) : [...prev, dia]
-    )
-  }
-
-  const guardarPaso1 = async () => {
-    if (!negocioId || !nombre.trim()) return
-    setLoading(true); setError(null)
-    const { error } = await supabase.from('negocio').update({
-      nombre: nombre.trim(),
-      ...(logoUrl.trim() && { logo_url: logoUrl.trim() }),
-    }).eq('id', negocioId)
-    if (error) { setError(error.message); setLoading(false); return }
-    setLoading(false); setPaso(2)
-  }
-
-  const guardarPaso2 = async () => {
-    if (!negocioId) return
-    setLoading(true); setError(null)
-    const _map: Record<string,number> = {domingo:0,lunes:1,martes:2,miercoles:3,jueves:4,viernes:5,sabado:6}
-    const diasNums = diasActivos.map(d => _map[d])
-    const { error } = await supabase.from('negocio').update({
-      dias_laborales: diasNums,
-      hora_apertura: horaApertura + ':00',
-      hora_cierre: horaCierre + ':00',
-      ...(whatsapp.trim() && { whatsapp: whatsapp.trim() }),
-    }).eq('id', negocioId)
-    if (error) { setError(error.message); setLoading(false); return }
-    setLoading(false); setPaso(3)
-  }
-
-  const guardarPaso3 = async () => {
-    if (!negocioId) return
-    setLoading(true); setError(null)
-    if (servicioNombre.trim() && servicioPrecio) {
-      const { error } = await supabase.from('servicio').insert({
-        negocio_id: negocioId,
-        nombre: servicioNombre.trim(),
-        precio: parseFloat(servicioPrecio),
-        duracion: parseInt(servicioDuracion),
-      })
-      if (error) { setError(error.message); setLoading(false); return }
+  // Autogenerar slug basado en el nombre
+  useEffect(() => {
+    if (paso === 1 && nombre) {
+      setSlug(nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-'))
     }
-    await supabase.from('negocio').update({ onboarding_completo: true }).eq('id', negocioId)
-    setLoading(false)
-    router.push('/dashboard?bienvenida=1')
+  }, [nombre, paso])
+
+  const crearNegocio = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setGuardando(true)
+
+    // Calculamos el Trial de 14 días para los usuarios nuevos
+    const trialHasta = new Date()
+    trialHasta.setDate(trialHasta.getDate() + 14)
+
+    const { data, error } = await supabase.from('negocio').insert({
+      owner_id: user.id,
+      nombre,
+      slug,
+      whatsapp,
+      tema,
+      hora_apertura: apertura + ':00',
+      hora_cierre: cierre + ':00',
+      suscripcion_tipo: 'trial',
+      trial_hasta: trialHasta.toISOString().split('T')[0]
+    }).select('id').single()
+
+    if (error) {
+      toast.error('Error al crear tu negocio: ' + error.message)
+      setGuardando(false)
+      return
+    }
+
+    // Le creamos el rol de administrador
+    await supabase.from('adminrol').insert({ user_id: user.id, role: 'owner', negocio_id: data.id })
+
+    toast.success('¡Negocio creado con éxito! Bienvenido a Turnly 🚀')
+    router.push('/dashboard')
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const progreso = (paso / 3) * 100
+  if (loading) return <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black italic text-white text-3xl animate-pulse tracking-tighter">PREPARANDO ENTORNO...</div>
+
+  const colorP = getThemeColor(tema)
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white flex items-center justify-center p-6">
-      <div className="max-w-md w-full">
+    <div className="min-h-screen bg-[#020617] text-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
+      
+      {/* Fondo con brillo dinámico basado en el tema elegido */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] blur-[150px] opacity-10 transition-colors duration-1000 pointer-events-none" style={{ backgroundColor: colorP }} />
 
-        {/* Header */}
-        <div className="text-center mb-8">
-          <div className="w-12 h-12 rounded-2xl mx-auto mb-4 flex items-center justify-center"
-            style={{ backgroundColor: colorP }}>
-            <svg width="24" height="24" viewBox="0 0 22 22" fill="none">
-              <circle cx="11" cy="11" r="8" stroke="black" strokeWidth="2"/>
-              <path d="M11 7v4l2.5 2.5" stroke="black" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
+      <div className="w-full max-w-xl relative z-10">
+        
+        <div className="text-center mb-12">
+          <h1 className="text-5xl font-black uppercase italic tracking-tighter mb-4">Bienvenido a <span style={{color: colorP}} className="transition-colors duration-500">Turnly</span></h1>
+          <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.4em]">Configuración Inicial · Paso {paso} de 3</p>
+          <div className="flex gap-2 mt-6 justify-center">
+            <div className={`h-1.5 w-12 rounded-full transition-all duration-500 ${paso >= 1 ? 'bg-white' : 'bg-white/10'}`} />
+            <div className={`h-1.5 w-12 rounded-full transition-all duration-500 ${paso >= 2 ? 'bg-white' : 'bg-white/10'}`} />
+            <div className={`h-1.5 w-12 rounded-full transition-all duration-500 ${paso >= 3 ? 'bg-white' : 'bg-white/10'}`} />
           </div>
-          <h1 className="text-3xl font-black italic uppercase tracking-tighter" style={{ color: colorP }}>
-            Configuremos tu negocio
-          </h1>
-          <p className="text-slate-500 text-sm mt-1">3 pasos · menos de 2 minutos</p>
         </div>
 
-        {/* Barra de progreso */}
-        <div className="flex items-center gap-2 mb-8">
-          {[1,2,3].map(n => (
-            <div key={n} className="flex items-center gap-2 flex-1">
-              <div className={'w-7 h-7 rounded-full flex items-center justify-center text-xs font-black transition-all ' +
-                (paso > n ? 'bg-emerald-500 text-black' : paso === n ? 'text-black' : 'bg-white/10 text-slate-500')}
-                style={paso === n ? { backgroundColor: colorP } : {}}>
-                {paso > n ? '✓' : n}
+        <form onSubmit={paso === 3 ? crearNegocio : (e) => { e.preventDefault(); setPaso(paso + 1) }} className="bg-white/5 border border-white/10 p-10 md:p-12 rounded-[3.5rem] backdrop-blur-md shadow-2xl relative overflow-hidden min-h-[400px] flex flex-col justify-between">
+          
+          {paso === 1 && (
+            <div className="animate-in slide-in-from-right-8 duration-500 space-y-6">
+              <h2 className="text-2xl font-black uppercase italic tracking-tighter mb-8">Tu Marca</h2>
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block">Nombre de tu Negocio</label>
+                <input autoFocus value={nombre} onChange={e => setNombre(e.target.value)} placeholder="EJ: F&V BARBERSHOP" required className="w-full bg-black/50 border border-white/10 p-6 rounded-2xl text-sm font-black uppercase outline-none focus:border-white/30 transition-all placeholder:text-slate-800" />
               </div>
-              {n < 3 && <div className={'flex-1 h-0.5 rounded transition-all ' + (paso > n ? 'bg-emerald-500' : 'bg-white/10')} />}
-            </div>
-          ))}
-        </div>
-
-        {/* PASO 1 — Logo y nombre */}
-        {paso === 1 && (
-          <div className="bg-white/4 border border-white/8 rounded-[2rem] p-6 space-y-5">
-            <div>
-              <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Paso 1 de 3</p>
-              <h2 className="text-xl font-black italic uppercase">Tu negocio</h2>
-            </div>
-            <div>
-              <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-2">
-                Nombre del negocio
-              </label>
-              <input type="text" value={nombre} onChange={e => setNombre(e.target.value)}
-                placeholder="Ej: Barberia El Flaco"
-                className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-white/25 transition-colors" />
-            </div>
-            <div>
-              <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-2">
-                URL del logo (opcional)
-              </label>
-              <div className="flex gap-2">
-                <input type="url" value={logoUrl} onChange={e => { setLogoUrl(e.target.value); setLogoPreview(false) }}
-                  placeholder="https://..."
-                  className="flex-1 bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-white/25 transition-colors" />
-                {logoUrl && (
-                  <button onClick={() => setLogoPreview(true)}
-                    className="px-4 py-3 rounded-xl bg-white/10 text-xs font-black uppercase hover:bg-white/15 transition-colors">
-                    Ver
-                  </button>
-                )}
-              </div>
-              {logoPreview && logoUrl && (
-                <div className="mt-3 flex items-center gap-3 bg-white/5 rounded-xl p-3">
-                  <Image src={logoUrl} alt="logo" width={48} height={48} className="rounded-xl object-cover"
-                    onError={() => setLogoPreview(false)} />
-                  <p className="text-xs text-slate-400">Logo cargado correctamente</p>
+              <div className="pt-2">
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block">Link Único de Reservas</label>
+                <div className="flex items-center bg-black/50 border border-white/10 rounded-2xl overflow-hidden focus-within:border-white/30 transition-all p-2">
+                  <span className="pl-4 pr-2 text-xs font-black text-slate-600">turnly.app/reservar/</span>
+                  <input value={slug} onChange={e => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))} required className="w-full bg-transparent py-4 pr-4 text-xs font-black outline-none text-white" />
                 </div>
-              )}
+              </div>
             </div>
-            {error && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{error}</p>}
-            <button onClick={guardarPaso1} disabled={loading || !nombre.trim()}
-              className="w-full py-4 rounded-2xl font-black italic text-lg text-black disabled:opacity-50 transition-all hover:opacity-90"
-              style={{ backgroundColor: colorP }}>
-              {loading ? 'Guardando...' : 'Continuar →'}
-            </button>
-          </div>
-        )}
+          )}
 
-        {/* PASO 2 — Horarios */}
-        {paso === 2 && (
-          <div className="bg-white/4 border border-white/8 rounded-[2rem] p-6 space-y-5">
-            <div>
-              <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Paso 2 de 3</p>
-              <h2 className="text-xl font-black italic uppercase">Horarios</h2>
-            </div>
-            <div>
-              <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-3">
-                Días que trabajás
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {DIAS.map((dia, i) => (
-                  <button key={dia} onClick={() => toggleDia(DIAS_KEYS[i])}
-                    className={'px-3 py-2 rounded-xl text-xs font-black uppercase border transition-all ' +
-                      (diasActivos.includes(DIAS_KEYS[i])
-                        ? 'text-black border-transparent'
-                        : 'bg-white/5 text-slate-500 border-white/10 hover:bg-white/10')}
-                    style={diasActivos.includes(DIAS_KEYS[i]) ? { backgroundColor: colorP } : {}}>
-                    {dia.slice(0, 3)}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
+          {paso === 2 && (
+            <div className="animate-in slide-in-from-right-8 duration-500 space-y-6">
+              <button type="button" onClick={() => setPaso(1)} className="text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-white mb-4 block">← Volver</button>
+              <h2 className="text-2xl font-black uppercase italic tracking-tighter mb-8">Tus Reglas</h2>
               <div>
-                <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-2">Apertura</label>
-                <input type="time" value={horaApertura} onChange={e => setHoraApertura(e.target.value)}
-                  className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none" />
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block">WhatsApp de Contacto (Opcional)</label>
+                <input type="tel" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="EJ: 5491123456789" className="w-full bg-black/50 border border-white/10 p-6 rounded-2xl text-sm font-black uppercase outline-none focus:border-white/30 transition-all placeholder:text-slate-800" />
+                <p className="text-[9px] text-slate-500 mt-2 font-bold uppercase tracking-widest">Para que tus clientes puedan hablarte directo.</p>
               </div>
-              <div>
-                <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-2">Cierre</label>
-                <input type="time" value={horaCierre} onChange={e => setHoraCierre(e.target.value)}
-                  className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none" />
+              <div className="grid grid-cols-2 gap-4 pt-2">
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block">Apertura</label>
+                  <input type="time" value={apertura} onChange={e => setApertura(e.target.value)} required className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-sm font-black outline-none focus:border-white/30 transition-all [&::-webkit-calendar-picker-indicator]:invert" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block">Cierre</label>
+                  <input type="time" value={cierre} onChange={e => setCierre(e.target.value)} required className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-sm font-black outline-none focus:border-white/30 transition-all [&::-webkit-calendar-picker-indicator]:invert" />
+                </div>
               </div>
             </div>
-            <div>
-              <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-2">
-                WhatsApp del negocio (recomendado)
-              </label>
-              <input type="tel" value={whatsapp} onChange={e => setWhatsapp(e.target.value)}
-                placeholder="Ej: 5491112345678"
-                className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-white/25 transition-colors" />
-              <p className="text-[10px] text-slate-600 mt-1">Con código de país, sin + ni espacios</p>
-            </div>
-            {error && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{error}</p>}
-            <div className="flex gap-3">
-              <button onClick={() => setPaso(1)}
-                className="px-6 py-4 rounded-2xl font-black uppercase text-sm border border-white/10 text-slate-400 hover:bg-white/5 transition-colors">
-                Volver
-              </button>
-              <button onClick={guardarPaso2} disabled={loading || diasActivos.length === 0}
-                className="flex-1 py-4 rounded-2xl font-black italic text-lg text-black disabled:opacity-50 transition-all hover:opacity-90"
-                style={{ backgroundColor: colorP }}>
-                {loading ? 'Guardando...' : 'Continuar →'}
-              </button>
-            </div>
-          </div>
-        )}
+          )}
 
-        {/* PASO 3 — Primer servicio */}
-        {paso === 3 && (
-          <div className="bg-white/4 border border-white/8 rounded-[2rem] p-6 space-y-5">
-            <div>
-              <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Paso 3 de 3</p>
-              <h2 className="text-xl font-black italic uppercase">Tu primer servicio</h2>
-              <p className="text-slate-500 text-xs mt-1">Podés agregar más desde el panel después</p>
-            </div>
-            <div>
-              <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-2">Nombre</label>
-              <input type="text" value={servicioNombre} onChange={e => setServicioNombre(e.target.value)}
-                placeholder="Ej: Corte de cabello"
-                className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-white/25 transition-colors" />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
+          {paso === 3 && (
+            <div className="animate-in slide-in-from-right-8 duration-500 space-y-6">
+              <button type="button" onClick={() => setPaso(2)} className="text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-white mb-4 block">← Volver</button>
+              <h2 className="text-2xl font-black uppercase italic tracking-tighter mb-8">El Toque Final</h2>
               <div>
-                <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-2">Precio $</label>
-                <input type="number" value={servicioPrecio} onChange={e => setServicioPrecio(e.target.value)}
-                  placeholder="5000" min="0"
-                  className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none" />
-              </div>
-              <div>
-                <label className="text-[10px] font-black uppercase text-slate-500 tracking-widest block mb-2">Minutos</label>
-                <select value={servicioDuracion} onChange={e => setServicioDuracion(e.target.value)}
-                  className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none">
-                  {[15,20,30,45,60,90,120].map(m => (
-                    <option key={m} value={m}>{m} min</option>
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4 block text-center">Elegí el color de tu marca</label>
+                <div className="flex flex-wrap justify-center gap-4">
+                  {Object.entries(THEMES).map(([key, color]) => (
+                    <button type="button" key={key} onClick={() => setTema(key)} className={`w-16 h-16 rounded-full border-4 transition-all duration-300 ${tema === key ? 'scale-110 shadow-2xl' : 'border-transparent hover:scale-105 opacity-50 hover:opacity-100'}`} style={{ backgroundColor: color, borderColor: tema === key ? 'white' : 'transparent', boxShadow: tema === key ? `0 0 30px ${color}80` : 'none' }} />
                   ))}
-                </select>
+                </div>
+              </div>
+              <div className="pt-8 text-center bg-black/30 p-6 rounded-[2rem] border border-white/5 mt-8">
+                 <p className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-2">Resumen</p>
+                 <p className="text-xl font-black uppercase italic tracking-tighter" style={{color: colorP}}>{nombre}</p>
+                 <p className="text-xs text-slate-400 font-black mt-1">turnly.app/reservar/{slug}</p>
               </div>
             </div>
-            {error && <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">{error}</p>}
-            <div className="flex gap-3">
-              <button onClick={() => setPaso(2)}
-                className="px-6 py-4 rounded-2xl font-black uppercase text-sm border border-white/10 text-slate-400 hover:bg-white/5 transition-colors">
-                Volver
-              </button>
-              <button onClick={guardarPaso3} disabled={loading}
-                className="flex-1 py-4 rounded-2xl font-black italic text-lg text-black disabled:opacity-50 transition-all hover:opacity-90"
-                style={{ backgroundColor: colorP }}>
-                {loading ? 'Finalizando...' : '¡Listo! Entrar al panel →'}
-              </button>
-            </div>
-            <button onClick={() => guardarPaso3()}
-              className="w-full text-slate-600 hover:text-slate-400 text-xs font-black uppercase transition-colors text-center">
-              Saltar este paso
-            </button>
-          </div>
-        )}
+          )}
+
+          <button type="submit" disabled={guardando || (paso === 1 && !nombre)} className={`w-full py-6 rounded-[2.5rem] font-black uppercase italic text-lg transition-all mt-10 shadow-2xl active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${paso === 3 ? 'text-black' : 'bg-white text-black'}`} style={paso === 3 ? { backgroundColor: colorP } : {}}>
+            {guardando ? 'CREANDO NEGOCIO...' : paso === 3 ? '¡LANZAR MI SAAS!' : 'CONTINUAR'}
+          </button>
+        </form>
       </div>
     </div>
   )

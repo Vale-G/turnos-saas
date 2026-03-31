@@ -6,7 +6,6 @@ import { getThemeColor } from '@/lib/theme'
 import { toast } from 'sonner'
 
 const BA_TZ = 'America/Argentina/Buenos_Aires'
-
 function toBaDateStr(date: Date): string { return new Intl.DateTimeFormat('en-CA', { timeZone: BA_TZ }).format(date) }
 
 export default function CajaElite() {
@@ -15,6 +14,7 @@ export default function CajaElite() {
   const [gastos, setGastos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [guardando, setGuardando] = useState(false)
+  const [tieneAcceso, setTieneAcceso] = useState(false)
   const router = useRouter()
 
   const [concepto, setConcepto] = useState('')
@@ -27,31 +27,33 @@ export default function CajaElite() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return router.push('/login')
       
-      const { data: adm } = await supabase.from('adminrol').select('*').eq('user_id', user.id).single()
+      const { data: adm } = await supabase.from('adminrol').select('*').eq('user_id', user.id).maybeSingle()
       let negId = adm?.negocio_id
       if (!negId && adm?.role !== 'superadmin') {
-         const { data: n } = await supabase.from('negocio').select('id').eq('owner_id', user.id).single()
+         const { data: n } = await supabase.from('negocio').select('id').eq('owner_id', user.id).maybeSingle()
          if (n) negId = n.id
       }
 
       if (negId) {
         const { data: neg } = await supabase.from('negocio').select('*').eq('id', negId).single()
-        if (!neg) return router.push('/onboarding')
-        
-        // BLINDAJE PRO
-        if (neg.suscripcion_tipo === 'normal' && adm?.role !== 'superadmin') {
-          toast.error('La gestión de Caja es exclusiva del plan PRO')
-          return router.push('/dashboard')
+        if (neg) {
+          setNegocio(neg)
+          // Lógica de acceso inquebrantable
+          if (neg.suscripcion_tipo === 'pro' || neg.suscripcion_tipo === 'trial' || adm?.role === 'superadmin') {
+            setTieneAcceso(true)
+          }
         }
-        setNegocio(neg)
+      } else if (adm?.role === 'superadmin') {
+         // Fallback para superadmin sin local asignado
+         setTieneAcceso(true)
       }
+      setLoading(false)
     }
     init()
   }, [router])
 
   const cargarDatos = async () => {
-    if (!negocio?.id) return
-    setLoading(true)
+    if (!negocio?.id || !tieneAcceso) return
     const startOfMonth = `${mesFiltro}-01`
     const endOfMonth = `${mesFiltro}-31`
 
@@ -59,10 +61,10 @@ export default function CajaElite() {
       supabase.from('turno').select('fecha, servicio(precio)').eq('negocio_id', negocio.id).eq('pago_estado', 'cobrado').gte('fecha', startOfMonth).lte('fecha', endOfMonth),
       supabase.from('gasto').select('*').eq('negocio_id', negocio.id).gte('fecha', startOfMonth).lte('fecha', endOfMonth).order('fecha', { ascending: false })
     ])
-    setIngresos(turnos || []); setGastos(gst || []); setLoading(false)
+    setIngresos(turnos || []); setGastos(gst || [])
   }
 
-  useEffect(() => { cargarDatos() }, [negocio, mesFiltro])
+  useEffect(() => { cargarDatos() }, [negocio, mesFiltro, tieneAcceso])
 
   const agregarGasto = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -82,16 +84,30 @@ export default function CajaElite() {
     toast.success('Gasto eliminado')
   }
 
+  if (loading) return <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black italic text-white text-3xl animate-pulse tracking-tighter">CALCULANDO FINANZAS...</div>
+
+  // PANTALLA DE BLOQUEO VISUAL
+  if (!tieneAcceso) return (
+    <div className="min-h-screen bg-[#020617] text-white p-6 md:p-12 flex items-center justify-center relative overflow-hidden">
+       <button onClick={() => router.push('/dashboard')} className="absolute top-12 left-12 text-slate-500 text-[10px] font-black uppercase tracking-[0.4em] hover:text-white transition-colors z-20">← Volver al Dashboard</button>
+       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-5"></div>
+       <div className="relative z-10 max-w-lg w-full bg-white/5 border border-white/10 p-12 rounded-[3.5rem] text-center backdrop-blur-xl shadow-2xl">
+          <div className="w-24 h-24 bg-amber-400/10 border border-amber-400/30 text-amber-400 rounded-full flex items-center justify-center text-5xl mx-auto mb-8 shadow-inner">💰</div>
+          <h1 className="text-4xl font-black uppercase italic tracking-tighter mb-4 text-white">Función <span className="text-amber-400">PRO</span></h1>
+          <p className="text-slate-400 text-sm font-medium mb-8 leading-relaxed">El módulo de control financiero y cálculo de ganancia neta es exclusivo del plan PRO Elite.</p>
+          <button onClick={() => window.open('https://wa.me/5491123456789?text=Hola,%20quiero%20pasar%20mi%20local%20a%20PRO', '_blank')} className="w-full py-5 rounded-[2rem] bg-amber-400 text-black font-black uppercase italic text-sm hover:bg-amber-300 transition-all shadow-[0_0_30px_rgba(251,191,36,0.3)] active:scale-95">Mejorar Plan Ahora</button>
+       </div>
+    </div>
+  )
+
   const colorP = getThemeColor(negocio?.tema)
   const totalIngresos = useMemo(() => ingresos.reduce((acc, t) => acc + (t.servicio?.precio || 0), 0), [ingresos])
   const totalGastos = useMemo(() => gastos.reduce((acc, g) => acc + Number(g.monto), 0), [gastos])
   const gananciaNeta = totalIngresos - totalGastos
 
-  if (loading && !negocio) return <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black italic text-white text-3xl animate-pulse tracking-tighter">CALCULANDO FINANZAS...</div>
-
   return (
     <div className="min-h-screen bg-[#020617] text-white p-6 md:p-12 font-sans">
-      <div className="max-w-5xl mx-auto">
+      <div className="max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-4">
         <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           <div>
             <button onClick={() => router.push('/dashboard')} className="text-slate-600 text-[10px] font-black uppercase tracking-[0.4em] mb-4 hover:text-white transition-colors">← Dashboard</button>
@@ -133,7 +149,7 @@ export default function CajaElite() {
 
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-6 px-4">Historial de Gastos</p>
-            {loading ? <div className="text-center py-10 font-black italic text-slate-800 animate-pulse text-xl uppercase tracking-tighter">CARGANDO...</div> : gastos.length === 0 ? <div className="text-center py-20 border border-dashed border-white/10 rounded-[3rem]"><p className="text-slate-600 font-black uppercase tracking-widest text-xs">Sin gastos en este mes</p></div> : (
+            {gastos.length === 0 ? <div className="text-center py-20 border border-dashed border-white/10 rounded-[3rem]"><p className="text-slate-600 font-black uppercase tracking-widest text-xs">Sin gastos en este mes</p></div> : (
               <div className="space-y-3">
                 {gastos.map(g => (
                   <div key={g.id} className="bg-white/4 border border-white/5 p-6 rounded-[2.5rem] flex justify-between items-center group hover:bg-white/10 transition-all">

@@ -1,210 +1,101 @@
 'use client'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { toast } from 'sonner'
 import { getThemeColor } from '@/lib/theme'
 import { useRouter } from 'next/navigation'
 
-type ServicioItem = { id: string; nombre: string; precio: number; duracion: number }
-const MAX_SERVICIOS: Record<string, number> = { normal: 5, basico: 5, pro: 999, trial: 999 }
-
-export default function GestionServicios() {
-  const [servicios, setServicios] = useState<ServicioItem[]>([])
-  const [negocioId, setNegocioId] = useState<string | null>(null)
-  const [plan, setPlan] = useState<string>('normal')
-  const [colorPrincipal, setColorPrincipal] = useState(getThemeColor())
+export default function ServiciosElite() {
+  const [servicios, setServicios] = useState<any[]>([])
+  const [negocio, setNegocio] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
   const [nombre, setNombre] = useState('')
   const [precio, setPrecio] = useState('')
-  const [duracion, setDuracion] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [editandoId, setEditandoId] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [duracion, setDuracion] = useState('30')
   const router = useRouter()
-
-  const cargarServicios = useCallback(async (nId: string) => {
-    const { data } = await supabase
-      .from('servicio').select('*').eq('negocio_id', nId).order('created_at', { ascending: false })
-    setServicios(data || [])
-  }, [])
 
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
-
-      let neg = null
-      const { data: byOwner } = await supabase.from('negocio').select('id, tema, suscripcion_tipo').eq('owner_id', user.id).single()
-      if (byOwner) neg = byOwner
-      else {
-        const { data: byId } = await supabase.from('negocio').select('id, tema, suscripcion_tipo').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
-        neg = byId
-      }
-      if (!neg) { router.push('/onboarding'); return }
-
-      setNegocioId(neg.id)
-      setColorPrincipal(getThemeColor(neg.tema))
-      setPlan(neg.suscripcion_tipo ?? 'normal')
-      await cargarServicios(neg.id)
+      if (!user) return router.push('/login')
+      const { data: neg } = await supabase.from('negocio').select('*').eq('owner_id', user.id).single()
+      if (!neg) return router.push('/onboarding')
+      setNegocio(neg)
+      
+      const { data: svcs } = await supabase.from('servicio').select('*').eq('negocio_id', neg.id).order('precio', { ascending: false })
+      setServicios(svcs || [])
       setLoading(false)
     }
     init()
-  }, [router, cargarServicios])
+  }, [router])
 
-  const agregarServicio = async (e: React.FormEvent) => {
+  const colorP = getThemeColor(negocio?.tema)
+
+  const agregar = async (e: any) => {
     e.preventDefault()
-    if (!negocioId) return
-    setError(null)
-
-    // FIX: chequear límite según plan real
-    if (servicios.length >= MAX_SERVICIOS[plan]) {
-      setError(plan === 'normal'
-        ? 'Límite del plan Normal (5 servicios). Upgradea a Pro para agregar más.'
-        : 'Límite alcanzado.')
-      return
+    if (!nombre || !precio) return
+    const { data } = await supabase.from('servicio').insert({
+      nombre, precio: Number(precio), duracion: Number(duracion), negocio_id: negocio.id
+    }).select().single()
+    if (data) {
+      setServicios([data, ...servicios])
+      setNombre(''); setPrecio(''); setDuracion('30')
     }
-
-    if (parseFloat(precio) <= 0 || isNaN(parseFloat(precio))) {
-      setError('El precio debe ser mayor a 0'); return;
-    }
-    if (parseInt(duracion) < 15 || isNaN(parseInt(duracion))) {
-      setError('La duración mínima es 15 minutos'); return;
-    }
-    const { error } = await supabase.from('servicio').insert([
-      { nombre: nombre.trim(), precio: parseFloat(precio), duracion: parseInt(duracion), negocio_id: negocioId },
-    ])
-    if (error) { setError(error.message); toast.error(error.message) }
-    else { setNombre(''); setPrecio(''); setDuracion(''); await cargarServicios(negocioId) }
   }
 
-  const borrarServicio = async (id: string) => {
-    if (!negocioId || !confirm('Seguro?')) return
-    const { error } = await supabase.from('servicio').delete().eq('id', id)
-    if (error) { setError(error.message); toast.error(error.message) }
-    else await cargarServicios(negocioId)
+  const eliminar = async (id: string) => {
+    if(!confirm('¿Seguro que querés eliminar este servicio?')) return
+    await supabase.from('servicio').delete().eq('id', id)
+    setServicios(servicios.filter(s => s.id !== id))
   }
 
-  const guardarEdicion = async (id: string, n: string, p: string, d: string) => {
-    if (!negocioId) return
-    const { error } = await supabase.from('servicio')
-      .update({ nombre: n, precio: parseFloat(p), duracion: parseInt(d) }).eq('id', id)
-    if (error) { setError(error.message); toast.error(error.message) }
-    else { setEditandoId(null); await cargarServicios(negocioId) }
-  }
-
-  if (loading) return (
-    <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black italic animate-pulse"
-      style={{ color: colorPrincipal }}>Cargando...</div>
-  )
-
-  const limite = MAX_SERVICIOS[plan]
-  const lleno = servicios.length >= limite
+  if (loading) return <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black italic text-white text-2xl animate-pulse tracking-tighter">CARGANDO...</div>
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white p-8">
+    <div className="min-h-screen bg-[#020617] text-white p-6 md:p-12">
       <div className="max-w-4xl mx-auto">
-        <button onClick={() => router.push('/dashboard')}
-          className="text-slate-500 text-xs font-black uppercase mb-4 hover:text-white transition-colors tracking-widest">
-          Volver
-        </button>
+        <header className="mb-12">
+          <button onClick={() => router.push('/dashboard')} className="text-slate-600 text-[10px] font-black uppercase tracking-[0.4em] mb-4 hover:text-white transition-colors">← Dashboard</button>
+          <h1 className="text-6xl font-black uppercase italic tracking-tighter leading-none">Menú de <span style={{color: colorP}}>Servicios</span></h1>
+        </header>
 
-        <div className="flex items-center gap-3 mb-8">
-          <h1 className="text-5xl font-black uppercase italic tracking-tighter" style={{ color: colorPrincipal }}>
-            Servicios
-          </h1>
-          <span className="text-xs font-black text-slate-500">
-            {plan === 'pro' ? servicios.length + ' servicios' : servicios.length + ' / ' + limite}
-          </span>
-          {plan === 'pro' && (
-            <span className="bg-amber-400 text-black text-[9px] font-black uppercase px-2 py-0.5 rounded-full">PRO</span>
-          )}
-        </div>
-
-        {/* Formulario */}
-        {lleno && plan === 'normal' ? (
-          <div className="bg-amber-400/10 border border-amber-400/20 rounded-2xl p-5 mb-8 flex items-center justify-between gap-4">
-            <div>
-              <p className="font-black text-amber-400 text-sm uppercase">Límite del plan Normal</p>
-              <p className="text-slate-400 text-xs mt-0.5">Tenés {limite} servicios. Upgrade a Pro para agregar más.</p>
-            </div>
+        <form onSubmit={agregar} className="bg-white/5 border border-white/10 p-8 md:p-10 rounded-[3.5rem] mb-12 flex flex-col md:flex-row gap-4 items-end backdrop-blur-md shadow-2xl">
+          <div className="w-full">
+            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2 block">Nombre del Servicio</label>
+            <input value={nombre} onChange={e => setNombre(e.target.value)} placeholder="EJ: CORTE + BARBA" className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black uppercase outline-none focus:border-white/30 transition-all placeholder:text-slate-800" required />
           </div>
-        ) : (
-          <form onSubmit={agregarServicio}
-            className="bg-white/4 border border-white/8 p-6 rounded-[2rem] mb-10 grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-            <div>
-              <label className="text-[10px] font-black uppercase text-slate-500 ml-2 mb-1 block">Nombre</label>
-              <input type="text" value={nombre} onChange={e => setNombre(e.target.value)}
-                className="w-full bg-black border border-white/10 p-3 rounded-xl outline-none text-sm transition-colors"
-                style={{ '--tw-ring-color': colorPrincipal } as React.CSSProperties} required />
-            </div>
-            <div>
-              <label className="text-[10px] font-black uppercase text-slate-500 ml-2 mb-1 block">Precio $</label>
-              <input type="number" value={precio} onChange={e => setPrecio(e.target.value)} min="0" step="0.01"
-                className="w-full bg-black border border-white/10 p-3 rounded-xl outline-none text-sm" required />
-            </div>
-            <div>
-              <label className="text-[10px] font-black uppercase text-slate-500 ml-2 mb-1 block">Minutos</label>
-              <input type="number" value={duracion} onChange={e => setDuracion(e.target.value)} min="15" step="15"
-                className="w-full bg-black border border-white/10 p-3 rounded-xl outline-none text-sm" required />
-            </div>
-            <button type="submit"
-              className="text-black font-black uppercase italic p-3 rounded-xl hover:scale-105 transition-transform"
-              style={{ backgroundColor: colorPrincipal }}>
-              Agregar +
-            </button>
-          </form>
-        )}
+          <div className="w-full md:w-32">
+            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2 block">Precio ($)</label>
+            <input type="number" value={precio} onChange={e => setPrecio(e.target.value)} placeholder="5000" className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black uppercase outline-none focus:border-white/30 transition-all placeholder:text-slate-800" required />
+          </div>
+          <div className="w-full md:w-32">
+            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2 block">Tiempo</label>
+            <select value={duracion} onChange={e => setDuracion(e.target.value)} className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black uppercase outline-none focus:border-white/30 transition-all text-white">
+              <option value="15">15 MIN</option>
+              <option value="30">30 MIN</option>
+              <option value="45">45 MIN</option>
+              <option value="60">1 HORA</option>
+              <option value="90">1.5 HORAS</option>
+              <option value="120">2 HORAS</option>
+            </select>
+          </div>
+          <button className="w-full md:w-auto px-10 py-5 rounded-[2rem] font-black uppercase italic text-black hover:scale-105 transition-all shadow-xl" style={{backgroundColor: colorP}}>Agregar +</button>
+        </form>
 
-        {error && (
-          <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-6">{error}</p>
-        )}
-
-        <div className="space-y-3">
-          {servicios.map(s => (
-            <div key={s.id}
-              className="bg-white/4 border border-white/5 p-4 rounded-2xl flex justify-between items-center group hover:bg-white/6 hover:border-white/10 transition-all">
-              {editandoId === s.id ? (
-                <div className="flex flex-1 gap-2 items-center flex-wrap">
-                  <input id={'n-' + s.id} defaultValue={s.nombre}
-                    className="bg-black border border-white/20 p-2 rounded-lg text-sm flex-1 min-w-[120px] outline-none" />
-                  <input id={'p-' + s.id} defaultValue={s.precio} type="number"
-                    className="bg-black border border-white/20 p-2 rounded-lg text-sm w-20 outline-none" />
-                  <input id={'d-' + s.id} defaultValue={s.duracion} type="number"
-                    className="bg-black border border-white/20 p-2 rounded-lg text-sm w-20 outline-none" />
-                  <button onClick={() => {
-                    const n = (document.getElementById('n-' + s.id) as HTMLInputElement).value
-                    const p = (document.getElementById('p-' + s.id) as HTMLInputElement).value
-                    const d = (document.getElementById('d-' + s.id) as HTMLInputElement).value
-                    guardarEdicion(s.id, n, p, d)
-                  }} className="font-black text-xs uppercase px-3 py-2 rounded-lg transition-colors"
-                    style={{ color: colorPrincipal }}>
-                    Listo
-                  </button>
-                  <button onClick={() => setEditandoId(null)}
-                    className="text-slate-500 font-black text-xs uppercase px-3 py-2 rounded-lg hover:text-white transition-colors">
-                    Cancelar
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <div>
-                    <h3 className="font-black uppercase italic text-lg tracking-tight">{s.nombre}</h3>
-                    <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">{s.duracion} MIN</p>
-                  </div>
-                  <div className="flex items-center gap-6">
-                    <span className="text-2xl font-black italic" style={{ color: colorPrincipal }}>${s.precio}</span>
-                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => setEditandoId(s.id)}
-                        className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-white text-xs font-bold uppercase">
-                        Editar
-                      </button>
-                      <button onClick={() => borrarServicio(s.id)}
-                        className="p-2 hover:bg-red-500/10 rounded-lg text-slate-600 hover:text-red-400 text-xs font-bold uppercase">
-                        Borrar
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {servicios.length === 0 ? (
+            <div className="col-span-2 text-center py-20 border border-dashed border-white/10 rounded-[3rem]">
+               <p className="text-slate-600 font-black uppercase tracking-widest text-xs">Aún no hay servicios creados</p>
+            </div>
+          ) : servicios.map(s => (
+            <div key={s.id} className="bg-white/4 border border-white/5 p-8 rounded-[3rem] flex justify-between items-center group hover:bg-white/10 hover:border-white/20 transition-all">
+               <div>
+                 <p className="text-2xl font-black uppercase italic tracking-tight" style={{color: colorP}}>{s.nombre}</p>
+                 <p className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mt-1">{s.duracion} MINUTOS</p>
+               </div>
+               <div className="text-right flex flex-col items-end">
+                 <p className="text-2xl font-black italic">${s.precio.toLocaleString('es-AR')}</p>
+                 <button onClick={() => eliminar(s.id)} className="opacity-0 group-hover:opacity-100 text-rose-500 font-black text-[9px] uppercase tracking-widest transition-all mt-1 bg-rose-500/10 px-2 py-1 rounded-md hover:bg-rose-500/20">Eliminar</button>
+               </div>
             </div>
           ))}
         </div>

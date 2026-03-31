@@ -5,6 +5,12 @@ import { getThemeColor } from '@/lib/theme'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
+const BA_TZ = 'America/Argentina/Buenos_Aires'
+
+function toBaDateStr(date: Date): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: BA_TZ }).format(date)
+}
+
 type TurnoItem = {
   id: string; hora: string; cliente_nombre: string
   estado: string; fecha: string
@@ -17,11 +23,12 @@ type Vista = 'dia' | 'semana'
 const ESTADOS_TURNO = ['pendiente', 'confirmado', 'completado', 'cancelado']
 const TIPOS_PAGO = ['efectivo', 'mercadopago', 'transferencia', 'otro']
 
-export default function AgendaTurnos() {
+export default function AgendaTurnosElite() {
   const [turnos, setTurnos] = useState<TurnoItem[]>([])
   const [negocioId, setNegocioId] = useState<string | null>(null)
   const [colorPrincipal, setColorPrincipal] = useState(getThemeColor())
-  const [fechaFiltro, setFechaFiltro] = useState(new Date().toISOString().split('T')[0])
+  // FIX TIMEZONE: Inicializa siempre con la fecha real de Argentina
+  const [fechaFiltro, setFechaFiltro] = useState(toBaDateStr(new Date()))
   const [vista, setVista] = useState<Vista>('dia')
   const [loading, setLoading] = useState(true)
   const [reloadKey, setReloadKey] = useState(0)
@@ -64,14 +71,14 @@ export default function AgendaTurnos() {
       if (vista === 'dia') {
         query = query.eq('fecha', fechaFiltro)
       } else {
-        const inicio = new Date(fechaFiltro + 'T12:00:00')
+        const inicio = new Date(fechaFiltro + 'T12:00:00-03:00')
         const lunes = new Date(inicio)
         lunes.setDate(inicio.getDate() - ((inicio.getDay() + 6) % 7))
         const domingo = new Date(lunes)
         domingo.setDate(lunes.getDate() + 6)
         query = query
-          .gte('fecha', lunes.toISOString().split('T')[0])
-          .lte('fecha', domingo.toISOString().split('T')[0])
+          .gte('fecha', toBaDateStr(lunes))
+          .lte('fecha', toBaDateStr(domingo))
       }
 
       const { data } = await query
@@ -82,9 +89,9 @@ export default function AgendaTurnos() {
   }, [negocioId, fechaFiltro, vista, reloadKey])
 
   const moverFecha = (dias: number) => {
-    const d = new Date(fechaFiltro + 'T12:00:00')
+    const d = new Date(fechaFiltro + 'T12:00:00-03:00')
     d.setDate(d.getDate() + (vista === 'semana' ? dias * 7 : dias))
-    setFechaFiltro(d.toISOString().split('T')[0])
+    setFechaFiltro(toBaDateStr(d))
   }
 
   const cambiarEstado = useCallback(async (id: string, estado: string) => {
@@ -105,7 +112,7 @@ export default function AgendaTurnos() {
   }, [])
 
   const eliminarTurno = useCallback(async (id: string) => {
-    if (!confirm('¿Seguro?')) return
+    if (!confirm('¿Seguro que querés eliminar este turno?')) return
     await supabase.from('turno').delete().eq('id', id)
     setReloadKey(k => k + 1)
   }, [])
@@ -119,12 +126,13 @@ export default function AgendaTurnos() {
       estado: turnoEditar.estado,
     }).eq('id', turnoEditar.id)
     setTurnoEditar(null)
+    toast.success('Turno actualizado')
     setReloadKey(k => k + 1)
   }
 
   const turnosFiltrados = busqueda.trim()
     ? turnos.filter(t =>
-        t.cliente_nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
+        t.cliente_nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
         t.servicio?.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
         t.staff?.nombre?.toLowerCase().includes(busqueda.toLowerCase())
       )
@@ -140,54 +148,54 @@ export default function AgendaTurnos() {
   }, [turnos])
 
   const diasSemana = useMemo(() => {
-    const inicio = new Date(fechaFiltro + 'T12:00:00')
+    const inicio = new Date(fechaFiltro + 'T12:00:00-03:00')
     const lunes = new Date(inicio)
     lunes.setDate(inicio.getDate() - ((inicio.getDay() + 6) % 7))
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(lunes); d.setDate(lunes.getDate() + i)
-      return { iso: d.toISOString().split('T')[0], label: d.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric' }) }
+      return { iso: toBaDateStr(d), label: new Intl.DateTimeFormat('es-AR', { timeZone: BA_TZ, weekday: 'short', day: 'numeric' }).format(d) }
     })
   }, [fechaFiltro])
 
   const TurnoCard = ({ t }: { t: TurnoItem }) => (
-    <div className={'rounded-[1.5rem] border overflow-hidden transition-all ' +
-      (t.estado === 'cancelado' ? 'opacity-40 border-white/5 bg-white/2' : 'border-white/8 bg-white/4 hover:border-white/15')}>
-      <div className="p-4 flex items-center gap-3 justify-between">
-        <div className="flex items-center gap-3">
-          <div className={'w-1 h-10 rounded-full flex-shrink-0 ' + estadoColor(t.estado)} />
-          <p className="text-lg font-black italic w-12 flex-shrink-0" style={{ color: colorPrincipal }}>
+    <div className={'rounded-[2.5rem] border overflow-hidden transition-all ' +
+      (t.estado === 'cancelado' ? 'opacity-40 border-white/5 bg-white/2' : 'border-white/10 bg-white/5 hover:bg-white/10 hover:border-white/20')}>
+      <div className="p-6 flex items-center gap-4 justify-between">
+        <div className="flex items-center gap-5">
+          <div className={'w-2 h-14 rounded-full flex-shrink-0 ' + estadoColor(t.estado)} />
+          <p className="text-2xl font-black italic w-16 flex-shrink-0" style={{ color: colorPrincipal }}>
             {t.hora.slice(0, 5)}
           </p>
           <div>
-            <p className="font-black uppercase text-sm leading-tight">{t.cliente_nombre}</p>
-            <p className="text-[10px] text-slate-500">{t.servicio?.nombre} · {t.staff?.nombre}</p>
-            <p className={'text-[9px] font-black ' + (t.pago_estado === 'cobrado' ? 'text-emerald-400' : 'text-amber-400')}>
-              {t.pago_estado === 'cobrado' ? 'Cobrado · ' + (t.pago_tipo ?? '') : 'Sin cobrar'}
-              {t.servicio?.precio ? ' $' + t.servicio.precio : ''}
+            <p className="font-black uppercase text-base leading-tight tracking-tight">{t.cliente_nombre}</p>
+            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1">{t.servicio?.nombre} · {t.staff?.nombre}</p>
+            <p className={'text-[10px] font-black uppercase mt-1 ' + (t.pago_estado === 'cobrado' ? 'text-emerald-400' : 'text-amber-400')}>
+              {t.pago_estado === 'cobrado' ? 'COBRADO · ' + (t.pago_tipo ?? '') : 'SIN COBRAR'}
+              {t.servicio?.precio ? ' $' + t.servicio.precio.toLocaleString('es-AR') : ''}
             </p>
           </div>
         </div>
-        <div className="flex gap-1 flex-shrink-0">
+        <div className="flex flex-col sm:flex-row gap-2 flex-shrink-0">
           <button onClick={() => setTurnoEditar({ ...t })}
-            className="px-2 py-1.5 rounded-lg text-[9px] font-black uppercase bg-white/5 hover:bg-white/10 border border-white/10 transition-all">
+            className="px-4 py-2 rounded-xl text-[10px] font-black uppercase bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-slate-300 hover:text-white">
             Editar
           </button>
           <button onClick={() => setTurnoEditando(turnoEditando === t.id ? null : t.id)}
-            className="px-2 py-1.5 rounded-lg text-[9px] font-black uppercase bg-white/5 hover:bg-white/10 border border-white/10 transition-all">
+            className="px-4 py-2 rounded-xl text-[10px] font-black uppercase bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-slate-300 hover:text-white">
             Cobro
           </button>
         </div>
       </div>
 
       {turnoEditando === t.id && (
-        <div className="border-t border-white/8 p-4 bg-black/20 space-y-3">
+        <div className="border-t border-white/10 p-6 bg-black/40 space-y-5 animate-in slide-in-from-top-2">
           <div>
-            <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-2">Estado</p>
+            <p className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-3">Estado del Turno</p>
             <div className="flex gap-2 flex-wrap">
               {ESTADOS_TURNO.map(e => (
                 <button key={e} onClick={() => cambiarEstado(t.id, e)}
-                  className={'px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase border transition-all ' +
-                    (t.estado === e ? 'text-black border-transparent' : 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10')}
+                  className={'px-4 py-2 rounded-xl text-[10px] font-black uppercase border transition-all ' +
+                    (t.estado === e ? 'text-black border-transparent shadow-lg' : 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10')}
                   style={t.estado === e ? { backgroundColor: colorPrincipal } : {}}>
                   {e}
                 </button>
@@ -195,29 +203,29 @@ export default function AgendaTurnos() {
             </div>
           </div>
           <div>
-            <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-2">Registrar cobro</p>
+            <p className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-3">Registrar Cobro</p>
             <div className="flex gap-2 flex-wrap">
               {TIPOS_PAGO.map(tipo => (
                 <button key={tipo} onClick={() => registrarPago(t.id, tipo)}
-                  className={'px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase border transition-all ' +
+                  className={'px-4 py-2 rounded-xl text-[10px] font-black uppercase border transition-all ' +
                     (t.pago_tipo === tipo && t.pago_estado === 'cobrado'
-                      ? 'bg-emerald-500 text-black border-transparent'
+                      ? 'bg-emerald-500 text-black border-transparent shadow-lg'
                       : 'bg-white/5 text-slate-400 border-white/10 hover:bg-emerald-500/20 hover:text-emerald-400 hover:border-emerald-500/30')}>
-                  {tipo === 'mercadopago' ? 'MercadoPago' : tipo.charAt(0).toUpperCase() + tipo.slice(1)}
+                  {tipo === 'mercadopago' ? 'MERCADOPAGO' : tipo.toUpperCase()}
                 </button>
               ))}
               {t.pago_estado === 'cobrado' && (
                 <button onClick={() => deshacerPago(t.id)}
-                  className="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase bg-red-500/10 text-red-400 border border-red-500/20 transition-all">
+                  className="px-4 py-2 rounded-xl text-[10px] font-black uppercase bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all">
                   Deshacer
                 </button>
               )}
             </div>
           </div>
-          <div className="flex justify-end">
+          <div className="flex justify-end pt-2">
             <button onClick={() => eliminarTurno(t.id)}
-              className="text-[9px] font-black uppercase text-red-500/40 hover:text-red-400 hover:bg-red-500/10 px-2.5 py-1.5 rounded-lg transition-all">
-              Eliminar
+              className="text-[10px] font-black uppercase text-red-500/60 hover:text-red-400 hover:bg-red-500/10 px-4 py-2 rounded-xl transition-all">
+              Eliminar Turno
             </button>
           </div>
         </div>
@@ -226,113 +234,100 @@ export default function AgendaTurnos() {
   )
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white p-6">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-6">
+    <div className="min-h-screen bg-[#020617] text-white p-6 md:p-12">
+      <div className="max-w-5xl mx-auto">
+        
+        {/* Header Elite */}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
           <div>
             <button onClick={() => router.push('/dashboard')}
-              className="text-slate-500 text-[10px] font-black uppercase mb-2 block hover:text-white transition-colors">
-              Volver
+              className="text-slate-600 text-[10px] font-black uppercase tracking-[0.4em] mb-4 hover:text-white transition-colors">
+              ← Dashboard
             </button>
-            <h1 className="text-4xl font-black uppercase italic tracking-tighter" style={{ color: colorPrincipal }}>
+            <h1 className="text-7xl font-black uppercase italic tracking-tighter leading-none" style={{ color: colorPrincipal }}>
               Agenda
             </h1>
-            <div className="mt-3 bg-white/4 border border-white/8 rounded-2xl p-4 flex gap-5">
+          </div>
+          
+          <div className="flex flex-col gap-3">
+            <div className="bg-white/5 border border-white/10 rounded-[2rem] p-5 flex gap-6 backdrop-blur-md">
               <div>
-                <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Cobrado</p>
-                <p className="text-xl font-black" style={{ color: colorPrincipal }}>${totalCobrado.toLocaleString('es-AR')}</p>
+                <p className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-1">Cobrado Hoy</p>
+                <p className="text-2xl font-black italic text-emerald-400">${totalCobrado.toLocaleString('es-AR')}</p>
               </div>
               <div className="w-px bg-white/10" />
               <div>
-                <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Turnos</p>
-                <p className="text-xl font-black">{turnos.filter(t => t.estado !== 'cancelado').length}</p>
+                <p className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-1">Turnos</p>
+                <p className="text-2xl font-black italic">{turnos.filter(t => t.estado !== 'cancelado').length}</p>
               </div>
             </div>
-          </div>
 
-          <div className="flex flex-col gap-2 self-start md:mt-8">
-            <div className="flex gap-1 bg-white/5 border border-white/8 p-1 rounded-xl">
-              {(['dia', 'semana'] as Vista[]).map(v => (
-                <button key={v} onClick={() => setVista(v)}
-                  className={'px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ' +
-                    (vista === v ? 'text-black' : 'text-slate-400 hover:text-white')}
-                  style={vista === v ? { backgroundColor: colorPrincipal } : {}}>
-                  {v === 'dia' ? 'Día' : 'Semana'}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-1 bg-white/5 border border-white/8 p-1.5 rounded-xl">
-              <button onClick={() => moverFecha(-1)}
-                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-sm font-black">
-                {'<'}
-              </button>
-              <input type="date" value={fechaFiltro} onChange={e => setFechaFiltro(e.target.value)}
-                className="bg-transparent font-black text-xs outline-none cursor-pointer px-1" />
-              <button onClick={() => moverFecha(1)}
-                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-sm font-black">
-                {'>'}
-              </button>
+            <div className="flex gap-2">
+              <div className="flex bg-white/5 border border-white/10 p-1 rounded-2xl flex-1">
+                {(['dia', 'semana'] as Vista[]).map(v => (
+                  <button key={v} onClick={() => setVista(v)}
+                    className={'flex-1 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase transition-all ' +
+                      (vista === v ? 'text-black shadow-md' : 'text-slate-400 hover:text-white')}
+                    style={vista === v ? { backgroundColor: colorPrincipal } : {}}>
+                    {v}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center bg-white/5 border border-white/10 p-1 rounded-2xl">
+                <button onClick={() => moverFecha(-1)} className="px-3 py-2 text-slate-400 hover:text-white font-black hover:bg-white/5 rounded-xl transition-all">{'<'}</button>
+                <input type="date" value={fechaFiltro} onChange={e => setFechaFiltro(e.target.value)}
+                  className="bg-transparent font-black text-xs outline-none cursor-pointer px-2 text-center uppercase tracking-widest text-slate-200 [&::-webkit-calendar-picker-indicator]:invert" />
+                <button onClick={() => moverFecha(1)} className="px-3 py-2 text-slate-400 hover:text-white font-black hover:bg-white/5 rounded-xl transition-all">{'>'}</button>
+              </div>
             </div>
           </div>
         </div>
 
         <input
           type="text"
-          placeholder="Buscar cliente, servicio o barbero..."
+          placeholder="BUSCAR CLIENTE, SERVICIO O STAFF..."
           value={busqueda}
           onChange={e => setBusqueda(e.target.value)}
-          className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-sm outline-none focus:border-white/25 transition-colors mb-4"
+          className="w-full bg-white/5 border border-white/10 rounded-[2rem] px-6 py-5 text-xs font-black uppercase tracking-widest outline-none focus:border-white/30 transition-all mb-8 placeholder:text-slate-700 shadow-inner"
         />
 
+        {/* Modal de Edición Elite */}
         {turnoEditar && (
-          <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/75 px-4 pb-0 md:pb-4">
-            <div className="w-full max-w-md bg-[#020617] border border-white/10 rounded-t-[2.5rem] md:rounded-[2.5rem] p-6 shadow-2xl">
-              <div className="flex items-center justify-between mb-5">
-                <h3 className="font-black italic uppercase text-lg" style={{ color: colorPrincipal }}>Editar Turno</h3>
-                <button onClick={() => setTurnoEditar(null)} className="text-slate-500 hover:text-white font-black">X</button>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+            <div className="w-full max-w-md bg-[#020617] border border-white/10 rounded-[3.5rem] p-10 shadow-2xl animate-in zoom-in-95">
+              <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-4">
+                <h3 className="font-black italic uppercase text-2xl tracking-tighter" style={{ color: colorPrincipal }}>Editar Turno</h3>
+                <button onClick={() => setTurnoEditar(null)} className="text-slate-500 hover:text-white font-black w-8 h-8 rounded-full bg-white/5 flex items-center justify-center">X</button>
               </div>
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <div>
-                  <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest block mb-1">Cliente</label>
+                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] block mb-2">Cliente</label>
                   <input type="text" value={turnoEditar.cliente_nombre}
                     onChange={e => setTurnoEditar({ ...turnoEditar, cliente_nombre: e.target.value })}
-                    className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-white/25 transition-colors" />
+                    className="w-full bg-black/50 border border-white/10 rounded-2xl px-5 py-4 text-sm font-bold outline-none focus:border-white/30 transition-colors" />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest block mb-1">Fecha</label>
+                    <label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] block mb-2">Fecha</label>
                     <input type="date" value={turnoEditar.fecha}
                       onChange={e => setTurnoEditar({ ...turnoEditar, fecha: e.target.value })}
-                      className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none" />
+                      className="w-full bg-black/50 border border-white/10 rounded-2xl px-5 py-4 text-sm font-bold outline-none [&::-webkit-calendar-picker-indicator]:invert" />
                   </div>
                   <div>
-                    <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest block mb-1">Hora</label>
+                    <label className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] block mb-2">Hora</label>
                     <input type="time" value={turnoEditar.hora.slice(0, 5)}
                       onChange={e => setTurnoEditar({ ...turnoEditar, hora: e.target.value + ':00' })}
-                      className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none" />
-                  </div>
-                </div>
-                <div>
-                  <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest block mb-2">Estado</label>
-                  <div className="flex gap-2 flex-wrap">
-                    {ESTADOS_TURNO.map(e => (
-                      <button key={e} onClick={() => setTurnoEditar({ ...turnoEditar, estado: e })}
-                        className={'px-3 py-1.5 rounded-lg text-[9px] font-black uppercase border transition-all ' +
-                          (turnoEditar.estado === e ? 'text-black border-transparent' : 'bg-white/5 text-slate-400 border-white/10')}
-                        style={turnoEditar.estado === e ? { backgroundColor: colorPrincipal } : {}}>
-                        {e}
-                      </button>
-                    ))}
+                      className="w-full bg-black/50 border border-white/10 rounded-2xl px-5 py-4 text-sm font-bold outline-none [&::-webkit-calendar-picker-indicator]:invert" />
                   </div>
                 </div>
               </div>
-              <div className="flex gap-3 mt-6">
+              <div className="flex gap-3 mt-10">
                 <button onClick={() => setTurnoEditar(null)}
-                  className="flex-1 py-3 rounded-2xl font-black uppercase text-sm border border-white/10 text-slate-400 hover:bg-white/5 transition-colors">
+                  className="flex-1 py-4 rounded-[2rem] font-black uppercase text-xs border border-white/10 text-slate-400 hover:bg-white/5 transition-all">
                   Cancelar
                 </button>
                 <button onClick={guardarEdicion}
-                  className="flex-1 py-3 rounded-2xl font-black uppercase text-sm text-black transition-opacity hover:opacity-90"
+                  className="flex-1 py-4 rounded-[2rem] font-black uppercase italic text-sm text-black transition-all hover:scale-105"
                   style={{ backgroundColor: colorPrincipal }}>
                   Guardar
                 </button>
@@ -341,43 +336,44 @@ export default function AgendaTurnos() {
           </div>
         )}
 
+        {/* Listado de Turnos */}
         {vista === 'dia' && (
           loading ? (
-            <div className="text-center py-20 font-black italic text-slate-700 animate-pulse">Buscando...</div>
+            <div className="text-center py-20 font-black italic text-slate-800 animate-pulse text-3xl uppercase tracking-tighter">SINCRONIZANDO...</div>
           ) : turnosFiltrados.length === 0 ? (
-            <div className="text-center py-20 bg-white/3 rounded-[2.5rem] border border-dashed border-white/10">
-              <p className="text-slate-500 font-black uppercase italic">No hay turnos para este día</p>
+            <div className="text-center py-20 bg-white/5 rounded-[3rem] border border-dashed border-white/10">
+              <p className="text-slate-600 font-black uppercase tracking-widest text-xs">Agenda libre para este día</p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {turnosFiltrados.map(t => <TurnoCard key={t.id} t={t} />)}
             </div>
           )
         )}
 
         {vista === 'semana' && (
-          <div className="space-y-6 overflow-x-auto">
+          <div className="space-y-10 overflow-x-auto">
             {loading ? (
-              <div className="text-center py-20 font-black italic text-slate-700 animate-pulse">Buscando...</div>
+              <div className="text-center py-20 font-black italic text-slate-800 animate-pulse text-3xl uppercase tracking-tighter">SINCRONIZANDO...</div>
             ) : diasSemana.map(dia => {
               const turnosDia = turnosPorFecha[dia.iso] ?? []
-              const esHoy = dia.iso === new Date().toISOString().split('T')[0]
+              const esHoy = dia.iso === toBaDateStr(new Date())
               return (
-                <div key={dia.iso}>
-                  <div className="flex items-center gap-3 mb-3">
-                    <p className={'text-xs font-black uppercase tracking-widest ' + (esHoy ? '' : 'text-slate-500')}
+                <div key={dia.iso} className="bg-white/5 border border-white/5 p-6 rounded-[3rem]">
+                  <div className="flex items-center gap-4 mb-6 px-4">
+                    <p className={'text-sm font-black uppercase tracking-[0.2em] ' + (esHoy ? '' : 'text-slate-500')}
                       style={esHoy ? { color: colorPrincipal } : {}}>
                       {dia.label}
                     </p>
                     {turnosDia.length > 0 && (
-                      <span className="text-[9px] font-black text-slate-600">{turnosDia.length} turno{turnosDia.length > 1 ? 's' : ''}</span>
+                      <span className="text-[10px] font-black bg-white/10 px-3 py-1 rounded-xl text-slate-300">{turnosDia.length} TURNOS</span>
                     )}
-                    <div className="flex-1 h-px bg-white/5" />
+                    <div className="flex-1 h-px bg-white/10" />
                   </div>
                   {turnosDia.length === 0 ? (
-                    <p className="text-slate-700 text-xs font-bold italic pl-2">Sin turnos</p>
+                    <p className="text-slate-700 text-[10px] font-black uppercase tracking-widest pl-4">Día sin actividad</p>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                       {turnosDia.map(t => <TurnoCard key={t.id} t={t} />)}
                     </div>
                   )}

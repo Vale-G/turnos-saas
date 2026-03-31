@@ -26,7 +26,6 @@ export async function middleware(request: NextRequest) {
 
   const { data: { session } } = await supabase.auth.getSession()
 
-  // Proteger rutas privadas
   const isProtectedRoute = request.nextUrl.pathname.startsWith('/dashboard') || 
                            request.nextUrl.pathname.startsWith('/caja') ||
                            request.nextUrl.pathname.startsWith('/informes') ||

@@ -55,7 +55,6 @@ export default function CajaElite() {
     const startOfMonth = `${mesFiltro}-01`
     const endOfMonth = `${mesFiltro}-31`
 
-    // FIX: Ahora suma los turnos con estado "completado"
     const [{ data: turnos }, { data: gst }] = await Promise.all([
       supabase.from('turno').select('fecha, servicio(precio)').eq('negocio_id', negocio.id).eq('estado', 'completado').gte('fecha', startOfMonth).lte('fecha', endOfMonth),
       supabase.from('gasto').select('*').eq('negocio_id', negocio.id).gte('fecha', startOfMonth).lte('fecha', endOfMonth).order('fecha', { ascending: false })

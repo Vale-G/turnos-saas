@@ -121,7 +121,8 @@ export default function LandingComercial() {
           <div className="flex gap-6 mt-4">
             <a href="#" className="text-slate-500 hover:text-white font-black text-xs uppercase tracking-widest transition-colors">Instagram</a>
             <a href="#" className="text-slate-500 hover:text-white font-black text-xs uppercase tracking-widest transition-colors">Soporte</a>
-            <a href="#" className="text-slate-500 hover:text-white font-black text-xs uppercase tracking-widest transition-colors">Términos</a>
+            <a href="/terminos" className="text-slate-500 hover:text-white font-black text-xs uppercase tracking-widest transition-colors">Términos</a>
+            <a href="/privacidad" className="text-slate-500 hover:text-white font-black text-xs uppercase tracking-widest transition-colors">Privacidad</a>
           </div>
         </div>
       </footer>

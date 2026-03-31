@@ -56,7 +56,6 @@ export default function ReservaPage() {
   useEffect(() => {
     if (!sel.barbero || !sel.fecha) return
     async function check() {
-      // Traemos turnos Y bloqueos
       const [{ data: t }, { data: b }] = await Promise.all([
         supabase.from('turno').select('hora').eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha).not('estado', 'eq', 'cancelado'),
         supabase.from('bloqueo').select('hora_inicio, hora_fin').eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha)
@@ -80,10 +79,7 @@ export default function ReservaPage() {
       const [hh, mm] = hF.split(':').map(Number)
       const minActual = hh * 60 + mm
       
-      // Chequeo si esta ocupado por un turno
       const estaOcupado = ocupados.includes(hF)
-      
-      // Chequeo si cae adentro de un bloqueo manual
       const estaBloqueado = bloqueos.some(b => {
         const [hStart, mStart] = b.hora_inicio.split(':').map(Number)
         const [hEnd, mEnd] = b.hora_fin.split(':').map(Number)
@@ -103,11 +99,33 @@ export default function ReservaPage() {
     return list
   }, [negocio, sel.servicio, sel.fecha, ocupados, bloqueos])
 
+  // EL CEREBRO DE LAS SEÑAS FLEXIBLES
+  const montoSenaCalculado = useMemo(() => {
+    if (!sel.servicio) return 0
+    if (sel.servicio.seña_tipo === 'ninguno' || sel.servicio.precio <= 0) return 0
+    if (sel.servicio.seña_tipo === 'fijo') return Number(sel.servicio.seña_valor) || 0
+    // Porcentaje
+    const porcentaje = Number(sel.servicio.seña_valor) || 50
+    return Math.round(sel.servicio.precio * (porcentaje / 100))
+  }, [sel.servicio])
+
   const handleFinal = async (nombre: string, tel: string, pagarSena: boolean, correoInvitado: string) => {
     setConfirmando(true)
     const cliNombre = user ? (user.user_metadata?.full_name || user.email) : `${nombre} · ${tel}`
     const correoFinal = user ? user.email : correoInvitado
     
+    // 1. Validar Lista Negra
+    const { data: blacklistData } = await supabase.from('config').select('valor').eq('clave', `blacklist_${negocio.id}`).maybeSingle()
+    if (blacklistData?.valor) {
+      const listaNegra = JSON.parse(blacklistData.valor)
+      const telefonoLimpio = tel.replace(/[^0-9]/g, '')
+      if (listaNegra.some((t: string) => t.replace(/[^0-9]/g, '') === telefonoLimpio)) {
+        setConfirmando(false)
+        return toast.error('Este servicio no está disponible para tu número. Contactá al local.', { duration: 5000 })
+      }
+    }
+    
+    // 2. Insertar Turno
     const { data: turno, error } = await supabase.from('turno').insert({
       negocio_id: negocio.id, servicio_id: sel.servicio.id, staff_id: sel.barbero.id,
       fecha: sel.fecha, hora: sel.hora + ':00', cliente_id: user?.id || null,
@@ -116,15 +134,17 @@ export default function ReservaPage() {
 
     if (error) { toast.error('Error al reservar'); setConfirmando(false); return }
 
+    // Notificar
     fetch('/api/notificar', {
       method: 'POST',
       body: JSON.stringify({ clienteNombre: cliNombre, clienteEmail: correoFinal, negocioNombre: negocio.nombre, fecha: sel.fecha, hora: sel.hora, servicio: sel.servicio.nombre, emailNegocio: negocio.email_contacto })
     }).catch(console.error)
 
-    if (pagarSena && sel.servicio.precio > 0) {
+    // 3. Pagar Seña Exacta a MercadoPago
+    if (pagarSena && montoSenaCalculado > 0) {
       const res = await fetch('/api/sena', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ turno_id: turno.id, monto_sena: Math.round(sel.servicio.precio * 0.5), servicio_nombre: sel.servicio.nombre, negocio_nombre: negocio.nombre, cliente_email: correoFinal })
+        body: JSON.stringify({ turno_id: turno.id, monto_sena: montoSenaCalculado, servicio_nombre: sel.servicio.nombre, negocio_nombre: negocio.nombre, cliente_email: correoFinal })
       })
       const resData = await res.json()
       if (resData.url) { window.location.href = resData.url; return } 
@@ -217,8 +237,9 @@ export default function ReservaPage() {
                 <p className="text-4xl font-black italic uppercase leading-none" style={{ color: colorP }}>{sel.servicio?.nombre}</p>
                 <p className="font-black uppercase text-xs tracking-[0.3em] text-white pt-2">{sel.fecha} · {sel.hora} HS</p>
                 <p className="text-4xl font-black pt-4">${sel.servicio?.precio}</p>
+                {montoSenaCalculado > 0 && <p className="text-[10px] font-black uppercase text-emerald-400 pt-2 tracking-widest">Requiere Seña: ${montoSenaCalculado}</p>}
               </div>
-              <AuthSelector user={user} colorP={colorP} loading={confirmando} onConfirm={handleFinal} slug={slug} precio={sel.servicio?.precio} />
+              <AuthSelector user={user} colorP={colorP} loading={confirmando} onConfirm={handleFinal} slug={slug} montoSena={montoSenaCalculado} />
             </div>
           </div>
         )}
@@ -227,15 +248,24 @@ export default function ReservaPage() {
   )
 }
 
-function AuthSelector({ user, colorP, loading, onConfirm, slug, precio }: any) {
+function AuthSelector({ user, colorP, loading, onConfirm, slug, montoSena }: any) {
   const [modo, setModo] = useState('invitado')
   const [nombre, setNombre] = useState(''); const [tel, setTel] = useState(''); const [correo, setCorreo] = useState('')
   const login = () => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: getOAuthRedirectUrl('/auth/callback?next=/reservar/' + slug) } })
 
   const renderBotones = (accion: (sena: boolean) => void) => (
     <div className="space-y-3 mt-6">
-      {precio > 0 && <button onClick={() => accion(true)} disabled={loading} className="w-full py-6 rounded-[2.5rem] font-black uppercase italic text-sm text-black hover:opacity-90 disabled:opacity-50" style={{ backgroundColor: colorP }}><span className="flex flex-col"><span>Abonar Seña (50%)</span><span className="text-[10px] font-bold opacity-70 mt-1">Con MercadoPago</span></span></button>}
-      <button onClick={() => accion(false)} disabled={loading} className="w-full py-5 rounded-[2.5rem] font-black uppercase italic text-xs text-white bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-50">{loading ? 'PROCESANDO...' : 'RESERVAR Y PAGAR EN LOCAL'}</button>
+      {montoSena > 0 && (
+        <button onClick={() => accion(true)} disabled={loading} className="w-full py-6 rounded-[2.5rem] font-black uppercase italic text-sm text-black hover:opacity-90 disabled:opacity-50" style={{ backgroundColor: colorP }}>
+          <span className="flex flex-col">
+            <span>Abonar Seña (${montoSena})</span>
+            <span className="text-[10px] font-bold opacity-70 mt-1">Con MercadoPago</span>
+          </span>
+        </button>
+      )}
+      <button onClick={() => accion(false)} disabled={loading} className="w-full py-5 rounded-[2.5rem] font-black uppercase italic text-xs text-white bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-50 transition-all">
+        {loading ? 'PROCESANDO...' : 'RESERVAR Y PAGAR EN LOCAL'}
+      </button>
     </div>
   )
 
@@ -246,11 +276,11 @@ function AuthSelector({ user, colorP, loading, onConfirm, slug, precio }: any) {
         <button onClick={() => setModo('invitado')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase ${modo === 'invitado' ? 'bg-white/10 text-white' : 'text-slate-600'}`}>Invitado</button>
         <button onClick={() => setModo('google')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase ${modo === 'google' ? 'bg-white/10 text-white' : 'text-slate-600'}`}>Google</button>
       </div>
-      {modo === 'google' ? <button onClick={login} className="w-full py-5 bg-white text-black font-black uppercase italic rounded-[2rem]">Ingresar con Google</button> : (
+      {modo === 'google' ? <button onClick={login} className="w-full py-5 bg-white text-black font-black uppercase italic rounded-[2rem] hover:scale-105 transition-all">Ingresar con Google</button> : (
         <div className="space-y-4">
-          <input type="text" placeholder="TU NOMBRE (EJ: JUAN PEREZ)" value={nombre} onChange={e => setNombre(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-[1.5rem] p-5 text-[11px] font-black uppercase outline-none focus:border-white/30" />
-          <input type="tel" placeholder="WHATSAPP (EJ: 1123456789)" value={tel} onChange={e => setTel(e.target.value)} className="w-full bg-black/50 border border-white/10 rounded-[1.5rem] p-5 text-[11px] font-black uppercase outline-none focus:border-white/30" />
-          <input type="email" placeholder="TU EMAIL (PARA RECIBIR EL TICKET)" value={correo} onChange={e => setCorreo(e.target.value)} className="w-full bg-black/50 border border-emerald-500/30 p-5 rounded-[1.5rem] text-[11px] font-black uppercase outline-none focus:border-emerald-500/50" />
+          <input type="text" placeholder="TU NOMBRE (EJ: JUAN PEREZ)" value={nombre} onChange={e => setNombre(e.target.value)} required className="w-full bg-black/50 border border-white/10 rounded-[1.5rem] p-5 text-[11px] font-black uppercase outline-none focus:border-white/30" />
+          <input type="tel" placeholder="WHATSAPP (EJ: 1123456789)" value={tel} onChange={e => setTel(e.target.value)} required className="w-full bg-black/50 border border-white/10 rounded-[1.5rem] p-5 text-[11px] font-black uppercase outline-none focus:border-white/30" />
+          <input type="email" placeholder="TU EMAIL (PARA RECIBIR EL TICKET)" value={correo} onChange={e => setCorreo(e.target.value)} required className="w-full bg-black/50 border border-emerald-500/30 p-5 rounded-[1.5rem] text-[11px] font-black uppercase outline-none focus:border-emerald-500/50" />
           {renderBotones((s) => onConfirm(nombre, tel, s, correo))}
         </div>
       )}

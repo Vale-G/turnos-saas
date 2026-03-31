@@ -21,6 +21,7 @@ const ICONS: Record<string, string> = {
 export default function DashboardPrincipal() {
   const [negocio, setNegocio] = useState<NegocioDashboard | null>(null)
   const [rol, setRol] = useState<string>('owner')
+  const [esSuperAdmin, setEsSuperAdmin] = useState(false)
   const [staffCount, setStaffCount] = useState(0)
   const [serviciosCount, setServiciosCount] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -35,7 +36,6 @@ export default function DashboardPrincipal() {
       let currentRol = 'owner'
       let negocioId = null
 
-      // FIX 1: Usamos maybeSingle() para que no rompa si no encuentra datos
       const { data: adminData } = await supabase.from('adminrol').select('*').eq('user_id', user.id).maybeSingle()
       
       if (adminData) {
@@ -43,38 +43,43 @@ export default function DashboardPrincipal() {
         negocioId = adminData.negocio_id
       }
 
-      // FIX 2: Si es superadmin, lo mandamos a su panel directo y cortamos acá
-      if (currentRol === 'superadmin') {
-        router.push('/superadmin')
-        return
-      }
-
-      // FIX 3: Si tiene cuenta pero adminrol no tiene el negocio_id (cuentas viejas), lo buscamos a la fuerza
+      // Si no tiene negocio_id en adminrol, buscamos por owner_id en negocio (fallback)
       if (!negocioId) {
         const { data: negViejo } = await supabase.from('negocio').select('id').eq('owner_id', user.id).maybeSingle()
-        if (negViejo) {
-          negocioId = negViejo.id
-        }
+        if (negViejo) negocioId = negViejo.id
       }
 
       setRol(currentRol)
+
+      // FIX: Si es Superadmin, guardamos el estado para mostrarle el botón de volver.
+      // Solo lo redirigimos a la fuerza si NO tiene un negocio creado.
+      if (currentRol === 'superadmin') {
+        setEsSuperAdmin(true)
+        if (!negocioId) {
+          router.push('/superadmin')
+          return
+        }
+      }
 
       if (negocioId) {
         const { data: neg } = await supabase.from('negocio').select('*').eq('id', negocioId).maybeSingle()
         if (neg) {
           const diasRestantes = diasTrialRestantes(neg.trial_hasta)
-          if (neg.suscripcion_tipo === 'trial' && diasRestantes < 0) {
-            router.push('/negocio-inactivo')
-            return
-          }
-          if (neg.suscripcion_tipo === 'inactiva' || neg.suscripcion_tipo === 'vencida') {
-             router.push('/negocio-inactivo')
-             return
+          // Si es superadmin, no lo bloqueamos nunca con el paywall
+          if (currentRol !== 'superadmin') {
+            if (neg.suscripcion_tipo === 'trial' && diasRestantes < 0) {
+              router.push('/negocio-inactivo')
+              return
+            }
+            if (neg.suscripcion_tipo === 'inactiva' || neg.suscripcion_tipo === 'vencida') {
+               router.push('/negocio-inactivo')
+               return
+            }
           }
 
           setNegocio(neg)
           
-          if (currentRol === 'owner') {
+          if (currentRol === 'owner' || currentRol === 'superadmin') {
              const [{ count: sc }, { count: svc }] = await Promise.all([
                supabase.from('staff').select('*', { count: 'exact', head: true }).eq('negocio_id', neg.id),
                supabase.from('servicio').select('*', { count: 'exact', head: true }).eq('negocio_id', neg.id),
@@ -110,11 +115,11 @@ export default function DashboardPrincipal() {
     { label: 'Clientes', desc: 'Ver base de clientes.', href: '/clientes', badge: null, proOnly: false }
   ] : [
     { label: 'Agenda', desc: 'Gestioná tus citas.', href: '/turnos', badge: null, proOnly: false },
-    { label: 'Caja', desc: 'Control financiero.', href: (esPro || esTrial) ? '/caja' : '#', badge: (esPro || esTrial) ? null : 'PRO', proOnly: true },
-    { label: 'Informes', desc: 'Estadísticas PRO', href: (esPro || esTrial) ? '/informes' : '#', badge: (esPro || esTrial) ? null : 'PRO', proOnly: true },
+    { label: 'Caja', desc: 'Control financiero.', href: (esPro || esTrial || esSuperAdmin) ? '/caja' : '#', badge: (esPro || esTrial || esSuperAdmin) ? null : 'PRO', proOnly: true },
+    { label: 'Informes', desc: 'Estadísticas PRO', href: (esPro || esTrial || esSuperAdmin) ? '/informes' : '#', badge: (esPro || esTrial || esSuperAdmin) ? null : 'PRO', proOnly: true },
     { label: 'Clientes', desc: 'Historial y notas.', href: '/clientes', badge: null, proOnly: false },
-    { label: 'Servicios', desc: (esPro || esTrial) ? 'Sin límite' : serviciosCount + ' / ' + limites.maxServicios, href: '/servicios', badge: !esPro && !esTrial && serviciosCount >= limites.maxServicios ? 'LÍMITE' : null, proOnly: false },
-    { label: 'Staff', desc: (esPro || esTrial) ? 'Sin límite' : staffCount + ' / ' + limites.maxStaff, href: '/staff', badge: !esPro && !esTrial && staffCount >= limites.maxStaff ? 'LÍMITE' : null, proOnly: false },
+    { label: 'Servicios', desc: (esPro || esTrial || esSuperAdmin) ? 'Sin límite' : serviciosCount + ' / ' + limites.maxServicios, href: '/servicios', badge: !esPro && !esTrial && !esSuperAdmin && serviciosCount >= limites.maxServicios ? 'LÍMITE' : null, proOnly: false },
+    { label: 'Staff', desc: (esPro || esTrial || esSuperAdmin) ? 'Sin límite' : staffCount + ' / ' + limites.maxStaff, href: '/staff', badge: !esPro && !esTrial && !esSuperAdmin && staffCount >= limites.maxStaff ? 'LÍMITE' : null, proOnly: false },
     { label: 'Ajustes', desc: 'Marca y MP.', href: '/ajustes', badge: null, proOnly: false },
     { label: 'Bloqueos', desc: 'Bloquear horarios.', href: '/bloqueos', badge: null, proOnly: false },
   ]
@@ -132,15 +137,25 @@ export default function DashboardPrincipal() {
             <div>
               <div className="flex items-center gap-4 mb-2">
                 <h1 className="text-5xl font-black uppercase italic tracking-tighter leading-none" style={{ color: colorPrincipal }}>{negocio?.nombre}</h1>
-                {esStaff ? <span className="bg-slate-500/20 text-slate-400 text-[10px] font-black uppercase px-3 py-1 rounded-full">STAFF</span> : esPro ? <span className="bg-amber-400 text-black text-[10px] font-black uppercase px-3 py-1 rounded-full">PRO</span> : esTrial ? <span className="bg-blue-500 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full">TRIAL · {diasTrial}D</span> : <span className="bg-white/10 text-slate-400 text-[10px] font-black uppercase px-3 py-1 rounded-full">NORMAL</span>}
+                {esSuperAdmin ? <span className="bg-rose-500 text-black text-[10px] font-black uppercase px-3 py-1 rounded-full shadow-lg shadow-rose-500/20">DIOS</span> : esStaff ? <span className="bg-slate-500/20 text-slate-400 text-[10px] font-black uppercase px-3 py-1 rounded-full">STAFF</span> : esPro ? <span className="bg-amber-400 text-black text-[10px] font-black uppercase px-3 py-1 rounded-full">PRO</span> : esTrial ? <span className="bg-blue-500 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full">TRIAL · {diasTrial}D</span> : <span className="bg-white/10 text-slate-400 text-[10px] font-black uppercase px-3 py-1 rounded-full">NORMAL</span>}
               </div>
               <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">Elite Dashboard</p>
             </div>
           </div>
-          <button onClick={() => supabase.auth.signOut().then(() => router.push('/login'))} className="text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-rose-400 transition-colors bg-white/5 px-6 py-3 rounded-2xl">Cerrar Sesión</button>
+          
+          <div className="flex gap-3">
+            {esSuperAdmin && (
+              <button onClick={() => router.push('/superadmin')} className="text-[10px] font-black uppercase tracking-widest text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-colors px-6 py-3 rounded-2xl">
+                Modo Dios
+              </button>
+            )}
+            <button onClick={() => supabase.auth.signOut().then(() => router.push('/login'))} className="text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-white transition-colors bg-white/5 px-6 py-3 rounded-2xl">
+              Cerrar Sesión
+            </button>
+          </div>
         </header>
 
-        {esTrial && diasTrial <= 7 && !esStaff && (
+        {esTrial && diasTrial <= 7 && !esStaff && !esSuperAdmin && (
           <div className="mb-10 p-8 rounded-[3rem] border border-blue-500/30 bg-blue-500/10 flex flex-col md:flex-row items-center justify-between gap-6 cursor-pointer hover:bg-blue-500/15 transition-all">
             <div>
               <p className="font-black uppercase text-xl text-blue-400 mb-1 tracking-tight">TRIAL TERMINA EN {diasTrial} DÍA{diasTrial !== 1 ? 'S' : ''}</p>

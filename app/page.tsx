@@ -27,10 +27,11 @@ export default function LandingComercial() {
     <div className="min-h-screen bg-[#020617] text-white selection:bg-emerald-500/30 overflow-hidden font-sans">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-emerald-500/10 blur-[120px] rounded-full pointer-events-none" />
       
-      {/* NAV LIMPIA: Sin el nombre gigante de la marca arriba */}
+      {/* NAV RESTAURADA: Vuelve el almanaque y el Turnly gigante */}
       <nav className="relative z-10 flex items-center justify-between p-6 md:px-12 max-w-6xl mx-auto">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex items-center justify-center text-emerald-400 font-black italic text-xl">T</div>
+          <span className="text-2xl md:text-3xl">📅</span>
+          <span className="font-black italic text-2xl md:text-3xl tracking-tighter">Turnly.</span>
         </div>
         <div className="flex gap-4">
           <button onClick={() => router.push('/login')} className="text-xs font-black uppercase text-slate-400 hover:text-white transition-colors px-4 py-2">Ingresar</button>
@@ -111,12 +112,15 @@ export default function LandingComercial() {
         </div>
       </main>
 
-      {/* FOOTER: Acá es donde va la firma "Sello de Autor" */}
+      {/* FOOTER: F&V Tech como Sello de Calidad Estratégico */}
       <footer className="border-t border-white/5 py-16 text-center bg-[#020617] relative z-10">
         <div className="flex flex-col items-center justify-center gap-6">
-          <div className="w-12 h-12 bg-white border border-white/20 rounded-2xl flex items-center justify-center text-black font-black italic text-2xl shadow-lg">T</div>
+          <div className="flex items-center gap-2 opacity-50">
+            <span className="text-xl">📅</span>
+            <span className="font-black italic text-xl tracking-tighter">Turnly.</span>
+          </div>
           <p className="text-[10px] font-black uppercase tracking-[0.4em] text-slate-500 max-w-xs">
-            Software desarrollado por <br /> <span className="text-white">F&V Tech</span>
+            Un producto desarrollado con excelencia por <br /> <span className="text-white">F&V Tech</span>
           </p>
           <div className="flex gap-6 mt-4">
             <a href="#" className="text-slate-600 hover:text-white font-black text-[10px] uppercase tracking-widest transition-colors">Instagram</a>

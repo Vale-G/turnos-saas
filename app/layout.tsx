@@ -5,14 +5,11 @@ import { Toaster } from 'sonner'
 
 const inter = Inter({ subsets: ["latin"] })
 
-// ESTO FUERZA A QUE LA PESTAÑA Y EL ACCESO DIRECTO SEAN TUYOS
 export const metadata: Metadata = {
-  title: "Turnly | Elite SaaS para Barberías",
-  description: "El sistema de gestión y reservas definitivo para barberías y salones de lujo. by F&V Tech.",
+  title: "Turnly | SaaS de Gestión para Barberías",
+  description: "El software de reservas y control financiero definitivo.",
   icons: {
-    icon: "/fvtech-logo.jpg",
-    shortcut: "/fvtech-logo.jpg",
-    apple: "/fvtech-logo.jpg",
+    icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>",
   },
   manifest: "/manifest.json",
 }

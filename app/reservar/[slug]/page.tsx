@@ -77,13 +77,24 @@ export default function ReservaPage() {
     })
   }, [slug, cargarMisTurnos])
 
+  // Carga de Ocupados + Realtime
   useEffect(() => {
     if (!sel.barbero || !sel.fecha) return
+    
     async function check() {
       const { data } = await supabase.from('turno').select('hora').eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha).not('estado', 'eq', 'cancelado')
       setOcupados((data ?? []).map((t: any) => t.hora.slice(0, 5)))
     }
     check()
+
+    // Suscripción para que desaparezca el turno si otro lo reserva en tiempo real
+    const channel = supabase.channel('public:turno')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'turno', filter: `staff_id=eq.${sel.barbero.id}` }, () => {
+        check() // Recarga los ocupados si hay un cambio
+      })
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
   }, [sel.barbero, sel.fecha])
 
   const horas = useMemo(() => {
@@ -106,10 +117,18 @@ export default function ReservaPage() {
     return list
   }, [negocio, sel.servicio, sel.fecha, ocupados])
 
-  // LA MAGIA DE LA SEÑA ACÁ
   const handleFinal = async (nombre: string, tel: string, pagarSena: boolean = false) => {
     setConfirmando(true)
     const cliNombre = user ? (user.user_metadata?.full_name || user.email) : `${nombre} · ${tel}`
+    
+    // Verificamos si justo alguien nos ganó de mano (doble chequeo de seguridad)
+    const { data: colision } = await supabase.from('turno').select('id').eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha).eq('hora', sel.hora + ':00').not('estado', 'eq', 'cancelado').single()
+    if (colision) {
+      toast.error('¡Ups! Alguien acaba de reservar este horario. Por favor elegí otro.')
+      setSel({...sel, hora: ''})
+      setConfirmando(false)
+      return
+    }
     
     const { data: turno, error } = await supabase.from('turno').insert({
       negocio_id: negocio.id, servicio_id: sel.servicio.id, staff_id: sel.barbero.id,
@@ -125,27 +144,20 @@ export default function ReservaPage() {
 
     if (pagarSena && sel.servicio.precio > 0) {
       toast.info('Redirigiendo a MercadoPago...')
-      const montoSena = Math.round(sel.servicio.precio * 0.5) // Seña del 50%
+      const montoSena = Math.round(sel.servicio.precio * 0.5)
       
       const res = await fetch('/api/sena', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          turno_id: turno.id,
-          monto_sena: montoSena,
-          servicio_nombre: sel.servicio.nombre,
-          negocio_nombre: negocio.nombre,
-          cliente_email: user ? user.email : 'invitado@turnly.app'
+          turno_id: turno.id, monto_sena: montoSena, servicio_nombre: sel.servicio.nombre,
+          negocio_nombre: negocio.nombre, cliente_email: user ? user.email : 'invitado@turnly.app'
         })
       })
       
       const resData = await res.json()
-      if (resData.url) {
-        window.location.href = resData.url // Redirección mágica a MP
-        return
-      } else {
-        toast.error('El negocio no tiene MercadoPago configurado aún. Turno agendado igual.')
-      }
+      if (resData.url) { window.location.href = resData.url; return } 
+      else { toast.error('Negocio sin MP configurado. Turno agendado igual.') }
     }
 
     setExito(true)

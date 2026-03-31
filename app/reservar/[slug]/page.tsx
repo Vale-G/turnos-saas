@@ -4,15 +4,19 @@ import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
 
+interface Servicio { id: string; nombre: string; precio: number; duracion: number }
+interface Staff { id: string; nombre: string; avatar_url?: string | null }
+interface SelState { servicio: Servicio | null; barbero: Staff | null; fecha: string; hora: string }
+
 export default function ReservaPremium() {
   const { slug } = useParams()
   const [negocio, setNegocio] = useState<any>(null)
-  const [servicios, setServicios] = useState<any[]>([])
-  const [staffList, setStaffList] = useState<any[]>([])
+  const [servicios, setServicios] = useState<Servicio[]>([])
+  const [staffList, setStaffList] = useState<Staff[]>([])
   const [ocupados, setOcupados] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [paso, setPaso] = useState(1)
-  const [sel, setSel] = useState<any>({ servicio: null, barbero: null, fecha: '', hora: '' })
+  const [sel, setSel] = useState<SelState>({ servicio: null, barbero: null, fecha: '', hora: '' })
   const [confirmando, setConfirmando] = useState(false)
   const [exito, setExito] = useState(false)
 
@@ -38,7 +42,7 @@ export default function ReservaPremium() {
     async function checkOcupados() {
       const { data } = await supabase.from('turno')
         .select('hora')
-        .eq('staff_id', sel.barbero.id)
+        .eq('staff_id', sel.barbero?.id)
         .eq('fecha', sel.fecha)
         .not('estado', 'eq', 'cancelado')
       setOcupados((data ?? []).map((t: any) => t.hora.slice(0, 5)))
@@ -53,16 +57,19 @@ export default function ReservaPremium() {
     const horas = []
     let actual = negocio.hora_apertura
     
-    // Timezone Argentina
     const ahora = new Date()
     const hoyStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(ahora)
     const esHoy = sel.fecha === hoyStr
-    const horaActual = ahora.getHours() * 60 + ahora.getMinutes() + 20 // 20min de margen
+    
+    const fmt = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Argentina/Buenos_Aires', hour: 'numeric', minute: 'numeric', hour12: false }).formatToParts(ahora)
+    const hActual = parseInt(fmt.find(p => p.type === 'hour')?.value || '0')
+    const mActual = parseInt(fmt.find(p => p.type === 'minute')?.value || '0')
+    const minutosLimite = hActual * 60 + mActual + 20
 
     while (actual < negocio.hora_cierre) {
       const hF = actual.slice(0, 5)
       const [hh, mm] = hF.split(':').map(Number)
-      const yaPaso = esHoy && (hh * 60 + mm) < horaActual
+      const yaPaso = esHoy && (hh * 60 + mm) < minutosLimite
       
       if (!ocupados.includes(hF) && !yaPaso) horas.push(hF)
       
@@ -75,7 +82,7 @@ export default function ReservaPremium() {
   }, [negocio, sel.servicio, sel.fecha, ocupados])
 
   const handleConfirmar = async (nombre: string, tel: string) => {
-    if (!nombre.trim()) return
+    if (!nombre.trim() || !negocio || !sel.servicio || !sel.barbero) return
     setConfirmando(true)
     const { error } = await supabase.from('turno').insert({
       negocio_id: negocio.id,
@@ -96,7 +103,7 @@ export default function ReservaPremium() {
   if (exito) return (
     <div className="min-h-screen bg-black text-white flex flex-col items-center justify-center p-10 text-center">
       <div className="w-24 h-24 rounded-full border-4 mb-8 flex items-center justify-center text-4xl" style={{borderColor: colorP, color: colorP, boxShadow: `0 0 40px ${colorP}40`}}>✓</div>
-      <h2 className="text-5xl font-black uppercase italic italic tracking-tighter mb-4">¡Turno Reservado!</h2>
+      <h2 className="text-5xl font-black uppercase italic tracking-tighter mb-4">¡Turno Reservado!</h2>
       <p className="text-slate-400 mb-8 max-w-xs">Te esperamos en <span className="text-white font-bold">{negocio.nombre}</span> el {sel.fecha} a las {sel.hora}hs.</p>
       <button onClick={() => window.location.reload()} className="px-10 py-4 bg-white text-black font-black uppercase italic rounded-2xl hover:scale-105 transition-transform">Volver</button>
     </div>
@@ -112,7 +119,7 @@ export default function ReservaPremium() {
         </header>
 
         {paso === 1 && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+          <div className="space-y-4">
             <h2 className="text-xs font-black uppercase tracking-[0.3em] text-slate-500 mb-6">Seleccioná un servicio</h2>
             {servicios.map(s => (
               <button key={s.id} onClick={() => { setSel({...sel, servicio: s}); setPaso(2) }} className="w-full group bg-white/5 border border-white/5 p-6 rounded-[2rem] flex justify-between items-center hover:bg-white/10 hover:border-white/20 transition-all">
@@ -124,7 +131,7 @@ export default function ReservaPremium() {
         )}
 
         {paso === 2 && (
-          <div className="space-y-8 animate-in fade-in slide-in-from-right-4">
+          <div className="space-y-8">
             <button onClick={() => setPaso(1)} className="text-[10px] font-black uppercase text-slate-600 hover:text-white">← Volver</button>
             
             <section>
@@ -140,14 +147,14 @@ export default function ReservaPremium() {
             </section>
 
             {sel.barbero && (
-              <section className="animate-in fade-in slide-in-from-top-4">
+              <section>
                 <h2 className="text-xs font-black uppercase tracking-[0.3em] text-slate-500 mb-6">Elegí el día</h2>
                 <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide">
                   {[0,1,2,3,4,5,6].map(i => {
                     const d = new Date(); d.setDate(d.getDate() + i); const iso = d.toISOString().split('T')[0]
                     const act = sel.fecha === iso
                     return (
-                      <button key={iso} onClick={() => { setSel({...sel, fecha: iso}); setSel(prev => ({...prev, hora: ''})) }} className={`flex-shrink-0 w-16 h-24 rounded-2xl border flex flex-col items-center justify-center transition-all ${act ? 'bg-white text-black' : 'bg-white/5 border-white/5'}`} style={act ? {borderColor: colorP} : {}}>
+                      <button key={iso} onClick={() => setSel({...sel, fecha: iso, hora: ''})} className={`flex-shrink-0 w-16 h-24 rounded-2xl border flex flex-col items-center justify-center transition-all ${act ? 'bg-white text-black' : 'bg-white/5 border-white/5'}`} style={act ? {borderColor: colorP} : {}}>
                         <p className="text-[8px] font-black uppercase mb-1">{d.toLocaleDateString('es-ES', {weekday:'short'})}</p>
                         <p className="text-2xl font-black">{d.getDate()}</p>
                       </button>
@@ -158,7 +165,7 @@ export default function ReservaPremium() {
             )}
 
             {sel.fecha && (
-              <section className="animate-in fade-in slide-in-from-top-4">
+              <section>
                 <h2 className="text-xs font-black uppercase tracking-[0.3em] text-slate-500 mb-6">Horarios disponibles</h2>
                 {horasDisponibles.length === 0 ? <p className="text-slate-600 italic text-sm">No hay turnos para este día.</p> : (
                   <div className="grid grid-cols-4 gap-2">
@@ -170,12 +177,12 @@ export default function ReservaPremium() {
               </section>
             )}
 
-            {sel.hora && <button onClick={() => setPaso(3)} className="w-full py-6 rounded-[2rem] font-black uppercase italic text-lg text-black hover:scale-[1.02] active:scale-95 transition-all shadow-xl" style={{backgroundColor: colorP}}>Continuar reserva</button>}
+            {sel.hora && <button onClick={() => setPaso(3)} className="w-full py-6 rounded-[2rem] font-black uppercase italic text-lg text-black hover:scale-[1.02] transition-all shadow-xl" style={{backgroundColor: colorP}}>Continuar reserva</button>}
           </div>
         )}
 
         {paso === 3 && (
-          <div className="space-y-8 animate-in zoom-in-95">
+          <div className="space-y-8">
             <button onClick={() => setPaso(2)} className="text-[10px] font-black uppercase text-slate-600 hover:text-white">← Volver</button>
             <div className="bg-white/5 border border-white/5 rounded-[3rem] p-10 space-y-6">
               <div className="text-center pb-6 border-b border-white/5">

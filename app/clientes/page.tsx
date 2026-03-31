@@ -1,173 +1,197 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
+import { toast } from 'sonner'
 
-type ClienteResumen = {
-  id_unico: string
-  cliente_id: string | null
-  cliente_nombre: string
-  es_invitado: boolean
-  totalTurnos: number
-  totalGastado: number
-  ultimaVisita: string
-  servicioFavorito: string
-  turnos: any[]
-}
-
-export default function ClientesElite() {
-  const [clientes, setClientes] = useState<ClienteResumen[]>([])
+export default function ClientesCRM() {
+  const [turnos, setTurnos] = useState<any[]>([])
+  const [negocio, setNegocio] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [negocioId, setNegocioId] = useState<string | null>(null)
-  const [colorPrincipal, setColorPrincipal] = useState(getThemeColor())
   const [busqueda, setBusqueda] = useState('')
-  const [clienteAbierto, setClienteAbierto] = useState<string | null>(null)
+  const [clienteSeleccionado, setClienteSeleccionado] = useState<string | null>(null)
+  
+  // Estado para la nueva nota
+  const [nuevaNota, setNuevaNota] = useState('')
+  const [notas, setNotas] = useState<any[]>([])
+  
   const router = useRouter()
 
   useEffect(() => {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
-      const { data: neg } = await supabase.from('negocio').select('id, tema').eq('owner_id', user.id).single()
-      if (!neg) { router.push('/onboarding'); return }
-      setNegocioId(neg.id)
-      setColorPrincipal(getThemeColor(neg.tema))
+      if (!user) return router.push('/login')
+      
+      const { data: adm } = await supabase.from('adminrol').select('*').eq('user_id', user.id).single()
+      let negId = adm?.negocio_id
+      if (!negId && adm?.role !== 'superadmin') {
+         const { data: n } = await supabase.from('negocio').select('id').eq('owner_id', user.id).single()
+         if (n) negId = n.id
+      }
+
+      if (negId) {
+        const { data: neg } = await supabase.from('negocio').select('*').eq('id', negId).single()
+        setNegocio(neg)
+        
+        // Cargamos todos los turnos para extraer los clientes únicos
+        const { data: t } = await supabase.from('turno').select('cliente_nombre, fecha, hora, estado, servicio(nombre)').eq('negocio_id', negId).order('fecha', { ascending: false })
+        setTurnos(t || [])
+      }
+      setLoading(false)
     }
     init()
   }, [router])
 
-  useEffect(() => {
-    if (!negocioId) return
-    async function cargar() {
-      setLoading(true)
-      const { data } = await supabase
-        .from('turno')
-        .select('id, fecha, hora, estado, pago_estado, cliente_id, cliente_nombre, servicio(nombre, precio), staff(nombre)')
-        .eq('negocio_id', negocioId)
-        .order('fecha', { ascending: false })
-
-      if (!data) { setLoading(false); return }
-
-      const mapa: Record<string, ClienteResumen> = {}
-      
-      for (const t of data as any[]) {
-        const idGrupo = t.cliente_id || `invitado-${t.cliente_nombre}`
-        if (!mapa[idGrupo]) {
-          mapa[idGrupo] = {
-            id_unico: idGrupo,
-            cliente_id: t.cliente_id,
-            cliente_nombre: t.cliente_nombre ?? 'Cliente sin nombre',
-            es_invitado: !t.cliente_id,
-            totalTurnos: 0,
-            totalGastado: 0,
-            ultimaVisita: t.fecha,
-            servicioFavorito: '',
-            turnos: [],
-          }
-        }
-        
-        const c = mapa[idGrupo]
-        c.turnos.push(t)
-        if (t.estado !== 'cancelado') c.totalTurnos++
-        if (t.pago_estado === 'cobrado') c.totalGastado += t.servicio?.precio ?? 0
-      }
-
-      for (const c of Object.values(mapa)) {
-        const freq: Record<string, number> = {}
-        c.turnos.forEach(t => {
-          if (t.servicio?.nombre) freq[t.servicio.nombre] = (freq[t.servicio.nombre] ?? 0) + 1
+  // Agrupamos los turnos por el "Nombre · Telefono" del cliente
+  const clientes = useMemo(() => {
+    const mapa = new Map()
+    turnos.forEach(t => {
+      if (!t.cliente_nombre) return
+      const key = t.cliente_nombre.trim()
+      if (!mapa.has(key)) {
+        const partes = key.split('·')
+        mapa.set(key, {
+          idString: key,
+          nombre: partes[0]?.trim() || 'Desconocido',
+          telefono: partes[1]?.trim() || '',
+          turnosTotal: 0,
+          ultimoTurno: t.fecha,
+          historial: []
         })
-        c.servicioFavorito = Object.entries(freq).sort((a, b) => b[1] - a[1])[0]?.[0] ?? ''
-        c.ultimaVisita = c.turnos[0]?.fecha ?? ''
       }
+      const cli = mapa.get(key)
+      cli.turnosTotal += 1
+      cli.historial.push(t)
+    })
+    return Array.from(mapa.values())
+  }, [turnos])
 
-      setClientes(Object.values(mapa).sort((a, b) => b.totalTurnos - a.totalTurnos))
-      setLoading(false)
+  const cargarNotas = async (clienteId: string) => {
+    const { data } = await supabase.from('config').select('valor').eq('clave', `nota_${negocio.id}_${clienteId}`).single()
+    if (data && data.valor) {
+      setNotas(JSON.parse(data.valor))
+    } else {
+      setNotas([])
     }
-    cargar()
-  }, [negocioId])
+  }
 
-  const filtrados = clientes.filter(c => c.cliente_nombre.toLowerCase().includes(busqueda.toLowerCase()))
+  const guardarNota = async () => {
+    if (!nuevaNota.trim() || !clienteSeleccionado) return
+    const nueva = { fecha: new Date().toISOString().split('T')[0], texto: nuevaNota }
+    const actualizadas = [nueva, ...notas]
+    
+    // Guardamos la nota en la tabla config usando una clave compuesta
+    await supabase.from('config').upsert({
+      clave: `nota_${negocio.id}_${clienteSeleccionado}`,
+      valor: JSON.stringify(actualizadas),
+      descripcion: `Notas CRM del cliente ${clienteSeleccionado}`
+    }, { onConflict: 'clave' })
+    
+    setNotas(actualizadas)
+    setNuevaNota('')
+    toast.success('Nota guardada')
+  }
+
+  const abrirWhatsApp = (tel: string, nombre: string) => {
+    const t = tel.replace(/\D/g, '')
+    if (!t) return toast.error('No hay un teléfono válido')
+    window.open(`https://wa.me/${t}?text=Hola ${nombre}, te escribimos de ${negocio?.nombre}`, '_blank')
+  }
+
+  const colorP = getThemeColor(negocio?.tema)
+  const filtrados = clientes.filter(c => c.nombre.toLowerCase().includes(busqueda.toLowerCase()) || c.telefono.includes(busqueda))
+
+  if (loading) return <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black italic text-white text-3xl animate-pulse">CARGANDO CRM...</div>
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white p-6 md:p-12">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-[#020617] text-white p-6 md:p-12 font-sans">
+      <div className="max-w-6xl mx-auto">
         <header className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div>
             <button onClick={() => router.push('/dashboard')} className="text-slate-600 text-[10px] font-black uppercase tracking-[0.4em] mb-4 hover:text-white transition-colors">← Dashboard</button>
-            <h1 className="text-6xl font-black uppercase italic tracking-tighter leading-none">Base de <span style={{ color: colorPrincipal }}>Clientes</span></h1>
+            <h1 className="text-6xl font-black uppercase italic tracking-tighter leading-none">Base de <span style={{ color: colorP }}>Clientes</span></h1>
           </div>
-          <div className="bg-white/5 border border-white/10 px-6 py-4 rounded-[2rem] backdrop-blur-md">
-            <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-1">Total Registros</p>
-            <p className="text-3xl font-black italic">{clientes.length}</p>
+          <div className="bg-white/5 border border-white/10 p-2 rounded-[2rem] w-full md:w-80">
+             <input type="text" placeholder="BUSCAR POR NOMBRE O TEL..." value={busqueda} onChange={e => setBusqueda(e.target.value)} className="w-full bg-transparent p-4 text-xs font-black uppercase tracking-widest outline-none" />
           </div>
         </header>
 
-        <input 
-          type="text" 
-          placeholder="BUSCAR POR NOMBRE O TELÉFONO..." 
-          value={busqueda} 
-          onChange={e => setBusqueda(e.target.value)}
-          className="w-full bg-white/5 border border-white/10 rounded-[2.5rem] px-8 py-6 text-xs font-black uppercase tracking-widest outline-none focus:border-white/30 transition-all mb-10 placeholder:text-slate-700 shadow-inner" 
-        />
-
-        {loading ? (
-          <div className="text-center py-20 text-slate-800 font-black italic text-3xl uppercase tracking-tighter animate-pulse">SINCRONIZANDO DATA...</div>
-        ) : (
-          <div className="space-y-4">
-            {filtrados.map(c => (
-              <div key={c.id_unico} className="bg-white/4 border border-white/8 hover:border-white/20 rounded-[3rem] overflow-hidden transition-all duration-300">
-                <div 
-                  className="p-8 flex flex-col md:flex-row md:items-center justify-between gap-6 cursor-pointer" 
-                  onClick={() => setClienteAbierto(clienteAbierto === c.id_unico ? null : c.id_unico)}
-                >
-                  <div className="flex items-center gap-6">
-                    <div className="w-16 h-16 rounded-[2rem] flex items-center justify-center font-black text-2xl flex-shrink-0 border border-white/10 shadow-lg" style={{ background: colorPrincipal + '20', color: colorPrincipal }}>
-                      {c.cliente_nombre[0]?.toUpperCase()}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-3 mb-1">
-                        <p className="font-black uppercase text-xl tracking-tight">{c.cliente_nombre}</p>
-                        {c.es_invitado && (
-                          <span className="text-[8px] bg-white/10 text-slate-300 px-2 py-1 rounded-lg font-black uppercase tracking-widest">Invitado</span>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
-                        {c.servicioFavorito && `FAV: ${c.servicioFavorito} · `}
-                        ULT: {c.ultimaVisita}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-8 md:text-right flex-shrink-0">
-                    <div><p className="font-black text-2xl italic" style={{ color: colorPrincipal }}>{c.totalTurnos}</p><p className="text-[9px] text-slate-500 uppercase font-black tracking-widest">TURNOS</p></div>
-                    <div><p className="font-black text-2xl italic text-emerald-400">${c.totalGastado.toLocaleString('es-AR')}</p><p className="text-[9px] text-slate-500 uppercase font-black tracking-widest">LTV (GASTO)</p></div>
-                  </div>
-                </div>
-
-                {clienteAbierto === c.id_unico && (
-                  <div className="border-t border-white/5 p-8 bg-black/40 space-y-6 animate-in slide-in-from-top-4">
-                    <p className="text-[10px] font-black uppercase text-slate-500 tracking-[0.3em]">Historial de Turnos</p>
-                    <div className="space-y-3 max-h-72 overflow-y-auto pr-2 scrollbar-hide">
-                      {c.turnos.map((t: any) => (
-                        <div key={t.id} className="flex items-center justify-between bg-white/5 border border-white/5 rounded-2xl px-6 py-4 hover:bg-white/10 transition-colors">
-                          <div>
-                            <p className="text-sm font-black uppercase italic">{t.servicio?.nombre ?? 'Servicio'}</p>
-                            <p className="text-[10px] text-slate-500 font-bold tracking-widest mt-1">{t.fecha} · {t.hora?.slice(0, 5)} HS · {t.staff?.nombre ?? 'SIN STAFF'}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm font-black italic" style={{ color: colorPrincipal }}>${t.servicio?.precio?.toLocaleString() ?? '0'}</p>
-                            <p className={`text-[9px] font-black uppercase tracking-widest mt-1 ${t.estado === 'completado' ? 'text-slate-500' : 'text-emerald-500'}`}>{t.estado}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* LISTA DE CLIENTES */}
+          <div className="lg:col-span-1 space-y-3 h-[70vh] overflow-y-auto pr-2 scrollbar-hide">
+            {filtrados.length === 0 ? <p className="text-center py-10 text-slate-600 font-black text-xs uppercase tracking-widest border border-dashed border-white/10 rounded-[2rem]">Sin clientes aún</p> : filtrados.map(c => (
+              <button key={c.idString} onClick={() => { setClienteSeleccionado(c.idString); cargarNotas(c.idString) }} className={`w-full text-left p-6 rounded-[2.5rem] border transition-all ${clienteSeleccionado === c.idString ? 'border-transparent shadow-lg' : 'bg-white/4 border-white/5 hover:border-white/20'}`} style={clienteSeleccionado === c.idString ? { backgroundColor: colorP, color: '#000' } : {}}>
+                <h3 className="font-black italic uppercase text-xl truncate">{c.nombre}</h3>
+                <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${clienteSeleccionado === c.idString ? 'text-black/60' : 'text-slate-500'}`}>{c.telefono || 'Sin teléfono'} · {c.turnosTotal} Turnos</p>
+              </button>
             ))}
           </div>
-        )}
+
+          {/* PANEL DE DETALLES DEL CLIENTE (CRM) */}
+          <div className="lg:col-span-2">
+            {clienteSeleccionado ? (() => {
+              const cli = clientes.find(c => c.idString === clienteSeleccionado)
+              if (!cli) return null
+              return (
+                <div className="bg-white/4 border border-white/5 rounded-[3.5rem] p-10 animate-in slide-in-from-right-8 h-[70vh] overflow-y-auto scrollbar-hide">
+                  <div className="flex justify-between items-start mb-8 pb-8 border-b border-white/5">
+                    <div>
+                      <h2 className="text-4xl font-black uppercase italic tracking-tighter" style={{color: colorP}}>{cli.nombre}</h2>
+                      <p className="text-slate-400 text-sm font-bold uppercase tracking-widest mt-2">{cli.telefono}</p>
+                    </div>
+                    {cli.telefono && (
+                      <button onClick={() => abrirWhatsApp(cli.telefono, cli.nombre)} className="w-14 h-14 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-2xl flex items-center justify-center text-2xl hover:bg-emerald-500/20 hover:scale-105 transition-all shadow-lg" title="Enviar Promoción por WhatsApp">💬</button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* NOTAS PRIVADAS */}
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-4">Notas Privadas</p>
+                      <div className="bg-black/40 border border-white/5 rounded-3xl p-4 mb-6">
+                        <textarea value={nuevaNota} onChange={e => setNuevaNota(e.target.value)} placeholder="Ej: Le gusta el corte degradado, no usar navaja." className="w-full bg-transparent text-xs font-bold outline-none resize-none h-20 placeholder:text-slate-700" />
+                        <button onClick={guardarNota} disabled={!nuevaNota.trim()} className="w-full mt-2 py-3 rounded-xl bg-white/10 text-[9px] font-black uppercase tracking-widest hover:bg-white/20 disabled:opacity-50 transition-all">Guardar Nota</button>
+                      </div>
+                      <div className="space-y-3">
+                        {notas.length === 0 ? <p className="text-[10px] text-slate-600 font-bold uppercase italic">Sin notas aún.</p> : notas.map((n, i) => (
+                          <div key={i} className="bg-white/5 border border-white/10 p-4 rounded-2xl">
+                            <p className="text-xs text-slate-300 leading-relaxed mb-2">{n.texto}</p>
+                            <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest">{n.fecha}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* HISTORIAL DE TURNOS */}
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-4">Historial de Turnos ({cli.turnosTotal})</p>
+                      <div className="space-y-3">
+                        {cli.historial.slice(0, 10).map((t: any, i: number) => (
+                          <div key={i} className="bg-white/5 border border-white/10 p-4 rounded-2xl flex justify-between items-center">
+                            <div>
+                              <p className="text-sm font-black uppercase italic">{t.servicio?.nombre || 'Servicio eliminado'}</p>
+                              <p className="text-[9px] text-slate-500 font-black uppercase tracking-widest mt-1">{t.fecha} · {t.hora.slice(0,5)} HS</p>
+                            </div>
+                            <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-lg ${t.estado === 'completado' ? 'bg-emerald-500/20 text-emerald-400' : t.estado === 'cancelado' ? 'bg-rose-500/20 text-rose-400' : 'bg-white/10 text-slate-400'}`}>{t.estado}</span>
+                          </div>
+                        ))}
+                        {cli.turnosTotal > 10 && <p className="text-[10px] text-slate-500 font-black text-center pt-2">Ver turnos antiguos en Informes</p>}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })() : (
+              <div className="h-[70vh] border border-dashed border-white/10 rounded-[3.5rem] flex items-center justify-center text-center p-10">
+                <div>
+                  <div className="text-6xl mb-6 opacity-20">👤</div>
+                  <p className="text-sm font-black uppercase tracking-widest text-slate-500">Seleccioná un cliente<br/>para ver su perfil</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )

@@ -7,9 +7,7 @@ import { toast } from 'sonner'
 
 const BA_TZ = 'America/Argentina/Buenos_Aires'
 
-function toBaDateStr(date: Date): string {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: BA_TZ }).format(date)
-}
+function toBaDateStr(date: Date): string { return new Intl.DateTimeFormat('en-CA', { timeZone: BA_TZ }).format(date) }
 
 export default function CajaElite() {
   const [negocio, setNegocio] = useState<any>(null)
@@ -28,13 +26,25 @@ export default function CajaElite() {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return router.push('/login')
-      const { data: neg } = await supabase.from('negocio').select('id, tema, suscripcion_tipo').eq('owner_id', user.id).single()
-      if (!neg) return router.push('/onboarding')
-      if (neg.suscripcion_tipo !== 'pro' && neg.suscripcion_tipo !== 'trial') {
-        toast.error('La gestión de Caja es exclusiva del plan PRO')
-        return router.push('/dashboard')
+      
+      const { data: adm } = await supabase.from('adminrol').select('*').eq('user_id', user.id).single()
+      let negId = adm?.negocio_id
+      if (!negId && adm?.role !== 'superadmin') {
+         const { data: n } = await supabase.from('negocio').select('id').eq('owner_id', user.id).single()
+         if (n) negId = n.id
       }
-      setNegocio(neg)
+
+      if (negId) {
+        const { data: neg } = await supabase.from('negocio').select('*').eq('id', negId).single()
+        if (!neg) return router.push('/onboarding')
+        
+        // BLINDAJE PRO
+        if (neg.suscripcion_tipo === 'normal' && adm?.role !== 'superadmin') {
+          toast.error('La gestión de Caja es exclusiva del plan PRO')
+          return router.push('/dashboard')
+        }
+        setNegocio(neg)
+      }
     }
     init()
   }, [router])
@@ -49,14 +59,10 @@ export default function CajaElite() {
       supabase.from('turno').select('fecha, servicio(precio)').eq('negocio_id', negocio.id).eq('pago_estado', 'cobrado').gte('fecha', startOfMonth).lte('fecha', endOfMonth),
       supabase.from('gasto').select('*').eq('negocio_id', negocio.id).gte('fecha', startOfMonth).lte('fecha', endOfMonth).order('fecha', { ascending: false })
     ])
-    setIngresos(turnos || [])
-    setGastos(gst || [])
-    setLoading(false)
+    setIngresos(turnos || []); setGastos(gst || []); setLoading(false)
   }
 
-  useEffect(() => {
-    cargarDatos()
-  }, [negocio, mesFiltro])
+  useEffect(() => { cargarDatos() }, [negocio, mesFiltro])
 
   const agregarGasto = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -77,7 +83,6 @@ export default function CajaElite() {
   }
 
   const colorP = getThemeColor(negocio?.tema)
-
   const totalIngresos = useMemo(() => ingresos.reduce((acc, t) => acc + (t.servicio?.precio || 0), 0), [ingresos])
   const totalGastos = useMemo(() => gastos.reduce((acc, g) => acc + Number(g.monto), 0), [gastos])
   const gananciaNeta = totalIngresos - totalGastos
@@ -119,44 +124,21 @@ export default function CajaElite() {
           <form onSubmit={agregarGasto} className="bg-white/4 border border-white/5 p-10 rounded-[3.5rem] h-fit shadow-2xl">
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-8">Registrar Nuevo Gasto</p>
             <div className="space-y-4">
-              <div>
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2 block">Fecha</label>
-                <input type="date" value={fechaGasto} onChange={e => setFechaGasto(e.target.value)} required className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black uppercase outline-none focus:border-white/30 transition-all [&::-webkit-calendar-picker-indicator]:invert" />
-              </div>
-              <div>
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2 block">Concepto (Insumos, Alquiler)</label>
-                <input type="text" value={concepto} onChange={e => setConcepto(e.target.value)} required placeholder="EJ: PAGO DE LUZ" className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black uppercase outline-none focus:border-white/30 transition-all placeholder:text-slate-800" />
-              </div>
-              <div>
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2 block">Monto ($)</label>
-                <input type="number" value={monto} onChange={e => setMonto(e.target.value)} required placeholder="5000" className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black uppercase outline-none focus:border-white/30 transition-all placeholder:text-slate-800" />
-              </div>
-              <button type="submit" disabled={guardando} className="w-full mt-4 py-6 rounded-[2.5rem] font-black uppercase italic text-lg text-black transition-all hover:scale-105 active:scale-95 shadow-xl" style={{ backgroundColor: colorP }}>
-                {guardando ? 'REGISTRANDO...' : 'REGISTRAR GASTO'}
-              </button>
+              <div><label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2 block">Fecha</label><input type="date" value={fechaGasto} onChange={e => setFechaGasto(e.target.value)} required className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black uppercase outline-none focus:border-white/30 transition-all [&::-webkit-calendar-picker-indicator]:invert" /></div>
+              <div><label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2 block">Concepto</label><input type="text" value={concepto} onChange={e => setConcepto(e.target.value)} required placeholder="EJ: PAGO DE LUZ" className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black uppercase outline-none focus:border-white/30 transition-all placeholder:text-slate-800" /></div>
+              <div><label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2 block">Monto ($)</label><input type="number" value={monto} onChange={e => setMonto(e.target.value)} required placeholder="5000" className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black uppercase outline-none focus:border-white/30 transition-all placeholder:text-slate-800" /></div>
+              <button type="submit" disabled={guardando} className="w-full mt-4 py-6 rounded-[2.5rem] font-black uppercase italic text-lg text-black transition-all hover:scale-105 active:scale-95 shadow-xl" style={{ backgroundColor: colorP }}>{guardando ? 'REGISTRANDO...' : 'REGISTRAR GASTO'}</button>
             </div>
           </form>
 
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-6 px-4">Historial de Gastos</p>
-            {loading ? (
-               <div className="text-center py-10 font-black italic text-slate-800 animate-pulse text-xl uppercase tracking-tighter">CARGANDO...</div>
-            ) : gastos.length === 0 ? (
-              <div className="text-center py-20 border border-dashed border-white/10 rounded-[3rem]">
-                <p className="text-slate-600 font-black uppercase tracking-widest text-xs">Sin gastos en este mes</p>
-              </div>
-            ) : (
+            {loading ? <div className="text-center py-10 font-black italic text-slate-800 animate-pulse text-xl uppercase tracking-tighter">CARGANDO...</div> : gastos.length === 0 ? <div className="text-center py-20 border border-dashed border-white/10 rounded-[3rem]"><p className="text-slate-600 font-black uppercase tracking-widest text-xs">Sin gastos en este mes</p></div> : (
               <div className="space-y-3">
                 {gastos.map(g => (
                   <div key={g.id} className="bg-white/4 border border-white/5 p-6 rounded-[2.5rem] flex justify-between items-center group hover:bg-white/10 transition-all">
-                    <div>
-                      <p className="text-lg font-black uppercase italic text-white/90">{g.concepto}</p>
-                      <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest mt-1">{g.fecha}</p>
-                    </div>
-                    <div className="text-right flex flex-col items-end">
-                      <p className="text-2xl font-black italic text-rose-400">-${Number(g.monto).toLocaleString('es-AR')}</p>
-                      <button onClick={() => eliminarGasto(g.id)} className="opacity-0 group-hover:opacity-100 text-rose-500 font-black text-[9px] uppercase tracking-widest transition-all bg-rose-500/10 px-3 py-1.5 mt-1 rounded-xl hover:bg-rose-500/20">Eliminar</button>
-                    </div>
+                    <div><p className="text-lg font-black uppercase italic text-white/90">{g.concepto}</p><p className="text-[10px] font-black uppercase text-slate-500 tracking-widest mt-1">{g.fecha}</p></div>
+                    <div className="text-right flex flex-col items-end"><p className="text-2xl font-black italic text-rose-400">-${Number(g.monto).toLocaleString('es-AR')}</p><button onClick={() => eliminarGasto(g.id)} className="opacity-0 group-hover:opacity-100 text-rose-500 font-black text-[9px] uppercase tracking-widest transition-all bg-rose-500/10 px-3 py-1.5 mt-1 rounded-xl hover:bg-rose-500/20">Eliminar</button></div>
                   </div>
                 ))}
               </div>

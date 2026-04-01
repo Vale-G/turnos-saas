@@ -1,10 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { crearPreferenciaMercadoPago } from '@/lib/mercadopago'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { crearPreferenciaMercadoPago } from '@/lib/mercadopago'
+import { rateLimitByIp } from '@/lib/rate-limit'
 
 export async function POST(req: NextRequest) {
   try {
+    const rate = rateLimitByIp(req, { limit: 5, windowMs: 60_000 }, 'checkout')
+
+    if (!rate.success) {
+      return NextResponse.json(
+        { error: 'Demasiadas solicitudes. Intentá nuevamente en unos segundos.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(rate.retryAfter),
+            'X-RateLimit-Limit': String(rate.limit),
+            'X-RateLimit-Remaining': String(rate.remaining),
+            'X-RateLimit-Reset': String(rate.reset),
+          },
+        },
+      )
+    }
+
     const body = await req.json()
     const { turnoId, servicioNombre, precio, negocioSlug } = body
 
@@ -20,15 +38,23 @@ export async function POST(req: NextRequest) {
         cookies: {
           getAll: () => cookieStore.getAll(),
           setAll: (toSet) => {
-            try { toSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options)) }
-            catch { /* ok */ }
+            try {
+              toSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
+            } catch {
+              return
+            }
           },
         },
-      }
+      },
     )
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+    }
 
     const origin = req.headers.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
 
@@ -45,17 +71,24 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    return NextResponse.json({
-      id: preferencia.id,
-      url: process.env.NODE_ENV === 'production'
-        ? preferencia.init_point
-        : preferencia.sandbox_init_point,
-    })
+    return NextResponse.json(
+      {
+        id: preferencia.id,
+        url: process.env.NODE_ENV === 'production' ? preferencia.init_point : preferencia.sandbox_init_point,
+      },
+      {
+        headers: {
+          'X-RateLimit-Limit': String(rate.limit),
+          'X-RateLimit-Remaining': String(rate.remaining),
+          'X-RateLimit-Reset': String(rate.reset),
+        },
+      },
+    )
   } catch (err) {
     console.error('[Turnly] Error checkout:', err)
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Error interno' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }

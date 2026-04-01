@@ -72,7 +72,7 @@ export default function SuperAdminElite() {
   }
 
   const togglePlan = async (id: string, actual: string) => {
-    const nuevo = actual === 'pro' ? 'normal' : 'pro'
+    const nuevo = actual === 'pro' ? 'basico' : 'pro'
     await supabase.from('negocio').update({ suscripcion_tipo: nuevo }).eq('id', id)
     setNegocios(negocios.map((n) => (n.id === id ? { ...n, suscripcion_tipo: nuevo } : n)))
     toast.success(`Plan cambiado a ${nuevo.toUpperCase()}`)

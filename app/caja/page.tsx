@@ -8,6 +8,13 @@ import { toast } from 'sonner'
 const BA_TZ = 'America/Argentina/Buenos_Aires'
 function toBaDateStr(date: Date): string { return new Intl.DateTimeFormat('en-CA', { timeZone: BA_TZ }).format(date) }
 
+function getMonthRange(monthIso: string) {
+  const [y, m] = monthIso.split('-').map(Number)
+  const start = `${monthIso}-01`
+  const next = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`
+  return { start, next }
+}
+
 export default function CajaElite() {
   const [negocio, setNegocio] = useState<any>(null)
   const [ingresos, setIngresos] = useState<any[]>([])
@@ -24,7 +31,10 @@ export default function CajaElite() {
 
   // REGLA DE REACT: Todos los Hooks van ARRIBA de los 'if'
   const colorP = getThemeColor(negocio?.tema)
-  const totalIngresos = useMemo(() => ingresos.reduce((acc, t) => acc + (t.servicio?.precio || 0), 0), [ingresos])
+  const totalIngresos = useMemo(
+    () => ingresos.filter((t) => t.estado === 'completado' || t.pago_estado === 'cobrado').reduce((acc, t) => acc + (t.servicio?.precio || 0), 0),
+    [ingresos],
+  )
   const totalGastos = useMemo(() => gastos.reduce((acc, g) => acc + Number(g.monto), 0), [gastos])
   const gananciaNeta = totalIngresos - totalGastos
 
@@ -58,17 +68,35 @@ export default function CajaElite() {
 
   const cargarDatos = async () => {
     if (!negocio?.id || !tieneAcceso) return
-    const startOfMonth = `${mesFiltro}-01`
-    const endOfMonth = `${mesFiltro}-31`
+    const { start, next } = getMonthRange(mesFiltro)
 
     const [{ data: turnos }, { data: gst }] = await Promise.all([
-      supabase.from('turno').select('fecha, servicio(precio)').eq('negocio_id', negocio.id).eq('estado', 'completado').gte('fecha', startOfMonth).lte('fecha', endOfMonth),
-      supabase.from('gasto').select('*').eq('negocio_id', negocio.id).gte('fecha', startOfMonth).lte('fecha', endOfMonth).order('fecha', { ascending: false })
+      supabase
+        .from('turno')
+        .select('fecha, estado, pago_estado, servicio(precio)')
+        .eq('negocio_id', negocio.id)
+        .gte('fecha', start)
+        .lt('fecha', next),
+      supabase.from('gasto').select('*').eq('negocio_id', negocio.id).gte('fecha', start).lt('fecha', next).order('fecha', { ascending: false })
     ])
     setIngresos(turnos || []); setGastos(gst || [])
   }
 
   useEffect(() => { cargarDatos() }, [negocio, mesFiltro, tieneAcceso])
+
+  useEffect(() => {
+    if (!negocio?.id || !tieneAcceso) return
+    const channel = supabase
+      .channel(`caja-turnos-${negocio.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'turno', filter: `negocio_id=eq.${negocio.id}` }, () => {
+        cargarDatos()
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [negocio?.id, mesFiltro, tieneAcceso])
 
   const agregarGasto = async (e: React.FormEvent) => {
     e.preventDefault()

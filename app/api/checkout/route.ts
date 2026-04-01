@@ -24,9 +24,9 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { turnoId, servicioNombre, precio, negocioSlug } = body
+    const { turnoId, servicioId, negocioSlug, precio: precioCliente } = body
 
-    if (!turnoId || !servicioNombre || !precio || !negocioSlug) {
+    if (!turnoId || !servicioId || !negocioSlug) {
       return NextResponse.json({ error: 'Faltan campos requeridos' }, { status: 400 })
     }
 
@@ -56,11 +56,62 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
     }
 
+    const { data: turno, error: turnoError } = await supabase
+      .from('turno')
+      .select('id, negocio_id, servicio_id')
+      .eq('id', turnoId)
+      .single()
+
+    if (turnoError || !turno) {
+      return NextResponse.json({ error: 'Turno inexistente' }, { status: 404 })
+    }
+
+    if (turno.servicio_id !== servicioId) {
+      return NextResponse.json({ error: 'Servicio inválido para el turno' }, { status: 400 })
+    }
+
+    const { data: negocio, error: negocioError } = await supabase
+      .from('negocio')
+      .select('id, slug')
+      .eq('id', turno.negocio_id)
+      .single()
+
+    if (negocioError || !negocio) {
+      return NextResponse.json({ error: 'Negocio inexistente' }, { status: 404 })
+    }
+
+    if (negocio.slug !== negocioSlug) {
+      return NextResponse.json({ error: 'Negocio inválido' }, { status: 400 })
+    }
+
+    const { data: servicio, error: servicioError } = await supabase
+      .from('servicio')
+      .select('id, nombre, precio, negocio_id')
+      .eq('id', servicioId)
+      .single()
+
+    if (servicioError || !servicio) {
+      return NextResponse.json({ error: 'Servicio inexistente' }, { status: 404 })
+    }
+
+    if (servicio.negocio_id !== turno.negocio_id) {
+      return NextResponse.json({ error: 'Servicio no corresponde al negocio del turno' }, { status: 400 })
+    }
+
+    const precioReal = Number(servicio.precio)
+    if (!Number.isFinite(precioReal) || precioReal <= 0) {
+      return NextResponse.json({ error: 'Precio de servicio inválido' }, { status: 400 })
+    }
+
+    if (precioCliente !== undefined && Number(precioCliente) !== precioReal) {
+      return NextResponse.json({ error: 'El precio enviado no coincide con el valor real del servicio' }, { status: 400 })
+    }
+
     const origin = req.headers.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
 
     const preferencia = await crearPreferenciaMercadoPago({
-      titulo: servicioNombre,
-      precio: Number(precio),
+      titulo: servicio.nombre,
+      precio: precioReal,
       turnoId,
       clienteEmail: user.email ?? '',
       clienteNombre: user.user_metadata?.full_name ?? 'Cliente',

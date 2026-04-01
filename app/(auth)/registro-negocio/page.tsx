@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { supabase } from '../../../lib/supabase'
+import { useState, useEffect, useCallback } from 'react'
+import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
@@ -23,6 +23,8 @@ function slugify(text: string): string {
     .replace(/-+/g, '-')
 }
 
+type SlugStatus = 'idle' | 'checking' | 'available' | 'taken' | 'invalid'
+
 export default function RegistroNegocio() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -30,8 +32,47 @@ export default function RegistroNegocio() {
   const [nombreNegocio, setNombreNegocio] = useState('')
   const [slug, setSlug] = useState('')
   const [slugManual, setSlugManual] = useState(false)
+  const [slugStatus, setSlugStatus] = useState<SlugStatus>('idle')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+
+  // Validación de SLUG en tiempo real con debounce
+  const checkSlugDisponibilidad = useCallback(async (slugToCheck: string) => {
+    if (!slugToCheck || slugToCheck.length < 3) {
+      setSlugStatus('invalid')
+      return
+    }
+
+    setSlugStatus('checking')
+
+    const { data, error } = await supabase
+      .from('negocio')
+      .select('id')
+      .eq('slug', slugToCheck)
+      .maybeSingle()
+
+    if (error) {
+      console.error('[Turnly] Error verificando slug:', error)
+      setSlugStatus('idle')
+      return
+    }
+
+    setSlugStatus(data ? 'taken' : 'available')
+  }, [])
+
+  // Debounce de 500ms para no saturar la DB
+  useEffect(() => {
+    if (!slug) {
+      setSlugStatus('idle')
+      return
+    }
+
+    const timer = setTimeout(() => {
+      checkSlugDisponibilidad(slug)
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [slug, checkSlugDisponibilidad])
 
   const handleNombreChange = (value: string) => {
     setNombreNegocio(value)
@@ -46,8 +87,28 @@ export default function RegistroNegocio() {
   const handleRegistro = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    // Validaciones previas
     const pwError = validarPassword(password)
-    if (pwError) { setPasswordError(pwError); return }
+    if (pwError) { 
+      setPasswordError(pwError)
+      return 
+    }
+
+    if (!slug || slug.length < 3) {
+      toast.error('El slug debe tener al menos 3 caracteres')
+      return
+    }
+
+    if (slugStatus === 'taken') {
+      toast.error('Este slug ya está ocupado. Elegí otro.')
+      return
+    }
+
+    if (slugStatus === 'checking') {
+      toast.error('Esperá un momento, estamos verificando la disponibilidad...')
+      return
+    }
+
     setPasswordError(null)
     setLoading(true)
 
@@ -71,6 +132,7 @@ export default function RegistroNegocio() {
     if (authData.user) {
       const slugFinal = slug || slugify(nombreNegocio)
 
+      // Validación final server-side (por las dudas)
       const { data: slugExiste } = await supabase
         .from('negocio')
         .select('id')
@@ -108,6 +170,24 @@ export default function RegistroNegocio() {
     setLoading(false)
   }
 
+  // Función para obtener el ícono y color del estado del slug
+  const getSlugStatusUI = () => {
+    switch (slugStatus) {
+      case 'checking':
+        return { icon: '⏳', color: 'text-slate-500', text: 'Verificando...' }
+      case 'available':
+        return { icon: '✓', color: 'text-emerald-500', text: 'Disponible' }
+      case 'taken':
+        return { icon: '✗', color: 'text-rose-500', text: 'Ya está en uso' }
+      case 'invalid':
+        return { icon: '⚠', color: 'text-amber-500', text: 'Mínimo 3 caracteres' }
+      default:
+        return null
+    }
+  }
+
+  const statusUI = getSlugStatusUI()
+
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center p-4">
       <div className="w-full max-w-md bg-slate-900/50 p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl">
@@ -131,16 +211,34 @@ export default function RegistroNegocio() {
                 type="text"
                 placeholder="tu-negocio-aqui"
                 value={slug}
-                className="w-full bg-black/50 border border-slate-800 p-4 rounded-2xl focus:border-emerald-500 outline-none font-mono text-emerald-400 transition-all"
+                className={`w-full bg-black/50 border p-4 rounded-2xl outline-none font-mono text-sm transition-all ${
+                  slugStatus === 'available' 
+                    ? 'border-emerald-500 text-emerald-400' 
+                    : slugStatus === 'taken' 
+                    ? 'border-rose-500 text-rose-400'
+                    : 'border-slate-800 text-slate-300 focus:border-emerald-500'
+                }`}
                 onChange={(e) => handleSlugChange(e.target.value)}
                 required
+                minLength={3}
               />
-              <span className="absolute right-4 top-4 text-[10px] text-slate-600 font-bold uppercase">URL</span>
+              <div className="absolute right-4 top-4 flex items-center gap-2">
+                {statusUI && (
+                  <>
+                    <span className={`text-base ${statusUI.color}`}>{statusUI.icon}</span>
+                    <span className={`text-[9px] font-bold uppercase tracking-wider ${statusUI.color}`}>
+                      {statusUI.text}
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
             {slug && (
               <p className="text-[11px] text-slate-500 ml-2">
                 Tu link de reservas:{' '}
-                <span className="text-emerald-400 font-mono font-bold">/reservar/{slug}</span>
+                <span className={`font-mono font-bold ${slugStatus === 'available' ? 'text-emerald-400' : 'text-slate-400'}`}>
+                  /reservar/{slug}
+                </span>
               </p>
             )}
           </div>
@@ -176,7 +274,7 @@ export default function RegistroNegocio() {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || slugStatus === 'taken' || slugStatus === 'checking' || slugStatus === 'invalid'}
             className="w-full bg-emerald-500 text-black font-black uppercase italic py-5 rounded-2xl hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           >
             {loading ? 'Procesando...' : 'Crear mi cuenta gratis'}

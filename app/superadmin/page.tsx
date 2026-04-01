@@ -27,9 +27,9 @@ export default function SuperAdminElite() {
         configMap[r.clave] = Number(r.valor)
       })
       setConfigEdit({
-        precio_basico: configMap.precio_basico || 5000,
-        precio_pro: configMap.precio_pro || 25000,
-        dias_trial: configMap.dias_trial || 14,
+        precio_basico: Number.isFinite(configMap.precio_basico) ? configMap.precio_basico : 5000,
+        precio_pro: Number.isFinite(configMap.precio_pro) ? configMap.precio_pro : 25000,
+        dias_trial: Number.isFinite(configMap.dias_trial) ? configMap.dias_trial : 14,
       })
     }
   }, [])
@@ -65,15 +65,25 @@ export default function SuperAdminElite() {
       { clave: 'dias_trial', valor: String(configEdit.dias_trial) },
     ]
     for (const u of updates) {
-      await supabase.from('config').upsert(u, { onConflict: 'clave' })
+      const { error } = await supabase.from('config').upsert(u, { onConflict: 'clave' })
+      if (error) {
+        toast.error(`No se pudo guardar ${u.clave}`)
+        setGuardandoConfig(false)
+        return
+      }
     }
+    await cargarDatos()
     toast.success('Precios y Configuración actualizados en vivo')
     setGuardandoConfig(false)
   }
 
   const togglePlan = async (id: string, actual: string) => {
     const nuevo = actual === 'pro' ? 'basico' : 'pro'
-    await supabase.from('negocio').update({ suscripcion_tipo: nuevo }).eq('id', id)
+    const { error } = await supabase.from('negocio').update({ suscripcion_tipo: nuevo }).eq('id', id)
+    if (error) {
+      toast.error('No se pudo cambiar el plan')
+      return
+    }
     setNegocios(negocios.map((n) => (n.id === id ? { ...n, suscripcion_tipo: nuevo } : n)))
     toast.success(`Plan cambiado a ${nuevo.toUpperCase()}`)
   }

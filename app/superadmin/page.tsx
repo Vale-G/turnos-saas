@@ -79,15 +79,15 @@ export default function SuperAdminElite() {
 
   const togglePlan = async (id: string, actual: string) => {
     const nuevo = actual === 'pro' ? 'basico' : 'pro'
-    const { data, error } = await supabase
-      .from('negocio')
-      .update({ suscripcion_tipo: nuevo })
-      .eq('id', id)
-      .select('id, suscripcion_tipo')
-      .maybeSingle()
+    const res = await fetch('/api/superadmin/plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ negocioId: id, plan: nuevo }),
+    })
+    const payload = await res.json().catch(() => ({}))
 
-    if (error || !data || data.suscripcion_tipo !== nuevo) {
-      toast.error('No se pudo cambiar el plan (sin permisos o no persistió)')
+    if (!res.ok || payload?.negocio?.suscripcion_tipo !== nuevo) {
+      toast.error(payload?.error || 'No se pudo cambiar el plan')
       return
     }
     await cargarDatos()

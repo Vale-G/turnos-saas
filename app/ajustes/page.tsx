@@ -14,6 +14,11 @@ const TEMAS_DISPONIBLES = [
   { id: 'white', color: '#ffffff', nombre: 'Blanco' }
 ]
 
+const DIAS_SEMANA = [
+  { id: 1, letra: 'L' }, { id: 2, letra: 'M' }, { id: 3, letra: 'X' },
+  { id: 4, letra: 'J' }, { id: 5, letra: 'V' }, { id: 6, letra: 'S' }, { id: 0, letra: 'D' }
+]
+
 export default function AjustesPage() {
   const [negocio, setNegocio] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -27,6 +32,7 @@ export default function AjustesPage() {
   const [whatsapp, setWhatsapp] = useState('')
   const [apertura, setApertura] = useState('09:00')
   const [cierre, setCierre] = useState('20:00')
+  const [diasLaborales, setDiasLaborales] = useState<number[]>([1, 2, 3, 4, 5, 6])
   const [logoUrl, setLogoUrl] = useState('')
   const [mpToken, setMpToken] = useState('')
   const [emailContacto, setEmailContacto] = useState('')
@@ -53,6 +59,7 @@ export default function AjustesPage() {
           setWhatsapp(neg.whatsapp || '')
           setApertura(neg.hora_apertura?.slice(0,5) || '09:00')
           setCierre(neg.hora_cierre?.slice(0,5) || '20:00')
+          setDiasLaborales(neg.dias_laborales || [1, 2, 3, 4, 5, 6])
           setLogoUrl(neg.logo_url || '')
           setMpToken(neg.mp_access_token || '')
           setEmailContacto(neg.email_contacto || '')
@@ -67,25 +74,26 @@ export default function AjustesPage() {
     try {
       setSubiendoLogo(true)
       if (!e.target.files || e.target.files.length === 0) return
-      
       const file = e.target.files[0]
       const fileExt = file.name.split('.').pop()
       const fileName = `logo-${negocio?.id}-${Math.random()}.${fileExt}`
-
-      // Subir archivo al bucket "logos"
       const { error: uploadError } = await supabase.storage.from('logos').upload(fileName, file)
       if (uploadError) throw uploadError
-
-      // Obtener URL pública
       const { data: { publicUrl } } = supabase.storage.from('logos').getPublicUrl(fileName)
-      
       setLogoUrl(publicUrl)
-      toast.success('Logo cargado correctamente. ¡No olvides tocar GUARDAR AJUSTES!')
+      toast.success('Logo cargado correctamente.')
     } catch (error) {
-      console.error(error)
-      toast.error('Error al subir. Verificá que creaste el bucket "logos" en Supabase y es público.')
+      toast.error('Error al subir el logo.')
     } finally {
       setSubiendoLogo(false)
+    }
+  }
+
+  const toggleDia = (id: number) => {
+    if (diasLaborales.includes(id)) {
+      setDiasLaborales(diasLaborales.filter(d => d !== id))
+    } else {
+      setDiasLaborales([...diasLaborales, id].sort())
     }
   }
 
@@ -95,6 +103,7 @@ export default function AjustesPage() {
     const { error } = await supabase.from('negocio').update({
       nombre, slug, tema, whatsapp, 
       hora_apertura: apertura + ':00', hora_cierre: cierre + ':00',
+      dias_laborales: diasLaborales,
       logo_url: logoUrl, mp_access_token: mpToken, email_contacto: emailContacto
     }).eq('id', negocio.id)
 
@@ -121,7 +130,6 @@ export default function AjustesPage() {
             <h2 className="text-xl font-black uppercase italic mb-6">1. Identidad de Marca</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               
-              {/* UPLOAD DE LOGO CON VISTA PREVIA */}
               <div className="md:col-span-2 flex items-center gap-6 bg-black/50 border border-white/10 p-6 rounded-3xl">
                 <div className="w-24 h-24 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
                   {logoUrl ? <img src={logoUrl} alt="Logo Local" className="w-full h-full object-cover" /> : <span className="text-3xl">🖼️</span>}
@@ -132,7 +140,6 @@ export default function AjustesPage() {
                   <label htmlFor="logo-upload" className="bg-white/10 hover:bg-white/20 text-white text-xs font-black uppercase px-6 py-3 rounded-xl cursor-pointer transition-all inline-block border border-white/10">
                     {subiendoLogo ? 'SUBIENDO...' : 'SELECCIONAR FOTO'}
                   </label>
-                  <input type="url" value={logoUrl} onChange={e => setLogoUrl(e.target.value)} placeholder="O pegá un link directo (https://...)" className="w-full bg-transparent border-b border-white/10 py-2 mt-4 text-[10px] font-mono outline-none focus:border-white/30 text-slate-400" />
                 </div>
               </div>
 
@@ -151,20 +158,35 @@ export default function AjustesPage() {
           </div>
 
           <div className="bg-white/5 border border-white/10 p-8 rounded-[3rem]">
-            <h2 className="text-xl font-black uppercase italic mb-6">2. Operación y Contacto</h2>
+            <h2 className="text-xl font-black uppercase italic mb-6">2. Horarios y Días Laborales</h2>
+            
+            <div className="mb-8">
+              <label className="text-[10px] font-black uppercase text-slate-400 mb-4 block">¿Qué días abrís?</label>
+              <div className="flex flex-wrap gap-3">
+                {DIAS_SEMANA.map(d => (
+                  <button type="button" key={d.id} onClick={() => toggleDia(d.id)} className={`w-14 h-14 rounded-2xl font-black text-lg transition-all ${diasLaborales.includes(d.id) ? 'bg-white text-black shadow-lg scale-105' : 'bg-black/50 border border-white/10 text-slate-500 hover:bg-white/5'}`}>
+                    {d.letra}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div><label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">WhatsApp</label><input type="tel" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black uppercase outline-none focus:border-white/30" /></div>
-              <div><label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Email para Avisos</label><input type="email" value={emailContacto} onChange={e => setEmailContacto(e.target.value)} className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black uppercase outline-none focus:border-white/30" /></div>
               <div><label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Apertura</label><input type="time" value={apertura} onChange={e => setApertura(e.target.value)} className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black outline-none focus:border-white/30 [&::-webkit-calendar-picker-indicator]:invert" /></div>
               <div><label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Cierre</label><input type="time" value={cierre} onChange={e => setCierre(e.target.value)} className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black outline-none focus:border-white/30 [&::-webkit-calendar-picker-indicator]:invert" /></div>
             </div>
           </div>
 
-          <div className="bg-white/5 border border-white/10 p-8 rounded-[3rem] relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/10 blur-[50px] pointer-events-none" />
-            <h2 className="text-xl font-black uppercase italic mb-6 text-blue-400">3. MercadoPago</h2>
-            <div><label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Access Token (Producción)</label><input type="password" value={mpToken} onChange={e => setMpToken(e.target.value)} placeholder="APP_USR-..." className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-mono outline-none focus:border-blue-500/50" /></div>
-            <p className="text-[10px] text-slate-500 font-bold mt-3">Necesario para cobrar señas automáticas.</p>
+          <div className="bg-white/5 border border-white/10 p-8 rounded-[3rem]">
+            <h2 className="text-xl font-black uppercase italic mb-6">3. Contacto y Pagos</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div><label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">WhatsApp de Contacto</label><input type="tel" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black uppercase outline-none focus:border-white/30" /></div>
+              <div><label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Email para Avisos</label><input type="email" value={emailContacto} onChange={e => setEmailContacto(e.target.value)} className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black uppercase outline-none focus:border-white/30" /></div>
+            </div>
+            <div className="relative overflow-hidden bg-blue-500/10 border border-blue-500/20 p-6 rounded-3xl mt-4">
+              <h3 className="text-sm font-black uppercase italic mb-4 text-blue-400">MercadoPago</h3>
+              <div><label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Access Token (Producción)</label><input type="password" value={mpToken} onChange={e => setMpToken(e.target.value)} placeholder="APP_USR-..." className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-mono outline-none focus:border-blue-500/50" /></div>
+            </div>
           </div>
 
           <button type="submit" disabled={guardando} className="w-full py-6 rounded-[2.5rem] font-black uppercase italic text-xl text-black shadow-2xl active:scale-95 transition-all" style={{ backgroundColor: colorP }}>

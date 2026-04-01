@@ -7,6 +7,13 @@ import { getThemeColor } from '@/lib/theme'
 const BA_TZ = 'America/Argentina/Buenos_Aires'
 function toBaDateStr(date: Date): string { return new Intl.DateTimeFormat('en-CA', { timeZone: BA_TZ }).format(date) }
 
+function getMonthRange(monthIso: string) {
+  const [y, m] = monthIso.split('-').map(Number)
+  const start = `${monthIso}-01`
+  const next = m === 12 ? `${y + 1}-01-01` : `${y}-${String(m + 1).padStart(2, '0')}-01`
+  return { start, next }
+}
+
 export default function InformesElite() {
   const [negocio, setNegocio] = useState<any>(null)
   const [turnos, setTurnos] = useState<any[]>([])
@@ -40,13 +47,38 @@ export default function InformesElite() {
   useEffect(() => {
     if (!negocio?.id || !tieneAcceso) return
     async function fetchMetricas() {
-      const startOfMonth = `${mesFiltro}-01`
-      const endOfMonth = `${mesFiltro}-31`
-      const { data } = await supabase.from('turno').select('estado, servicio(nombre, precio), staff(nombre)').eq('negocio_id', negocio.id).gte('fecha', startOfMonth).lte('fecha', endOfMonth)
+      const { start, next } = getMonthRange(mesFiltro)
+      const { data } = await supabase
+        .from('turno')
+        .select('estado, servicio(nombre, precio), staff(nombre)')
+        .eq('negocio_id', negocio.id)
+        .gte('fecha', start)
+        .lt('fecha', next)
       setTurnos(data || [])
     }
     fetchMetricas()
   }, [negocio, mesFiltro, tieneAcceso])
+
+  useEffect(() => {
+    if (!negocio?.id || !tieneAcceso) return
+    const channel = supabase
+      .channel(`informes-turnos-${negocio.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'turno', filter: `negocio_id=eq.${negocio.id}` }, async () => {
+        const { start, next } = getMonthRange(mesFiltro)
+        const { data } = await supabase
+          .from('turno')
+          .select('estado, servicio(nombre, precio), staff(nombre)')
+          .eq('negocio_id', negocio.id)
+          .gte('fecha', start)
+          .lt('fecha', next)
+        setTurnos(data || [])
+      })
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [negocio?.id, mesFiltro, tieneAcceso])
 
   // CÁLCULOS MATEMÁTICOS (El cerebro del informe)
   const metricas = useMemo(() => {

@@ -27,9 +27,9 @@ export default function SuperAdminElite() {
         configMap[r.clave] = Number(r.valor)
       })
       setConfigEdit({
-        precio_basico: configMap.precio_basico || 5000,
-        precio_pro: configMap.precio_pro || 25000,
-        dias_trial: configMap.dias_trial || 14,
+        precio_basico: Number.isFinite(configMap.precio_basico) ? configMap.precio_basico : 5000,
+        precio_pro: Number.isFinite(configMap.precio_pro) ? configMap.precio_pro : 25000,
+        dias_trial: Number.isFinite(configMap.dias_trial) ? configMap.dias_trial : 14,
       })
     }
   }, [])
@@ -65,16 +65,32 @@ export default function SuperAdminElite() {
       { clave: 'dias_trial', valor: String(configEdit.dias_trial) },
     ]
     for (const u of updates) {
-      await supabase.from('config').upsert(u, { onConflict: 'clave' })
+      const { error } = await supabase.from('config').upsert(u, { onConflict: 'clave' })
+      if (error) {
+        toast.error(`No se pudo guardar ${u.clave}`)
+        setGuardandoConfig(false)
+        return
+      }
     }
+    await cargarDatos()
     toast.success('Precios y Configuración actualizados en vivo')
     setGuardandoConfig(false)
   }
 
   const togglePlan = async (id: string, actual: string) => {
-    const nuevo = actual === 'pro' ? 'normal' : 'pro'
-    await supabase.from('negocio').update({ suscripcion_tipo: nuevo }).eq('id', id)
-    setNegocios(negocios.map((n) => (n.id === id ? { ...n, suscripcion_tipo: nuevo } : n)))
+    const nuevo = actual === 'pro' ? 'basico' : 'pro'
+    const res = await fetch('/api/superadmin/plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ negocioId: id, plan: nuevo }),
+    })
+    const payload = await res.json().catch(() => ({}))
+
+    if (!res.ok || payload?.negocio?.suscripcion_tipo !== nuevo) {
+      toast.error(payload?.error || 'No se pudo cambiar el plan')
+      return
+    }
+    await cargarDatos()
     toast.success(`Plan cambiado a ${nuevo.toUpperCase()}`)
   }
 

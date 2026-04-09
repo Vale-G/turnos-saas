@@ -9,6 +9,7 @@ type TurnoItem = {
   id: string
   hora: string
   cliente_nombre: string
+  cliente_id?: string | null
   estado: string
   fecha: string
   pago_tipo: string | null
@@ -194,6 +195,34 @@ export default function AgendaTurnos() {
     setReloadKey((k) => k + 1)
   }, [])
 
+  const bloquearCliente = useCallback(
+    async (turno: TurnoItem) => {
+      if (!negocioId) return
+
+      const [nombreRaw, telefonoRaw] = String(turno.cliente_nombre || '')
+        .split('·')
+        .map((p) => p.trim())
+      const telefono = (telefonoRaw || '').replace(/\D/g, '') || null
+
+      const payload = {
+        negocio_id: negocioId,
+        usuario_id: turno.cliente_id || null,
+        email: null as string | null,
+        telefono,
+        nombre: nombreRaw || turno.cliente_nombre || 'Cliente',
+        motivo: 'Bloqueado desde historial de turnos',
+      }
+
+      const { error } = await supabase.from('lista_negra').upsert(payload, { onConflict: 'negocio_id,identidad' })
+      if (error) {
+        alert('No se pudo procesar la solicitud')
+        return
+      }
+      alert('Cliente bloqueado correctamente')
+    },
+    [negocioId],
+  )
+
   const guardarEdicion = async () => {
     if (!turnoEditar) return
     await supabase
@@ -328,6 +357,12 @@ export default function AgendaTurnos() {
             </div>
           </div>
           <div className="flex justify-end">
+            <button
+              onClick={() => bloquearCliente(t)}
+              className="text-[9px] font-black uppercase text-amber-300/70 hover:text-amber-300 hover:bg-amber-500/10 px-2.5 py-1.5 rounded-lg transition-all mr-2"
+            >
+              Bloquear cliente
+            </button>
             <button
               onClick={() => eliminarTurno(t.id)}
               className="text-[9px] font-black uppercase text-red-500/40 hover:text-red-400 hover:bg-red-500/10 px-2.5 py-1.5 rounded-lg transition-all"

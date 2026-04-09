@@ -6,6 +6,7 @@ import Hero from '@/components/landing/Hero'
 import Mockup from '@/components/landing/Mockup'
 import Features, { type LandingFeature } from '@/components/landing/Features'
 import Pricing from '@/components/landing/Pricing'
+import Footer from '@/components/Footer'
 
 const FEATURES: LandingFeature[] = [
   { icon: '📅', titulo: 'Reservas 24/7', desc: 'Tus clientes reservan desde el celular a cualquier hora, sin llamarte.' },
@@ -94,22 +95,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <footer className="border-t border-white/5 px-6 py-8 text-center">
-        <div className="flex items-center justify-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-xl overflow-hidden border border-white/10">
-            <img src="/fvtech-logo.jpg" alt="F&V Tech" className="w-full h-full object-cover" />
-          </div>
-          <div className="text-left">
-            <span className="font-black italic block">
-              turn<span className="text-[#6366F1]">ly</span>
-            </span>
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">by F&amp;V Tech</span>
-          </div>
-        </div>
-        <p className="text-slate-600 text-xs">
-          Tus turnos, tu negocio. · Desarrollado por <span className="text-[#6366F1] font-bold">F&amp;V Tech</span> 🇦🇷
-        </p>
-      </footer>
+      <Footer />
     </div>
   )
 }

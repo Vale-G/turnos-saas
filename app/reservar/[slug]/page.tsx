@@ -1,27 +1,47 @@
 'use client'
-import { useEffect, useState, useCallback, useMemo } from 'react'
-import { useParams } from 'next/navigation'
+import { useEffect, useState, useMemo } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import { supabase, getOAuthRedirectUrl } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
 import { toast } from 'sonner'
+import { reservaInvitadoSchema, strictPhoneSchema } from '@/lib/validation'
+import { formatCurrency } from '@/lib/utils'
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz'
 
-const BA_TZ = 'America/Argentina/Buenos_Aires'
-function toBaDateStr(date: Date): string { return new Intl.DateTimeFormat('en-CA', { timeZone: BA_TZ }).format(date) }
-function getBaMinutes(): number {
-  const parts = new Intl.DateTimeFormat('en-US', { timeZone: BA_TZ, hour: 'numeric', minute: 'numeric', hour12: false }).formatToParts(new Date())
-  return parseInt(parts.find(p => p.type === 'hour')?.value ?? '0') * 60 + parseInt(parts.find(p => p.type === 'minute')?.value ?? '0')
+const DEFAULT_TZ = 'America/Argentina/Buenos_Aires'
+
+function toBusinessDateStr(date: Date, timezone: string): string {
+  return formatInTimeZone(date, timezone, 'yyyy-MM-dd')
 }
-function getDayOfWeek(dateStr: string): number { return new Date(`${dateStr}T12:00:00-03:00`).getDay() }
-function generateDias() {
+
+function getBusinessMinutes(timezone: string): number {
+  const hour = Number(formatInTimeZone(new Date(), timezone, 'HH'))
+  const minute = Number(formatInTimeZone(new Date(), timezone, 'mm'))
+  return hour * 60 + minute
+}
+
+function getDayOfWeek(dateStr: string, timezone: string): number {
+  const zonedDate = fromZonedTime(`${dateStr}T12:00:00`, timezone)
+  const isoDay = Number(formatInTimeZone(zonedDate, timezone, 'i')) // 1=lunes, 7=domingo
+  return isoDay % 7 // 0=domingo, 1=lunes...
+}
+
+function generateDias(timezone: string) {
   const now = new Date()
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(now.getTime() + i * 86400000)
-    return { iso: toBaDateStr(d), weekday: new Intl.DateTimeFormat('es-AR', { timeZone: BA_TZ, weekday: 'short' }).format(d), day: new Intl.DateTimeFormat('es-AR', { timeZone: BA_TZ, day: 'numeric' }).format(d) }
+    return {
+      iso: formatInTimeZone(d, timezone, 'yyyy-MM-dd'),
+      weekday: new Intl.DateTimeFormat('es-AR', { timeZone: timezone, weekday: 'short' }).format(d),
+      day: new Intl.DateTimeFormat('es-AR', { timeZone: timezone, day: 'numeric' }).format(d),
+    }
   })
 }
 
 export default function ReservaPage() {
   const { slug } = useParams()
+  const slugValue = Array.isArray(slug) ? slug[0] : slug
+  const router = useRouter()
   const [negocio, setNegocio] = useState<any>(null)
   const [servicios, setServicios] = useState<any[]>([])
   const [staffList, setStaffList] = useState<any[]>([])
@@ -33,14 +53,48 @@ export default function ReservaPage() {
   const [confirmando, setConfirmando] = useState(false)
   const [exito, setExito] = useState(false)
   const [user, setUser] = useState<any>(null)
+  const [mostrarModalTelefono, setMostrarModalTelefono] = useState(false)
+  const [telefonoModal, setTelefonoModal] = useState('')
+  const [guardandoTelefono, setGuardandoTelefono] = useState(false)
+  const [pendienteConfirmacion, setPendienteConfirmacion] = useState<{ nombre: string; tel: string; pagarSena: boolean; correoInvitado: string } | null>(null)
 
   const colorP = getThemeColor(negocio?.tema)
-  const dias = useMemo(() => generateDias(), [])
+  const isDemo = slugValue === 'demo'
+  const businessTimezone = negocio?.timezone || DEFAULT_TZ
+  const monedaLocal = negocio?.moneda || 'ARS'
+  const dias = useMemo(() => generateDias(businessTimezone), [businessTimezone])
   const diasLaborales: number[] = negocio?.dias_laborales ?? [1, 2, 3, 4, 5, 6]
 
   useEffect(() => {
     async function init() {
-      const { data: neg } = await supabase.from('negocio').select('*').eq('slug', slug).single()
+      if (isDemo) {
+        setNegocio({
+          id: 'demo-negocio',
+          nombre: 'Turnly Demo Studio',
+          slug: 'demo',
+          tema: 'indigo',
+          moneda: 'ARS',
+          timezone: 'America/Argentina/Buenos_Aires',
+          hora_apertura: '09:00:00',
+          hora_cierre: '20:00:00',
+          dias_laborales: [1, 2, 3, 4, 5, 6],
+          email_contacto: 'demo@turnly.app',
+          logo_url: null,
+        })
+        setServicios([
+          { id: 'svc-1', nombre: 'Corte clásico', duracion: 45, precio: 15000, seña_tipo: 'ninguno', seña_valor: 0 },
+          { id: 'svc-2', nombre: 'Corte + Barba', duracion: 60, precio: 22000, seña_tipo: 'ninguno', seña_valor: 0 },
+          { id: 'svc-3', nombre: 'Perfilado premium', duracion: 30, precio: 9000, seña_tipo: 'ninguno', seña_valor: 0 },
+        ])
+        setStaffList([
+          { id: 'stf-1', nombre: 'Luca' },
+          { id: 'stf-2', nombre: 'Mora' },
+        ])
+        setLoading(false)
+        return
+      }
+
+      const { data: neg } = await supabase.from('negocio').select('*').eq('slug', slugValue).single()
       if (!neg) return setLoading(false)
       setNegocio(neg)
       const [{ data: svcs }, { data: stf }] = await Promise.all([
@@ -51,28 +105,55 @@ export default function ReservaPage() {
     }
     init()
     supabase.auth.getSession().then(({ data: { session } }) => setUser(session?.user || null))
-  }, [slug])
+  }, [isDemo, slugValue])
 
   useEffect(() => {
     if (!sel.barbero || !sel.fecha) return
     async function check() {
+      if (isDemo) {
+        setOcupados([])
+        setBloqueos([])
+        return
+      }
+
+      const utcStart = fromZonedTime(`${sel.fecha}T00:00:00`, businessTimezone)
+      const utcEnd = fromZonedTime(`${sel.fecha}T23:59:59`, businessTimezone)
+      const utcStartDate = formatInTimeZone(utcStart, 'UTC', 'yyyy-MM-dd')
+      const utcEndDate = formatInTimeZone(utcEnd, 'UTC', 'yyyy-MM-dd')
+
       const [{ data: t }, { data: b }] = await Promise.all([
-        supabase.from('turno').select('hora').eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha).not('estado', 'eq', 'cancelado'),
+        supabase
+          .from('turno')
+          .select('fecha, hora')
+          .eq('staff_id', sel.barbero.id)
+          .gte('fecha', utcStartDate)
+          .lte('fecha', utcEndDate)
+          .not('estado', 'eq', 'cancelado'),
         supabase.from('bloqueo').select('hora_inicio, hora_fin').eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha)
       ])
-      setOcupados((t ?? []).map((i: any) => i.hora.slice(0, 5)))
+
+      const ocupadosLocal = (t ?? [])
+        .map((item: any) => {
+          const utcDate = new Date(`${item.fecha}T${item.hora}Z`)
+          const localDate = formatInTimeZone(utcDate, businessTimezone, 'yyyy-MM-dd')
+          if (localDate !== sel.fecha) return null
+          return formatInTimeZone(utcDate, businessTimezone, 'HH:mm')
+        })
+        .filter(Boolean) as string[]
+
+      setOcupados(ocupadosLocal)
       setBloqueos(b ?? [])
     }
     check()
-  }, [sel.barbero, sel.fecha])
+  }, [businessTimezone, isDemo, sel.barbero, sel.fecha])
 
   const horas = useMemo(() => {
     if (!negocio || !sel.servicio || !sel.fecha) return []
     const list: string[] = []
     let curr = negocio.hora_apertura || '09:00:00'
     const cierre = negocio.hora_cierre || '18:00:00'
-    const esHoy = sel.fecha === toBaDateStr(new Date())
-    const minLimite = esHoy ? getBaMinutes() + 15 : 0
+    const esHoy = sel.fecha === toBusinessDateStr(new Date(), businessTimezone)
+    const minLimite = esHoy ? getBusinessMinutes(businessTimezone) + 15 : 0
 
     while (curr < cierre) {
       const hF = curr.slice(0, 5)
@@ -97,7 +178,7 @@ export default function ReservaPage() {
       curr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`
     }
     return list
-  }, [negocio, sel.servicio, sel.fecha, ocupados, bloqueos])
+  }, [businessTimezone, negocio, sel.servicio, sel.fecha, ocupados, bloqueos])
 
   // EL CEREBRO DE LAS SEÑAS FLEXIBLES
   const montoSenaCalculado = useMemo(() => {
@@ -109,49 +190,173 @@ export default function ReservaPage() {
     return Math.round(sel.servicio.precio * (porcentaje / 100))
   }, [sel.servicio])
 
-  const handleFinal = async (nombre: string, tel: string, pagarSena: boolean, correoInvitado: string) => {
-    setConfirmando(true)
-    const cliNombre = user ? (user.user_metadata?.full_name || user.email) : `${nombre} · ${tel}`
-    const correoFinal = user ? user.email : correoInvitado
-    
-    // 1. Validar Lista Negra
-    const { data: blacklistData } = await supabase.from('config').select('valor').eq('clave', `blacklist_${negocio.id}`).maybeSingle()
-    if (blacklistData?.valor) {
-      const listaNegra = JSON.parse(blacklistData.valor)
-      const telefonoLimpio = tel.replace(/[^0-9]/g, '')
-      if (listaNegra.some((t: string) => t.replace(/[^0-9]/g, '') === telefonoLimpio)) {
+  const obtenerTelefonoPerfil = async (userId: string): Promise<string> => {
+    try {
+      const { data: perfil } = await supabase
+        .from('perfil')
+        .select('telefono')
+        .eq('user_id', userId)
+        .maybeSingle()
+
+      const telefonoPerfil = String(perfil?.telefono || '').trim()
+      if (telefonoPerfil) return telefonoPerfil
+    } catch {
+      // fallback a metadata
+    }
+
+    return String(user?.user_metadata?.telefono || user?.phone || '').trim()
+  }
+
+  const handleFinal = async (nombre: string, tel: string, pagarSena: boolean, correoInvitado: string, forcedPhone?: string) => {
+    if (isDemo) {
+      setConfirmando(true)
+      setTimeout(() => {
+        setExito(true)
         setConfirmando(false)
-        return toast.error('Este servicio no está disponible para tu número. Contactá al local.', { duration: 5000 })
+      }, 500)
+      return
+    }
+
+    let telefonoUsuario = forcedPhone || ''
+
+    if (user && !forcedPhone) {
+      telefonoUsuario = await obtenerTelefonoPerfil(user.id)
+
+      if (!telefonoUsuario) {
+        setPendienteConfirmacion({ nombre, tel, pagarSena, correoInvitado })
+        setMostrarModalTelefono(true)
+        return
       }
     }
-    
-    // 2. Insertar Turno
-    const { data: turno, error } = await supabase.from('turno').insert({
-      negocio_id: negocio.id, servicio_id: sel.servicio.id, staff_id: sel.barbero.id,
-      fecha: sel.fecha, hora: sel.hora + ':00', cliente_id: user?.id || null,
-      cliente_nombre: cliNombre, estado: 'pendiente'
-    }).select('id').single()
 
-    if (error) { toast.error('Error al reservar'); setConfirmando(false); return }
+    setConfirmando(true)
 
-    // Notificar
-    fetch('/api/notificar', {
-      method: 'POST',
-      body: JSON.stringify({ clienteNombre: cliNombre, clienteEmail: correoFinal, negocioNombre: negocio.nombre, fecha: sel.fecha, hora: sel.hora, servicio: sel.servicio.nombre, emailNegocio: negocio.email_contacto })
-    }).catch(console.error)
+    try {
+      let nombreFinal = nombre
+      let telFinal = tel
+      let correoFinal = correoInvitado
 
-    // 3. Pagar Seña Exacta a MercadoPago
-    if (pagarSena && montoSenaCalculado > 0) {
-      const res = await fetch('/api/sena', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ turno_id: turno.id, monto_sena: montoSenaCalculado, servicio_nombre: sel.servicio.nombre, negocio_nombre: negocio.nombre, cliente_email: correoFinal })
+      if (!user) {
+        const validatedInvitado = reservaInvitadoSchema.safeParse({ nombre, tel, correoInvitado })
+        if (!validatedInvitado.success) {
+          toast.error(validatedInvitado.error.issues[0]?.message ?? 'Datos inválidos')
+          return
+        }
+
+        nombreFinal = validatedInvitado.data.nombre
+        telFinal = validatedInvitado.data.tel
+        correoFinal = validatedInvitado.data.correoInvitado
+      }
+
+      if (user) telFinal = telefonoUsuario
+
+      const cliNombre = user ? (user.user_metadata?.full_name || user.email) : `${nombreFinal} · ${telFinal}`
+      correoFinal = user ? user.email : correoFinal
+
+      // 1. Insertar turno vía API con validación server-side de lista negra
+      const selectedUtc = fromZonedTime(`${sel.fecha}T${sel.hora}:00`, businessTimezone)
+      const fechaUtc = formatInTimeZone(selectedUtc, 'UTC', 'yyyy-MM-dd')
+      const horaUtc = formatInTimeZone(selectedUtc, 'UTC', 'HH:mm:ss')
+
+      const response = await fetch('/api/reservas/confirmar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          negocio_id: negocio.id,
+          servicio_id: sel.servicio.id,
+          staff_id: sel.barbero.id,
+          fecha_utc: fechaUtc,
+          hora_utc: horaUtc,
+          cliente_id: user?.id || null,
+          cliente_nombre: cliNombre,
+          cliente_email: correoFinal,
+          cliente_telefono: telFinal,
+        }),
       })
-      const resData = await res.json()
-      if (resData.url) { window.location.href = resData.url; return } 
+
+      const reservaData = await response.json()
+      if (!response.ok || !reservaData?.turnoId) {
+        toast.error(reservaData?.error || 'No se pudo procesar la solicitud')
+        return
+      }
+
+      // Enviar comprobante por email
+      fetch('/api/reserva/confirmacion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clienteNombre: cliNombre.split('·')[0].trim(),
+          clienteEmail: correoFinal,
+          negocioNombre: negocio.nombre,
+          fecha: sel.fecha,
+          hora: sel.hora,
+          servicio: sel.servicio.nombre,
+          precio: formatCurrency(Number(sel.servicio?.precio ?? 0), monedaLocal),
+        })
+      }).catch(() => null)
+
+      // 3. Pagar Seña Exacta a MercadoPago
+      if (pagarSena && montoSenaCalculado > 0) {
+        const res = await fetch('/api/sena', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ turno_id: reservaData.turnoId, monto_sena: montoSenaCalculado, servicio_nombre: sel.servicio.nombre, negocio_nombre: negocio.nombre, cliente_email: correoFinal })
+        })
+        const resData = await res.json()
+        if (resData.url) { window.location.href = resData.url; return }
+        toast.error('No se pudo procesar la solicitud')
+        return
+      }
+
+      setExito(true)
+      router.push(`/reserva/confirmada/${reservaData.turnoId}`)
+    } catch {
+      toast.error('No se pudo procesar la solicitud')
+    } finally {
+      setConfirmando(false)
+    }
+  }
+
+  const guardarTelefonoYConfirmar = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    const validated = strictPhoneSchema.safeParse(telefonoModal)
+    if (!validated.success) {
+      toast.error(validated.error.issues[0]?.message ?? 'Teléfono inválido')
+      return
     }
 
-    setExito(true)
-    setConfirmando(false)
+    if (!user || !pendienteConfirmacion) return
+
+    setGuardandoTelefono(true)
+    try {
+      const telefono = validated.data
+
+      await supabase
+        .from('perfil')
+        .upsert({ user_id: user.id, telefono }, { onConflict: 'user_id' })
+
+      await supabase.auth.updateUser({
+        data: { telefono },
+      })
+
+      setUser((prev: any) => ({
+        ...prev,
+        user_metadata: {
+          ...(prev?.user_metadata || {}),
+          telefono,
+        },
+      }))
+
+      setMostrarModalTelefono(false)
+      setTelefonoModal('')
+      const pendiente = pendienteConfirmacion
+      setPendienteConfirmacion(null)
+      await handleFinal(pendiente.nombre, pendiente.tel, pendiente.pagarSena, pendiente.correoInvitado, telefono)
+    } catch {
+      toast.error('No se pudo procesar la solicitud')
+    } finally {
+      setGuardandoTelefono(false)
+    }
   }
 
   if (loading) return <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black animate-pulse">CARGANDO...</div>
@@ -181,7 +386,7 @@ export default function ReservaPage() {
               {servicios.map(s => (
                 <div key={s.id} onClick={() => { setSel({ ...sel, servicio: s }); setPaso(2) }} className="bg-white/4 border border-white/5 hover:border-white/20 p-8 rounded-[3rem] flex justify-between items-center cursor-pointer transition-all active:scale-[0.98]">
                   <div><p className="font-black italic uppercase text-2xl mb-1 tracking-tighter" style={{ color: colorP }}>{s.nombre}</p><p className="text-[10px] text-slate-500 font-black uppercase">{s.duracion} MINUTOS</p></div>
-                  <p className="text-3xl font-black italic">${s.precio}</p>
+                  <p className="text-3xl font-black italic">{formatCurrency(Number(s.precio), monedaLocal)}</p>
                 </div>
               ))}
             </div>
@@ -191,7 +396,7 @@ export default function ReservaPage() {
             <button onClick={() => setPaso(1)} className="text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-white">← Volver</button>
             <div className="bg-white/4 border border-white/5 rounded-3xl px-6 py-4 flex justify-between items-center">
               <div><p className="font-black uppercase text-base italic" style={{ color: colorP }}>{sel.servicio?.nombre}</p><p className="text-[10px] text-slate-500 font-bold uppercase mt-0.5">{sel.servicio?.duracion} MIN</p></div>
-              <p className="font-black text-xl italic">${sel.servicio?.precio}</p>
+              <p className="font-black text-xl italic">{formatCurrency(Number(sel.servicio?.precio ?? 0), monedaLocal)}</p>
             </div>
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-6">Profesional</p>
@@ -209,7 +414,7 @@ export default function ReservaPage() {
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-6">Fecha</p>
                 <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide">
                   {dias.map(({ iso, weekday, day }) => {
-                    const esLaboral = diasLaborales.includes(getDayOfWeek(iso))
+                    const esLaboral = diasLaborales.includes(getDayOfWeek(iso, businessTimezone))
                     const activo = sel.fecha === iso
                     return <div key={iso} onClick={() => esLaboral && setSel({ ...sel, fecha: iso, hora: '' })} className={`flex-shrink-0 w-16 h-24 rounded-[2rem] border flex flex-col items-center justify-center ${!esLaboral ? 'opacity-20' : activo ? 'border-transparent' : 'bg-white/4 border-white/5'}`} style={activo && esLaboral ? { backgroundColor: colorP } : {}}><p className={`text-[9px] font-black uppercase mb-2 ${activo?'text-black':'text-slate-500'}`}>{weekday}</p><p className={`text-2xl font-black ${activo?'text-black':''}`}>{day}</p></div>
                   })}
@@ -236,19 +441,61 @@ export default function ReservaPage() {
               <div className="text-center mb-10 space-y-3">
                 <p className="text-4xl font-black italic uppercase leading-none" style={{ color: colorP }}>{sel.servicio?.nombre}</p>
                 <p className="font-black uppercase text-xs tracking-[0.3em] text-white pt-2">{sel.fecha} · {sel.hora} HS</p>
-                <p className="text-4xl font-black pt-4">${sel.servicio?.precio}</p>
-                {montoSenaCalculado > 0 && <p className="text-[10px] font-black uppercase text-emerald-400 pt-2 tracking-widest">Requiere Seña: ${montoSenaCalculado}</p>}
+                <p className="text-4xl font-black pt-4">{formatCurrency(Number(sel.servicio?.precio ?? 0), monedaLocal)}</p>
+                {montoSenaCalculado > 0 && <p className="text-[10px] font-black uppercase text-emerald-400 pt-2 tracking-widest">Requiere Seña: {formatCurrency(montoSenaCalculado, monedaLocal)}</p>}
               </div>
-              <AuthSelector user={user} colorP={colorP} loading={confirmando} onConfirm={handleFinal} slug={slug} montoSena={montoSenaCalculado} />
+              <AuthSelector user={user} colorP={colorP} loading={confirmando} onConfirm={handleFinal} slug={slugValue} montoSena={montoSenaCalculado} monedaLocal={monedaLocal} />
             </div>
           </div>
         )}
       </div>
+
+      {mostrarModalTelefono && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6">
+          <div className="w-full max-w-md rounded-[2rem] border border-white/10 bg-[#020617] p-8 shadow-2xl">
+            <h3 className="text-2xl font-black uppercase italic tracking-tight text-white">Último paso para confirmar tu turno</h3>
+            <p className="mt-3 text-sm text-slate-400">
+              Para finalizar con Google, necesitamos tu WhatsApp para validación y contacto del negocio.
+            </p>
+
+            <form onSubmit={guardarTelefonoYConfirmar} className="mt-6 space-y-4">
+              <input
+                type="tel"
+                value={telefonoModal}
+                onChange={(e) => setTelefonoModal(e.target.value)}
+                placeholder="Ej: +5491123456789"
+                className="w-full rounded-2xl border border-white/15 bg-black/40 p-4 text-sm font-semibold outline-none focus:border-emerald-400"
+                required
+              />
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMostrarModalTelefono(false)
+                    setPendienteConfirmacion(null)
+                  }}
+                  className="rounded-2xl border border-white/15 py-3 text-xs font-bold uppercase tracking-wider text-slate-300 hover:bg-white/5"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={guardandoTelefono}
+                  className="rounded-2xl bg-emerald-400 py-3 text-xs font-black uppercase tracking-wider text-black disabled:opacity-50"
+                >
+                  {guardandoTelefono ? 'Guardando...' : 'Guardar y confirmar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
 
-function AuthSelector({ user, colorP, loading, onConfirm, slug, montoSena }: any) {
+function AuthSelector({ user, colorP, loading, onConfirm, slug, montoSena, monedaLocal }: any) {
   const [modo, setModo] = useState('invitado')
   const [nombre, setNombre] = useState(''); const [tel, setTel] = useState(''); const [correo, setCorreo] = useState('')
   const login = () => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: getOAuthRedirectUrl('/auth/callback?next=/reservar/' + slug) } })
@@ -258,7 +505,7 @@ function AuthSelector({ user, colorP, loading, onConfirm, slug, montoSena }: any
       {montoSena > 0 && (
         <button onClick={() => accion(true)} disabled={loading} className="w-full py-6 rounded-[2.5rem] font-black uppercase italic text-sm text-black hover:opacity-90 disabled:opacity-50" style={{ backgroundColor: colorP }}>
           <span className="flex flex-col">
-            <span>Abonar Seña (${montoSena})</span>
+            <span>Abonar Seña ({formatCurrency(montoSena, monedaLocal)})</span>
             <span className="text-[10px] font-bold opacity-70 mt-1">Con MercadoPago</span>
           </span>
         </button>

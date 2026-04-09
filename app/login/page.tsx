@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { loginSchema } from '@/lib/validation'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -14,32 +15,38 @@ export default function Login() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
 
-    if (error) {
-      toast.error("Error al entrar: " + error.message)
-      setLoading(false)
-    } else if (data.user) {
-      // Verificamos si es superadmin
-      const { data: rol } = await supabase
-        .from('adminrol')
-        .select('role')
-        .eq('user_id', data.user.id)
-        .maybeSingle()
-
-      // Aquí corregimos el error de TypeScript: solo usamos .role
-      const rolValue = String(rol?.role ?? '').toLowerCase()
-      
-      if (rolValue === 'superadmin') {
-        toast.success("Bienvenido, Administrador")
-        router.push('/superadmin')
-      } else {
-        router.push('/dashboard')
+    try {
+      const validated = loginSchema.safeParse({ email, password })
+      if (!validated.success) {
+        toast.error(validated.error.issues[0]?.message ?? 'Datos inválidos')
+        return
       }
+
+      const { data, error } = await supabase.auth.signInWithPassword(validated.data)
+
+      if (error) {
+        toast.error('No se pudo procesar la solicitud')
+      } else if (data.user) {
+        const { data: rol } = await supabase
+          .from('adminrol')
+          .select('role')
+          .eq('user_id', data.user.id)
+          .maybeSingle()
+
+        const rolValue = String(rol?.role ?? '').toLowerCase()
+
+        if (rolValue === 'superadmin') {
+          toast.success("Bienvenido, Administrador")
+          router.push('/superadmin')
+        } else {
+          router.push('/dashboard')
+        }
+      }
+    } catch {
+      toast.error('No se pudo procesar la solicitud')
+    } finally {
+      setLoading(false)
     }
   }
 

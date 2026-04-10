@@ -7,6 +7,7 @@ import Mockup from '@/components/landing/Mockup'
 import Features, { type LandingFeature } from '@/components/landing/Features'
 import Pricing from '@/components/landing/Pricing'
 import Footer from '@/components/Footer'
+import { brandConfig } from '@/config/brand'
 
 const FEATURES: LandingFeature[] = [
   { icon: '📅', titulo: 'Reservas 24/7', desc: 'Tus clientes reservan desde el celular a cualquier hora, sin llamarte.' },
@@ -20,6 +21,7 @@ const FEATURES: LandingFeature[] = [
 export default function Landing() {
   const router = useRouter()
   const [precios, setPrecios] = React.useState({ basico: 5000, pro: 25000 })
+  const brandColor = brandConfig.brandColor
 
   React.useEffect(() => {
     import('@/lib/supabase').then(({ supabase }) => {
@@ -44,14 +46,12 @@ export default function Landing() {
       <nav className="flex items-center justify-between px-6 py-5 max-w-5xl mx-auto">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center bg-[#0F172A] border border-white/10">
-            <img src="/fvtech-logo.jpg" alt="F&V Tech" className="w-full h-full object-cover" />
+            <img src={brandConfig.appLogoUrl} alt={brandConfig.appName} className="w-full h-full object-cover" />
           </div>
           <div className="flex flex-col items-start">
-            <span className="text-xl font-black italic tracking-tighter">
-              turn<span className="text-[#6366F1]">ly</span>
-            </span>
+            <span className="text-xl font-black italic tracking-tighter">{brandConfig.appName}</span>
             <span className="text-[8px] font-black uppercase tracking-widest text-slate-600" style={{ letterSpacing: '0.15em' }}>
-              by F&amp;V Tech
+              {brandConfig.appName}
             </span>
           </div>
         </div>
@@ -64,7 +64,8 @@ export default function Landing() {
           </button>
           <button
             onClick={() => router.push('/registro-negocio')}
-            className="bg-[#6366F1] hover:opacity-90 text-white text-sm font-black px-5 py-2.5 rounded-xl transition-opacity"
+            className="hover:opacity-90 text-white text-sm font-black px-5 py-2.5 rounded-xl transition-opacity"
+            style={{ backgroundColor: brandColor }}
           >
             Probar gratis
           </button>
@@ -80,15 +81,16 @@ export default function Landing() {
       <Pricing precios={precios} onRegisterClick={() => router.push('/registro-negocio')} />
 
       <section className="max-w-3xl mx-auto px-6 pb-24 text-center">
-        <div className="bg-[#6366F1]/10 border border-[#6366F1]/20 rounded-[2rem] p-10">
+        <div className="rounded-[2rem] p-10" style={{ backgroundColor: `${brandColor}1A`, border: `1px solid ${brandColor}33` }}>
           <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-3">Empezá hoy. Es gratis.</h2>
           <p className="text-slate-400 mb-6">30 días con todo el plan Pro incluido. Sin tarjeta. Sin compromiso.</p>
           <p className="text-slate-600 text-xs mb-4">
-            Desarrollado con ❤️ por <span className="text-[#6366F1] font-bold">F&amp;V Tech</span>
+            Desarrollado con ❤️ por <span className="font-bold" style={{ color: brandColor }}>{brandConfig.appName}</span>
           </p>
           <button
             onClick={() => router.push('/registro-negocio')}
-            className="bg-[#6366F1] hover:opacity-90 text-white font-black italic text-lg px-10 py-4 rounded-2xl transition-opacity"
+            className="hover:opacity-90 text-white font-black italic text-lg px-10 py-4 rounded-2xl transition-opacity"
+            style={{ backgroundColor: brandColor }}
           >
             Crear mi cuenta gratis
           </button>

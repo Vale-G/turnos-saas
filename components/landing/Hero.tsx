@@ -1,4 +1,5 @@
 'use client'
+import { brandConfig } from '@/config/brand'
 
 type HeroProps = {
   onPrimaryClick: () => void
@@ -6,16 +7,18 @@ type HeroProps = {
 }
 
 export default function Hero({ onPrimaryClick, onSecondaryClick }: HeroProps) {
+  const brandColor = brandConfig.brandColor
+
   return (
     <section className="max-w-5xl mx-auto px-6 pt-16 pb-24 text-center">
-      <div className="inline-flex items-center gap-2 bg-[#6366F1]/10 border border-[#6366F1]/20 rounded-full px-4 py-1.5 mb-6">
+      <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-6" style={{ backgroundColor: `${brandColor}1A`, border: `1px solid ${brandColor}33` }}>
         <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-        <span className="text-xs font-bold text-[#6366F1]">30 días gratis · Sin tarjeta de crédito</span>
+        <span className="text-xs font-bold" style={{ color: brandColor }}>30 días gratis · Sin tarjeta de crédito</span>
       </div>
       <h1 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter leading-none mb-6">
         Tus clientes reservan solos.
         <br />
-        <span className="text-[#6366F1]">Vos te concentrás en cortar.</span>
+        <span style={{ color: brandColor }}>Vos te concentrás en cortar.</span>
       </h1>
       <p className="text-slate-400 text-lg max-w-xl mx-auto mb-10 leading-relaxed">
         El sistema de turnos para barberías, peluquerías y centros de estética que no quieren perder tiempo con WhatsApps y llamadas.
@@ -23,7 +26,8 @@ export default function Hero({ onPrimaryClick, onSecondaryClick }: HeroProps) {
       <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
         <button
           onClick={onPrimaryClick}
-          className="w-full sm:w-auto bg-[#6366F1] hover:opacity-90 text-white font-black italic text-lg px-8 py-4 rounded-2xl transition-opacity"
+          className="w-full sm:w-auto hover:opacity-90 text-white font-black italic text-lg px-8 py-4 rounded-2xl transition-opacity"
+          style={{ backgroundColor: brandColor }}
         >
           Empezar gratis ahora
         </button>

@@ -24,7 +24,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className="min-h-screen bg-white text-slate-900 selection:bg-emerald-500/30 dark:bg-[#020617] dark:text-white">
+      <body
+        className="min-h-screen bg-white text-slate-900 selection:bg-emerald-500/30 dark:bg-[#020617] dark:text-white"
+        style={{ ['--brand-color' as string]: brandConfig.brandColor }}
+      >
         <Providers>
           <ThemeToggle />
           {children}

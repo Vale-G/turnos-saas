@@ -1,6 +1,7 @@
 'use client'
 import React from 'react'
 import { useRouter } from 'next/navigation'
+import { brandConfig } from '@/config/brand'
 
 const FEATURES = [
   { icon: '📅', titulo: 'Reservas 24/7', desc: 'Tus clientes reservan desde el celular a cualquier hora, sin llamarte.' },
@@ -14,6 +15,7 @@ const FEATURES = [
 export default function Landing() {
   const router = useRouter()
   const [precios, setPrecios] = React.useState({ basico: 5000, pro: 25000 })
+  const brandColor = brandConfig.brandColor
 
   React.useEffect(() => {
     import('@/lib/supabase').then(({ supabase }) => {
@@ -36,13 +38,11 @@ export default function Landing() {
       <nav className="flex items-center justify-between px-6 py-5 max-w-5xl mx-auto">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center bg-[#0F172A] border border-white/10">
-            <img src="/fvtech-logo.jpg" alt="F&V Tech" className="w-full h-full object-cover" />
+            <img src={brandConfig.appLogoUrl} alt={brandConfig.appName} className="w-full h-full object-cover" />
           </div>
           <div className="flex flex-col items-start">
-          <span className="text-xl font-black italic tracking-tighter">
-            turn<span className="text-[#6366F1]">ly</span>
-          </span>
-          <span className="text-[8px] font-black uppercase tracking-widest text-slate-600" style={{letterSpacing: '0.15em'}}>by F&V Tech</span>
+          <span className="text-xl font-black italic tracking-tighter">{brandConfig.appName}</span>
+          <span className="text-[8px] font-black uppercase tracking-widest text-slate-600" style={{letterSpacing: '0.15em'}}>{brandConfig.appName}</span>
         </div>
         </div>
         <div className="flex items-center gap-3">
@@ -51,7 +51,8 @@ export default function Landing() {
             Ingresar
           </button>
           <button onClick={() => router.push('/registro-negocio')}
-            className="bg-[#6366F1] hover:opacity-90 text-white text-sm font-black px-5 py-2.5 rounded-xl transition-opacity">
+            className="hover:opacity-90 text-white text-sm font-black px-5 py-2.5 rounded-xl transition-opacity"
+            style={{ backgroundColor: brandColor }}>
             Probar gratis
           </button>
         </div>
@@ -59,21 +60,22 @@ export default function Landing() {
 
       {/* Hero */}
       <section className="max-w-5xl mx-auto px-6 pt-16 pb-24 text-center">
-        <div className="inline-flex items-center gap-2 bg-[#6366F1]/10 border border-[#6366F1]/20 rounded-full px-4 py-1.5 mb-6">
+        <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-6" style={{ backgroundColor: `${brandColor}1A`, border: `1px solid ${brandColor}33` }}>
           <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-xs font-bold text-[#6366F1]">30 días gratis · Sin tarjeta de crédito</span>
+          <span className="text-xs font-bold" style={{ color: brandColor }}>30 días gratis · Sin tarjeta de crédito</span>
         </div>
         <h1 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter leading-none mb-6">
           Tus clientes reservan solos.
           <br />
-          <span className="text-[#6366F1]">Vos te concentrás en cortar.</span>
+          <span style={{ color: brandColor }}>Vos te concentrás en cortar.</span>
         </h1>
         <p className="text-slate-400 text-lg max-w-xl mx-auto mb-10 leading-relaxed">
           El sistema de turnos para barberías, peluquerías y centros de estética que no quieren perder tiempo con WhatsApps y llamadas.
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <button onClick={() => router.push('/registro-negocio')}
-            className="w-full sm:w-auto bg-[#6366F1] hover:opacity-90 text-white font-black italic text-lg px-8 py-4 rounded-2xl transition-opacity">
+            className="w-full sm:w-auto hover:opacity-90 text-white font-black italic text-lg px-8 py-4 rounded-2xl transition-opacity"
+            style={{ backgroundColor: brandColor }}>
             Empezar gratis ahora
           </button>
           <button onClick={() => router.push('/reservar/demo')}
@@ -88,7 +90,7 @@ export default function Landing() {
       <section className="max-w-2xl mx-auto px-6 pb-24">
         <div className="bg-[#0F172A] rounded-[2rem] border border-white/8 p-6">
           <div className="flex items-center gap-2 mb-5">
-            <div className="w-7 h-7 bg-[#6366F1] rounded-lg flex items-center justify-center">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: brandColor }}>
               <svg width="13" height="13" viewBox="0 0 22 22" fill="none">
                 <circle cx="11" cy="11" r="8" stroke="white" strokeWidth="2"/>
                 <path d="M11 7v4l2.5 2.5" stroke="white" strokeWidth="2" strokeLinecap="round"/>
@@ -100,7 +102,7 @@ export default function Landing() {
           <div className="grid grid-cols-2 gap-3 mb-4">
             <div className="bg-[#1E293B] rounded-2xl p-4">
               <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Cobrado hoy</p>
-              <p className="text-2xl font-black text-[#6366F1]">$47.500</p>
+              <p className="text-2xl font-black" style={{ color: brandColor }}>$47.500</p>
             </div>
             <div className="bg-[#1E293B] rounded-2xl p-4">
               <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Turnos hoy</p>
@@ -110,7 +112,7 @@ export default function Landing() {
           <div className="space-y-2">
             {[
               { nombre: 'Matias R.', servicio: 'Corte + barba', hora: '10:00', color: '#22C55E', estado: 'cobrado' },
-              { nombre: 'Juan P.', servicio: 'Corte clásico', hora: '11:30', color: '#6366F1', estado: 'confirmado' },
+              { nombre: 'Juan P.', servicio: 'Corte clásico', hora: '11:30', color: brandColor, estado: 'confirmado' },
               { nombre: 'Carlos M.', servicio: 'Barba perfilada', hora: '12:00', color: '#F59E0B', estado: 'pendiente' },
             ].map(t => (
               <div key={t.nombre} className="bg-[#1E293B] rounded-xl p-3 flex items-center gap-3">
@@ -179,14 +181,14 @@ export default function Landing() {
             </div>
           </div>
           {/* Pro */}
-          <div className="bg-[#6366F1]/5 border-2 border-[#6366F1]/40 rounded-[2rem] overflow-hidden">
-            <div className="p-6 border-b border-[#6366F1]/20 bg-[#6366F1]/10">
+          <div className="rounded-[2rem] overflow-hidden border-2" style={{ backgroundColor: `${brandColor}0D`, borderColor: `${brandColor}66` }}>
+            <div className="p-6 border-b" style={{ borderColor: `${brandColor}33`, backgroundColor: `${brandColor}1A` }}>
               <div className="flex items-center gap-2 mb-1">
-                <p className="text-[10px] font-black uppercase tracking-widest text-[#6366F1]">Pro</p>
+                <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: brandColor }}>Pro</p>
                 <span className="bg-amber-400 text-black text-[9px] font-black uppercase px-2 py-0.5 rounded-full">Recomendado</span>
               </div>
               <div className="flex items-baseline gap-1">
-                <span className="text-4xl font-black text-[#6366F1]">${precios.pro.toLocaleString('es-AR')}</span>
+                <span className="text-4xl font-black" style={{ color: brandColor }}>${precios.pro.toLocaleString('es-AR')}</span>
                 <span className="text-slate-400 text-sm">ARS/mes</span>
               </div>
             </div>
@@ -204,7 +206,8 @@ export default function Landing() {
             </div>
             <div className="px-6 pb-6">
               <button onClick={() => router.push('/registro-negocio')}
-                className="w-full py-4 rounded-2xl font-black italic text-base text-white bg-[#6366F1] hover:opacity-90 transition-opacity">
+                className="w-full py-4 rounded-2xl font-black italic text-base text-white hover:opacity-90 transition-opacity"
+                style={{ backgroundColor: brandColor }}>
                 Activar Pro — 30 días gratis
               </button>
             </div>
@@ -214,14 +217,15 @@ export default function Landing() {
 
       {/* CTA Final */}
       <section className="max-w-3xl mx-auto px-6 pb-24 text-center">
-        <div className="bg-[#6366F1]/10 border border-[#6366F1]/20 rounded-[2rem] p-10">
+        <div className="rounded-[2rem] p-10" style={{ backgroundColor: `${brandColor}1A`, border: `1px solid ${brandColor}33` }}>
           <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-3">
             Empezá hoy. Es gratis.
           </h2>
           <p className="text-slate-400 mb-6">30 días con todo el plan Pro incluido. Sin tarjeta. Sin compromiso.</p>
-          <p className="text-slate-600 text-xs mb-4">Desarrollado con ❤️ por <span className="text-[#6366F1] font-bold">F&V Tech</span></p>
+          <p className="text-slate-600 text-xs mb-4">Desarrollado con ❤️ por <span className="font-bold" style={{ color: brandColor }}>{brandConfig.appName}</span></p>
           <button onClick={() => router.push('/registro-negocio')}
-            className="bg-[#6366F1] hover:opacity-90 text-white font-black italic text-lg px-10 py-4 rounded-2xl transition-opacity">
+            className="hover:opacity-90 text-white font-black italic text-lg px-10 py-4 rounded-2xl transition-opacity"
+            style={{ backgroundColor: brandColor }}>
             Crear mi cuenta gratis
           </button>
         </div>
@@ -231,14 +235,14 @@ export default function Landing() {
       <footer className="border-t border-white/5 px-6 py-8 text-center">
         <div className="flex items-center justify-center gap-3 mb-3">
           <div className="w-10 h-10 rounded-xl overflow-hidden border border-white/10">
-            <img src="/fvtech-logo.jpg" alt="F&V Tech" className="w-full h-full object-cover" />
+            <img src={brandConfig.appLogoUrl} alt={brandConfig.appName} className="w-full h-full object-cover" />
           </div>
           <div className="text-left">
-            <span className="font-black italic block">turn<span className="text-[#6366F1]">ly</span></span>
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">by F&V Tech</span>
+            <span className="font-black italic block">{brandConfig.appName}</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">{brandConfig.appName}</span>
           </div>
         </div>
-        <p className="text-slate-600 text-xs mb-4">Tus turnos, tu negocio. · Desarrollado por <span className="text-[#6366F1] font-bold">F&V Tech</span> 🇦🇷</p>
+        <p className="text-slate-600 text-xs mb-4">Tus turnos, tu negocio. · Desarrollado por <span className="font-bold" style={{ color: brandColor }}>{brandConfig.appName}</span> 🇦🇷</p>
         
         {/* Acceso Admin discreto */}
         <button 

@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { getThemeColor, TEMAS } from '@/lib/theme'
 import { toast } from 'sonner'
 import { onboardingSchema } from '@/lib/validation'
+import { brandConfig } from '@/config/brand'
 
 export default function OnboardingElite() {
   const [paso, setPaso] = useState(1)
@@ -86,7 +87,7 @@ export default function OnboardingElite() {
 
       await supabase.from('adminrol').insert({ user_id: user.id, role: 'owner', negocio_id: data.id })
 
-      toast.success('¡Negocio creado con éxito! Bienvenido a Turnly 🚀')
+      toast.success(`¡Negocio creado con éxito! Bienvenido a ${brandConfig.appName} 🚀`)
       router.push('/dashboard')
     } catch {
       toast.error('No se pudo procesar la solicitud')
@@ -106,7 +107,7 @@ export default function OnboardingElite() {
       <div className="w-full max-w-xl relative z-10">
         
         <div className="text-center mb-12">
-          <h1 className="text-5xl font-black uppercase italic tracking-tighter mb-4">Bienvenido a <span style={{color: colorP}} className="transition-colors duration-500">Turnly</span></h1>
+          <h1 className="text-5xl font-black uppercase italic tracking-tighter mb-4">Bienvenido a <span style={{color: colorP}} className="transition-colors duration-500">{brandConfig.appName}</span></h1>
           <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.4em]">Configuración Inicial · Paso {paso} de 3</p>
           <div className="flex gap-2 mt-6 justify-center">
             <div className={`h-1.5 w-12 rounded-full transition-all duration-500 ${paso >= 1 ? 'bg-white' : 'bg-white/10'}`} />

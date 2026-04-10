@@ -1,6 +1,7 @@
 'use client'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { brandConfig } from '@/config/brand'
 
 export default function NegocioInactivoElite() {
   const router = useRouter()
@@ -26,7 +27,7 @@ export default function NegocioInactivoElite() {
         </p>
 
         <div className="space-y-4">
-          <button onClick={() => window.open('https://wa.me/5491123456789?text=Hola,%20quiero%20renovar%20mi%20suscripcion%20de%20Turnly', '_blank')} className="w-full py-5 rounded-[2rem] bg-rose-500 text-black font-black uppercase italic text-sm hover:bg-rose-400 transition-all shadow-[0_0_20px_rgba(244,63,94,0.4)] active:scale-95">
+          <button onClick={() => window.open(`https://wa.me/5491123456789?text=${encodeURIComponent(`Hola, quiero renovar mi suscripcion de ${brandConfig.appName}`)}`, '_blank')} className="w-full py-5 rounded-[2rem] bg-rose-500 text-black font-black uppercase italic text-sm hover:bg-rose-400 transition-all shadow-[0_0_20px_rgba(244,63,94,0.4)] active:scale-95">
             Contactar a Soporte
           </button>
           

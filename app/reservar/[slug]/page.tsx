@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { reservaInvitadoSchema, strictPhoneSchema } from '@/lib/validation'
 import { formatCurrency } from '@/lib/utils'
 import { formatInTimeZone, fromZonedTime } from 'date-fns-tz'
+import { brandConfig } from '@/config/brand'
 
 const DEFAULT_TZ = 'America/Argentina/Buenos_Aires'
 
@@ -70,7 +71,7 @@ export default function ReservaPage() {
       if (isDemo) {
         setNegocio({
           id: 'demo-negocio',
-          nombre: 'Turnly Demo Studio',
+          nombre: `${brandConfig.appName} Demo Studio`,
           slug: 'demo',
           tema: 'indigo',
           moneda: 'ARS',
@@ -78,7 +79,7 @@ export default function ReservaPage() {
           hora_apertura: '09:00:00',
           hora_cierre: '20:00:00',
           dias_laborales: [1, 2, 3, 4, 5, 6],
-          email_contacto: 'demo@turnly.app',
+          email_contacto: 'demo@example.com',
           logo_url: null,
         })
         setServicios([

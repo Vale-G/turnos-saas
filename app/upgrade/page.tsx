@@ -3,6 +3,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
+import { brandConfig } from '@/config/brand'
 
 const FEATURES_BASICO = [
   'Reservas online ilimitadas',
@@ -103,7 +104,7 @@ function UpgradeContent() {
             Volver al panel
           </button>
           <h1 className="text-4xl font-black italic uppercase tracking-tighter" style={{ color: colorPrincipal }}>
-            Planes Turnly
+            Planes {brandConfig.appName}
           </h1>
           <p className="text-slate-500 text-sm mt-1">Para {negocio?.nombre ?? 'tu negocio'}</p>
         </div>

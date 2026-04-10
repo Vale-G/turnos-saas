@@ -66,6 +66,7 @@ export default function Sidebar() {
     { name: 'Clientes', path: '/clientes', icon: '👥' },
     { name: 'Staff', path: '/staff', icon: '💈' },
     { name: 'Informes', path: '/informes', icon: '📊' },
+    { name: 'Lista Negra', path: '/dashboard/lista-negra', icon: '⛔' },
     { name: 'Ajustes', path: '/ajustes', icon: '⚙' },
     { name: 'Bloqueos', path: '/bloqueos', icon: '🔒' },
   ]

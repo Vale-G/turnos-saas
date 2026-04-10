@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { registroSchema } from '@/lib/validation'
 
 function validarPassword(password: string): string | null {
   if (password.length < 8) return 'Mínimo 8 caracteres'
@@ -45,19 +46,22 @@ export default function RegistroNegocio() {
 
     setSlugStatus('checking')
 
-    const { data, error } = await supabase
-      .from('negocio')
-      .select('id')
-      .eq('slug', slugToCheck)
-      .maybeSingle()
+    try {
+      const { data, error } = await supabase
+        .from('negocio')
+        .select('id')
+        .eq('slug', slugToCheck)
+        .maybeSingle()
 
-    if (error) {
-      console.error('[Turnly] Error verificando slug:', error)
+      if (error) {
+        setSlugStatus('idle')
+        return
+      }
+
+      setSlugStatus(data ? 'taken' : 'available')
+    } catch {
       setSlugStatus('idle')
-      return
     }
-
-    setSlugStatus(data ? 'taken' : 'available')
   }, [])
 
   // Debounce de 500ms para no saturar la DB
@@ -112,62 +116,74 @@ export default function RegistroNegocio() {
     setPasswordError(null)
     setLoading(true)
 
-    // Leer dias_trial desde config (con fallback a 30)
-    let diasTrial = 30
-    const { data: config } = await supabase
-      .from('config')
-      .select('valor')
-      .eq('clave', 'dias_trial')
-      .maybeSingle()
-    if (config?.valor) diasTrial = Number(config.valor)
-
-    const { data: authData, error: authError } = await supabase.auth.signUp({ email, password })
-
-    if (authError) {
-      toast.error(authError.message)
-      setLoading(false)
-      return
-    }
-
-    if (authData.user) {
-      const slugFinal = slug || slugify(nombreNegocio)
-
-      // Validación final server-side (por las dudas)
-      const { data: slugExiste } = await supabase
-        .from('negocio')
-        .select('id')
-        .eq('slug', slugFinal)
-        .maybeSingle()
-
-      if (slugExiste) {
-        toast.error('Ese nombre de URL ya está en uso. Elegí otro.')
-        setLoading(false)
+    try {
+      const validated = registroSchema.safeParse({ email, password, nombreNegocio, slug })
+      if (!validated.success) {
+        toast.error(validated.error.issues[0]?.message ?? 'Datos inválidos')
         return
       }
 
-      const trialHasta = new Date()
-      trialHasta.setDate(trialHasta.getDate() + diasTrial)
+      // Leer dias_trial desde config (con fallback a 30)
+      let diasTrial = 30
+      const { data: config } = await supabase
+        .from('config')
+        .select('valor')
+        .eq('clave', 'dias_trial')
+        .maybeSingle()
+      if (config?.valor) diasTrial = Number(config.valor)
 
-      const { error: dbError } = await supabase
-        .from('negocio')
-        .insert([{
-          owner_id: authData.user.id,
-          nombre: nombreNegocio,
-          slug: slugFinal,
-          suscripcion_tipo: 'trial',
-          trial_hasta: trialHasta.toISOString(),
-          activo: true,
-          onboarding_completo: false,
-        }])
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: validated.data.email,
+        password: validated.data.password,
+      })
 
-      if (dbError) {
-        toast.error('Error al guardar negocio: ' + dbError.message)
-      } else {
-        toast.success('¡Cuenta creada! Redirigiendo al panel...')
-        setTimeout(() => router.push('/onboarding'), 1200)
+      if (authError) {
+        toast.error('No se pudo procesar la solicitud')
+        return
       }
+
+      if (authData.user) {
+        const slugFinal = validated.data.slug || slugify(validated.data.nombreNegocio)
+
+        // Validación final server-side (por las dudas)
+        const { data: slugExiste } = await supabase
+          .from('negocio')
+          .select('id')
+          .eq('slug', slugFinal)
+          .maybeSingle()
+
+        if (slugExiste) {
+          toast.error('Ese nombre de URL ya está en uso. Elegí otro.')
+          return
+        }
+
+        const trialHasta = new Date()
+        trialHasta.setDate(trialHasta.getDate() + diasTrial)
+
+        const { error: dbError } = await supabase
+          .from('negocio')
+          .insert([{
+            owner_id: authData.user.id,
+            nombre: validated.data.nombreNegocio,
+            slug: slugFinal,
+            suscripcion_tipo: 'trial',
+            trial_hasta: trialHasta.toISOString(),
+            activo: true,
+            onboarding_completo: false,
+          }])
+
+        if (dbError) {
+          toast.error('No se pudo procesar la solicitud')
+        } else {
+          toast.success('¡Cuenta creada! Redirigiendo al panel...')
+          setTimeout(() => router.push('/onboarding'), 1200)
+        }
+      }
+    } catch {
+      toast.error('No se pudo procesar la solicitud')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   // Función para obtener el ícono y color del estado del slug

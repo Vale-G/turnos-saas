@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getThemeColor, TEMAS } from '@/lib/theme'
 import { toast } from 'sonner'
+import { onboardingSchema } from '@/lib/validation'
 
 export default function OnboardingElite() {
   const [paso, setPaso] = useState(1)
@@ -23,22 +24,25 @@ export default function OnboardingElite() {
 
   useEffect(() => {
     async function check() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return router.push('/registro-negocio')
-      setUser(user)
-      
-      // FIX: Si el usuario ya tiene negocio, o si es superadmin, lo sacamos de aca.
-      const { data: neg } = await supabase.from('negocio').select('id').eq('owner_id', user.id).maybeSingle()
-      if (neg) {
-        const { data: adm } = await supabase.from('adminrol').select('role').eq('user_id', user.id).maybeSingle()
-        if (adm?.role === 'superadmin') return router.push('/superadmin')
-        return router.push('/dashboard')
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return router.push('/registro-negocio')
+        setUser(user)
+        
+        const { data: neg } = await supabase.from('negocio').select('id').eq('owner_id', user.id).maybeSingle()
+        if (neg) {
+          const { data: adm } = await supabase.from('adminrol').select('role').eq('user_id', user.id).maybeSingle()
+          if (adm?.role === 'superadmin') return router.push('/superadmin')
+          return router.push('/dashboard')
+        }
+        
+        const { data: cfg } = await supabase.from('config').select('valor').eq('clave', 'dias_trial').maybeSingle()
+        if (cfg) setDiasTrial(Number(cfg.valor))
+      } catch {
+        toast.error('No se pudo procesar la solicitud')
+      } finally {
+        setLoading(false)
       }
-      
-      const { data: cfg } = await supabase.from('config').select('valor').eq('clave', 'dias_trial').maybeSingle()
-      if (cfg) setDiasTrial(Number(cfg.valor))
-
-      setLoading(false)
     }
     check()
   }, [router])
@@ -53,25 +57,42 @@ export default function OnboardingElite() {
     e.preventDefault()
     setGuardando(true)
 
-    const trialHasta = new Date()
-    trialHasta.setDate(trialHasta.getDate() + diasTrial)
+    try {
+      const validated = onboardingSchema.safeParse({ nombre, slug, whatsapp })
+      if (!validated.success) {
+        toast.error(validated.error.issues[0]?.message ?? 'Datos inválidos')
+        return
+      }
 
-    const { data, error } = await supabase.from('negocio').insert({
-      owner_id: user.id, nombre, slug, whatsapp, tema,
-      hora_apertura: apertura + ':00', hora_cierre: cierre + ':00',
-      suscripcion_tipo: 'trial', trial_hasta: trialHasta.toISOString().split('T')[0]
-    }).select('id').single()
+      const trialHasta = new Date()
+      trialHasta.setDate(trialHasta.getDate() + diasTrial)
 
-    if (error) {
-      toast.error('Error al crear tu negocio: ' + error.message)
+      const { data, error } = await supabase.from('negocio').insert({
+        owner_id: user.id,
+        nombre: validated.data.nombre,
+        slug: validated.data.slug,
+        whatsapp: validated.data.whatsapp || null,
+        tema,
+        hora_apertura: apertura + ':00',
+        hora_cierre: cierre + ':00',
+        suscripcion_tipo: 'trial',
+        trial_hasta: trialHasta.toISOString().split('T')[0],
+      }).select('id').single()
+
+      if (error) {
+        toast.error('No se pudo procesar la solicitud')
+        return
+      }
+
+      await supabase.from('adminrol').insert({ user_id: user.id, role: 'owner', negocio_id: data.id })
+
+      toast.success('¡Negocio creado con éxito! Bienvenido a Turnly 🚀')
+      router.push('/dashboard')
+    } catch {
+      toast.error('No se pudo procesar la solicitud')
+    } finally {
       setGuardando(false)
-      return
     }
-
-    await supabase.from('adminrol').insert({ user_id: user.id, role: 'owner', negocio_id: data.id })
-
-    toast.success('¡Negocio creado con éxito! Bienvenido a Turnly 🚀')
-    router.push('/dashboard')
   }
 
   if (loading) return <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black italic text-white text-3xl animate-pulse tracking-tighter">PREPARANDO ENTORNO...</div>

@@ -3,6 +3,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
+import { brandConfig } from '@/config/brand'
 
 const FEATURES_BASICO = [
   'Reservas online ilimitadas',
@@ -103,7 +104,7 @@ function UpgradeContent() {
             Volver al panel
           </button>
           <h1 className="text-4xl font-black italic uppercase tracking-tighter" style={{ color: colorPrincipal }}>
-            Planes Turnly
+            Planes {brandConfig.appName}
           </h1>
           <p className="text-slate-500 text-sm mt-1">Para {negocio?.nombre ?? 'tu negocio'}</p>
         </div>
@@ -114,7 +115,7 @@ function UpgradeContent() {
           </div>
         )}
         {estado === 'error' && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 text-center mb-6">
+          <div className="bg-primary/10 border border-red-500/20 rounded-2xl p-4 text-center mb-6">
             <p className="text-red-400 font-black uppercase">Pago rechazado — intenta de nuevo</p>
           </div>
         )}
@@ -125,7 +126,7 @@ function UpgradeContent() {
         )}
 
         {error && (
-          <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-6">{error}</p>
+          <p className="text-red-400 text-sm bg-primary/10 border border-red-500/20 rounded-xl px-4 py-3 mb-6">{error}</p>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

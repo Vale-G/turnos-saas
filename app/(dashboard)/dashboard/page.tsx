@@ -137,7 +137,7 @@ export default function DashboardPrincipal() {
             <div>
               <div className="flex items-center gap-4 mb-2">
                 <h1 className="text-5xl font-black uppercase italic tracking-tighter leading-none" style={{ color: colorPrincipal }}>{negocio?.nombre}</h1>
-                {esSuperAdmin ? <span className="bg-rose-500 text-black text-[10px] font-black uppercase px-3 py-1 rounded-full shadow-lg shadow-rose-500/20">DIOS</span> : esStaff ? <span className="bg-slate-500/20 text-slate-400 text-[10px] font-black uppercase px-3 py-1 rounded-full">STAFF</span> : esPro ? <span className="bg-amber-400 text-black text-[10px] font-black uppercase px-3 py-1 rounded-full">PRO</span> : esTrial ? <span className="bg-blue-500 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full">TRIAL · {diasTrial}D</span> : <span className="bg-white/10 text-slate-400 text-[10px] font-black uppercase px-3 py-1 rounded-full">NORMAL</span>}
+                {esSuperAdmin ? <span className="bg-primary text-black text-[10px] font-black uppercase px-3 py-1 rounded-full shadow-lg shadow-rose-500/20">DIOS</span> : esStaff ? <span className="bg-slate-500/20 text-slate-400 text-[10px] font-black uppercase px-3 py-1 rounded-full">STAFF</span> : esPro ? <span className="bg-amber-400 text-black text-[10px] font-black uppercase px-3 py-1 rounded-full">PRO</span> : esTrial ? <span className="bg-blue-500 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full">TRIAL · {diasTrial}D</span> : <span className="bg-white/10 text-slate-400 text-[10px] font-black uppercase px-3 py-1 rounded-full">NORMAL</span>}
               </div>
               <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">Elite Dashboard</p>
             </div>
@@ -145,7 +145,7 @@ export default function DashboardPrincipal() {
           
           <div className="flex gap-3">
             {esSuperAdmin && (
-              <button onClick={() => router.push('/superadmin')} className="text-[10px] font-black uppercase tracking-widest text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-colors px-6 py-3 rounded-2xl">
+              <button onClick={() => router.push('/superadmin')} className="text-[10px] font-black uppercase tracking-widest text-rose-400 bg-primary/10 hover:bg-primary/20 border border-rose-500/30 transition-colors px-6 py-3 rounded-2xl">
                 Modo Dios
               </button>
             )}
@@ -168,7 +168,7 @@ export default function DashboardPrincipal() {
         <div className={`grid grid-cols-1 md:grid-cols-2 ${esStaff ? 'lg:grid-cols-2' : 'lg:grid-cols-4'} gap-5`}>
           {navItems.map(item => (
             <button key={item.label} onClick={() => router.push(item.href)} className="bg-white/4 p-10 rounded-[3.5rem] border border-white/5 hover:border-white/20 transition-all text-left group relative overflow-hidden active:scale-95 shadow-lg">
-              {item.badge && <span className="absolute top-8 right-8 bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[9px] font-black uppercase px-3 py-1 rounded-full">{item.badge}</span>}
+              {item.badge && <span className="absolute top-8 right-8 bg-primary/20 text-rose-400 border border-rose-500/30 text-[9px] font-black uppercase px-3 py-1 rounded-full">{item.badge}</span>}
               <div className="text-5xl mb-6 opacity-40 group-hover:opacity-100 transition-all group-hover:scale-110 origin-left">{ICONS[item.label] || '✨'}</div>
               <h3 className="text-2xl font-black italic uppercase mb-2 tracking-tighter" style={{ color: colorPrincipal }}>{item.label}</h3>
               <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">{item.desc}</p>

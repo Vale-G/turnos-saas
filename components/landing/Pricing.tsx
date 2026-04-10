@@ -1,4 +1,5 @@
 'use client'
+import { brandConfig } from '@/config/brand'
 
 type PricingProps = {
   precios: {
@@ -21,6 +22,8 @@ const CHECK_ICON_PRO = (
 )
 
 export default function Pricing({ precios, onRegisterClick }: PricingProps) {
+  const brandColor = brandConfig.brandColor
+
   return (
     <section className="max-w-3xl mx-auto px-6 pb-24">
       <h2 className="text-3xl font-black italic uppercase tracking-tighter text-center mb-3">Precios simples</h2>
@@ -55,14 +58,14 @@ export default function Pricing({ precios, onRegisterClick }: PricingProps) {
           </div>
         </div>
 
-        <div className="bg-[#6366F1]/5 border-2 border-[#6366F1]/40 rounded-[2rem] overflow-hidden">
-          <div className="p-6 border-b border-[#6366F1]/20 bg-[#6366F1]/10">
+        <div className="rounded-[2rem] overflow-hidden border-2" style={{ backgroundColor: `${brandColor}0D`, borderColor: `${brandColor}66` }}>
+          <div className="p-6 border-b" style={{ borderColor: `${brandColor}33`, backgroundColor: `${brandColor}1A` }}>
             <div className="flex items-center gap-2 mb-1">
-              <p className="text-[10px] font-black uppercase tracking-widest text-[#6366F1]">Pro</p>
+              <p className="text-[10px] font-black uppercase tracking-widest" style={{ color: brandColor }}>Pro</p>
               <span className="bg-amber-400 text-black text-[9px] font-black uppercase px-2 py-0.5 rounded-full">Recomendado</span>
             </div>
             <div className="flex items-baseline gap-1">
-              <span className="text-4xl font-black text-[#6366F1]">${precios.pro.toLocaleString('es-AR')}</span>
+              <span className="text-4xl font-black" style={{ color: brandColor }}>${precios.pro.toLocaleString('es-AR')}</span>
               <span className="text-slate-400 text-sm">ARS/mes</span>
             </div>
           </div>
@@ -86,7 +89,8 @@ export default function Pricing({ precios, onRegisterClick }: PricingProps) {
           <div className="px-6 pb-6">
             <button
               onClick={onRegisterClick}
-              className="w-full py-4 rounded-2xl font-black italic text-base text-white bg-[#6366F1] hover:opacity-90 transition-opacity"
+              className="w-full py-4 rounded-2xl font-black italic text-base text-white hover:opacity-90 transition-opacity"
+              style={{ backgroundColor: brandColor }}
             >
               Activar Pro — 30 días gratis
             </button>

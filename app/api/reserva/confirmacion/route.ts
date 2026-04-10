@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { Resend } from 'resend'
-import { render } from '@react-email/render'
-import { ReservationConfirmationEmail } from '@/components/emails/ReservationConfirmationEmail'
+import { buildReservationConfirmationEmail } from '@/components/emails/ReservationConfirmationEmail'
 
 export async function POST(req: Request) {
   try {
@@ -18,16 +17,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No se pudo procesar la solicitud' }, { status: 400 })
     }
 
-    const html = await render(
-      ReservationConfirmationEmail({
-        clienteNombre: String(clienteNombre || 'Cliente'),
-        negocioNombre: String(negocioNombre || 'Negocio'),
-        fecha: String(fecha || ''),
-        hora: String(hora || ''),
-        servicio: String(servicio || ''),
-        precio: String(precio || ''),
-      })
-    )
+    const html = buildReservationConfirmationEmail({
+      clienteNombre: String(clienteNombre || 'Cliente'),
+      negocioNombre: String(negocioNombre || 'Negocio'),
+      fecha: String(fecha || ''),
+      hora: String(hora || ''),
+      servicio: String(servicio || ''),
+      precio: String(precio || ''),
+    })
 
     await resend.emails.send({
       from: `${negocioNombre || 'Turnly'} <onboarding@resend.dev>`,

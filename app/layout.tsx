@@ -1,12 +1,9 @@
 import type { Metadata, Viewport } from "next"
-import { Inter } from "next/font/google"
 import "./globals.css"
 import { Toaster } from 'sonner'
 import { brandConfig } from '@/config/brand'
 import Providers from './providers'
 import ThemeToggle from '@/components/ThemeToggle'
-
-const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: `${brandConfig.appName} | SaaS de Gestión para Barberías`,
@@ -27,7 +24,7 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className={`${inter.className} min-h-screen bg-white text-slate-900 selection:bg-emerald-500/30 dark:bg-[#020617] dark:text-white`}>
+      <body className="min-h-screen bg-white text-slate-900 selection:bg-emerald-500/30 dark:bg-[#020617] dark:text-white">
         <Providers>
           <ThemeToggle />
           {children}

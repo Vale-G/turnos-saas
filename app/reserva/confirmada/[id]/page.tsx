@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { formatInTimeZone } from 'date-fns-tz'
-import { Document, Page, StyleSheet, Text, View, pdf } from '@react-pdf/renderer'
 import { supabase } from '@/lib/supabase'
 import { brandConfig } from '@/config/brand'
 import { formatCurrency } from '@/lib/utils'
@@ -18,34 +17,13 @@ type ReservaData = {
   servicio: { nombre: string; precio?: number } | null
 }
 
-const pdfStyles = StyleSheet.create({
-  page: { padding: 30, fontSize: 12, backgroundColor: '#f8fafc' },
-  card: { backgroundColor: '#ffffff', borderRadius: 12, border: '1 solid #e2e8f0', padding: 20 },
-  title: { fontSize: 18, marginBottom: 6, fontWeight: 'bold' },
-  subtitle: { fontSize: 10, color: '#64748b', marginBottom: 16 },
-  row: { marginBottom: 8 },
-})
-
-function ReservaTicketPDF({ reserva, fechaLocal, horaLocal, precio }: { reserva: ReservaData; fechaLocal: string; horaLocal: string; precio: string }) {
-  return (
-    <Document>
-      <Page size="A4" style={pdfStyles.page}>
-        <View style={pdfStyles.card}>
-          <Text style={pdfStyles.title}>Comprobante de Reserva</Text>
-          <Text style={pdfStyles.subtitle}>Emitido por {brandConfig.appName}</Text>
-
-          <Text style={pdfStyles.row}>Estado: Confirmado</Text>
-          <Text style={pdfStyles.row}>Cliente: {reserva.cliente_nombre}</Text>
-          <Text style={pdfStyles.row}>Negocio: {reserva.negocio?.nombre ?? brandConfig.appName}</Text>
-          <Text style={pdfStyles.row}>Servicio: {reserva.servicio?.nombre ?? '-'}</Text>
-          <Text style={pdfStyles.row}>Fecha: {fechaLocal}</Text>
-          <Text style={pdfStyles.row}>Hora: {horaLocal}</Text>
-          <Text style={pdfStyles.row}>Precio: {precio}</Text>
-          <Text style={pdfStyles.row}>Código: #{reserva.id.slice(0, 8).toUpperCase()}</Text>
-        </View>
-      </Page>
-    </Document>
-  )
+type ReservaRow = {
+  id: string
+  cliente_nombre: string
+  fecha: string
+  hora: string
+  negocio: { nombre: string; moneda?: string; logo_url?: string; timezone?: string }[] | { nombre: string; moneda?: string; logo_url?: string; timezone?: string } | null
+  servicio: { nombre: string; precio?: number }[] | { nombre: string; precio?: number } | null
 }
 
 export default function ReservaConfirmadaPage() {
@@ -69,7 +47,18 @@ export default function ReservaConfirmadaPage() {
           return
         }
 
-        setReserva(data as ReservaData)
+        const row = data as ReservaRow
+        const negocioData = Array.isArray(row.negocio) ? row.negocio[0] ?? null : row.negocio
+        const servicioData = Array.isArray(row.servicio) ? row.servicio[0] ?? null : row.servicio
+
+        setReserva({
+          id: row.id,
+          cliente_nombre: row.cliente_nombre,
+          fecha: row.fecha,
+          hora: row.hora,
+          negocio: negocioData,
+          servicio: servicioData,
+        })
       } catch {
         setError('No pudimos cargar tu comprobante.')
       } finally {
@@ -97,21 +86,28 @@ export default function ReservaConfirmadaPage() {
     if (!reserva) return
     setDownloading(true)
     try {
-      const blob = await pdf(
-        <ReservaTicketPDF
-          reserva={reserva}
-          fechaLocal={fechaLocal}
-          horaLocal={horaLocal}
-          precio={precio}
-        />
-      ).toBlob()
+      const printWindow = window.open('', '_blank')
+      if (!printWindow) return
 
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `comprobante-${reserva.id}.pdf`
-      link.click()
-      URL.revokeObjectURL(url)
+      printWindow.document.write(`
+        <html>
+          <head><title>Comprobante ${reserva.id}</title></head>
+          <body style="font-family:Arial,sans-serif;padding:30px">
+            <h1>Comprobante de Reserva</h1>
+            <p><strong>Estado:</strong> Confirmado</p>
+            <p><strong>Cliente:</strong> ${reserva.cliente_nombre}</p>
+            <p><strong>Negocio:</strong> ${reserva.negocio?.nombre ?? brandConfig.appName}</p>
+            <p><strong>Servicio:</strong> ${reserva.servicio?.nombre ?? '-'}</p>
+            <p><strong>Fecha:</strong> ${fechaLocal}</p>
+            <p><strong>Hora:</strong> ${horaLocal}</p>
+            <p><strong>Precio:</strong> ${precio}</p>
+            <p><strong>Código:</strong> #${reserva.id.slice(0, 8).toUpperCase()}</p>
+          </body>
+        </html>
+      `)
+      printWindow.document.close()
+      printWindow.focus()
+      printWindow.print()
     } finally {
       setDownloading(false)
     }
@@ -158,7 +154,7 @@ export default function ReservaConfirmadaPage() {
           disabled={downloading}
           className="mt-6 w-full rounded-2xl bg-white text-black py-4 font-black uppercase italic hover:opacity-90 disabled:opacity-50"
         >
-          {downloading ? 'Generando PDF...' : 'Descargar comprobante PDF'}
+          {downloading ? 'Preparando...' : 'Descargar / Imprimir comprobante'}
         </button>
       </div>
     </main>

@@ -1,20 +1,22 @@
 'use client'
 
-import { ThemeProvider } from 'next-themes'
+import { useEffect } from 'react'
 import { brandConfig } from '@/config/brand'
 
 export default function Providers({ children }: { children: React.ReactNode }) {
-  const isLightOnly = brandConfig.themeMode === 'light-only'
+  useEffect(() => {
+    const root = document.documentElement
+    if (brandConfig.themeMode === 'light-only') {
+      root.classList.remove('dark')
+      root.classList.add('light')
+      return
+    }
 
-  return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="light"
-      forcedTheme={isLightOnly ? 'light' : undefined}
-      enableSystem={false}
-      disableTransitionOnChange
-    >
-      {children}
-    </ThemeProvider>
-  )
+    const stored = localStorage.getItem('theme')
+    const nextTheme = stored === 'dark' ? 'dark' : 'light'
+    root.classList.toggle('dark', nextTheme === 'dark')
+    root.classList.toggle('light', nextTheme === 'light')
+  }, [])
+
+  return <>{children}</>
 }

@@ -151,7 +151,7 @@ export default function CajaElite() {
                 {gastos.map(g => (
                   <div key={g.id} className="bg-white/4 border border-white/5 p-6 rounded-[2.5rem] flex justify-between items-center group hover:bg-white/10 transition-all">
                     <div><p className="text-lg font-black uppercase italic text-white/90">{g.concepto}</p><p className="text-[10px] font-black uppercase text-slate-500 tracking-widest mt-1">{g.fecha}</p></div>
-                    <div className="text-right flex flex-col items-end"><p className="text-2xl font-black italic text-rose-400">-${Number(g.monto).toLocaleString('es-AR')}</p><button onClick={() => eliminarGasto(g.id)} className="opacity-0 group-hover:opacity-100 text-rose-500 font-black text-[9px] uppercase tracking-widest transition-all bg-rose-500/10 px-3 py-1.5 mt-1 rounded-xl hover:bg-rose-500/20">Eliminar</button></div>
+                    <div className="text-right flex flex-col items-end"><p className="text-2xl font-black italic text-rose-400">-${Number(g.monto).toLocaleString('es-AR')}</p><button onClick={() => eliminarGasto(g.id)} className="opacity-0 group-hover:opacity-100 text-rose-500 font-black text-[9px] uppercase tracking-widest transition-all bg-primary/10 px-3 py-1.5 mt-1 rounded-xl hover:bg-primary/20">Eliminar</button></div>
                   </div>
                 ))}
               </div>

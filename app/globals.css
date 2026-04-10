@@ -6,11 +6,13 @@
   --surface: rgba(255, 255, 255, 0.03);
   --border: rgba(255, 255, 255, 0.12);
   --shadow: rgba(0, 0, 0, 0.45);
+  --brand-color: #7c3aed;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-primary: var(--brand-color);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

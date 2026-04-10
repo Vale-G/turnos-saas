@@ -115,7 +115,7 @@ export default function SuperAdminElite() {
   )
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white p-6 md:p-12 font-sans selection:bg-rose-500/30">
+    <div className="min-h-screen bg-[#020617] text-white p-6 md:p-12 font-sans selection:bg-primary/30">
       <div className="max-w-6xl mx-auto">
         <header className="mb-12 border-b border-rose-500/20 pb-8 flex flex-col md:flex-row justify-between items-end gap-6">
           <div>
@@ -130,7 +130,7 @@ export default function SuperAdminElite() {
                 key={v}
                 onClick={() => setVista(v)}
                 className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase transition-all ${
-                  vista === v ? 'bg-rose-500 text-black shadow-lg shadow-rose-500/20' : 'text-slate-400 hover:text-white'
+                  vista === v ? 'bg-primary text-black shadow-lg shadow-rose-500/20' : 'text-slate-400 hover:text-white'
                 }`}
               >
                 {v}
@@ -146,7 +146,7 @@ export default function SuperAdminElite() {
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Total SaaS</p>
                 <p className="text-5xl font-black italic">{metricas.total}</p>
               </div>
-              <div className="bg-rose-500/10 border border-rose-500/20 p-8 rounded-[3rem]">
+              <div className="bg-primary/10 border border-rose-500/20 p-8 rounded-[3rem]">
                 <p className="text-[10px] font-black uppercase tracking-widest text-rose-400 mb-2">MRR Estimado (Mensual)</p>
                 <p className="text-5xl font-black italic text-rose-500">${metricas.mrr.toLocaleString()}</p>
               </div>
@@ -202,7 +202,7 @@ export default function SuperAdminElite() {
               <button
                 onClick={guardarConfig}
                 disabled={guardandoConfig}
-                className="w-full py-6 rounded-[2.5rem] font-black uppercase italic text-lg text-black bg-rose-500 hover:bg-rose-400 transition-all disabled:opacity-50 mt-4 shadow-[0_0_30px_rgba(244,63,94,0.3)]"
+                className="w-full py-6 rounded-[2.5rem] font-black uppercase italic text-lg text-black bg-primary hover:bg-primary/90 transition-all disabled:opacity-50 mt-4 shadow-[0_0_30px_rgba(244,63,94,0.3)]"
               >
                 {guardandoConfig ? 'IMPACTANDO...' : 'GUARDAR PRECIOS EN PRODUCCIÓN'}
               </button>
@@ -288,7 +288,7 @@ export default function SuperAdminElite() {
                             </button>
                             <button
                               onClick={() => extenderTrial(n.id, 0)}
-                              className="px-5 py-3 rounded-2xl text-[10px] font-black uppercase bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 transition-all"
+                              className="px-5 py-3 rounded-2xl text-[10px] font-black uppercase bg-primary/10 text-red-400 border border-red-500/30 hover:bg-primary/20 transition-all"
                             >
                               Vencer Trial
                             </button>
@@ -296,7 +296,7 @@ export default function SuperAdminElite() {
                         </div>
                         <button
                           onClick={() => eliminarNegocio(n.id, n.nombre)}
-                          className="px-6 py-4 rounded-2xl text-[10px] font-black uppercase bg-rose-500 text-black hover:bg-rose-400 transition-all shadow-[0_0_20px_rgba(244,63,94,0.4)]"
+                          className="px-6 py-4 rounded-2xl text-[10px] font-black uppercase bg-primary text-black hover:bg-primary/90 transition-all shadow-[0_0_20px_rgba(244,63,94,0.4)]"
                         >
                           FULMINAR NEGOCIO
                         </button>

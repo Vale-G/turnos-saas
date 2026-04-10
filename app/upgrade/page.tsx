@@ -115,7 +115,7 @@ function UpgradeContent() {
           </div>
         )}
         {estado === 'error' && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 text-center mb-6">
+          <div className="bg-primary/10 border border-red-500/20 rounded-2xl p-4 text-center mb-6">
             <p className="text-red-400 font-black uppercase">Pago rechazado — intenta de nuevo</p>
           </div>
         )}
@@ -126,7 +126,7 @@ function UpgradeContent() {
         )}
 
         {error && (
-          <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-6">{error}</p>
+          <p className="text-red-400 text-sm bg-primary/10 border border-red-500/20 rounded-xl px-4 py-3 mb-6">{error}</p>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

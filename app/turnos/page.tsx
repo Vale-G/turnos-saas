@@ -66,7 +66,7 @@ export default function AgendaTurnos() {
   )
 
   const estadoColor = (e: string) =>
-    ({ confirmado: 'bg-emerald-500', pendiente: 'bg-amber-500', cancelado: 'bg-rose-500', completado: 'bg-slate-400' })[e] ??
+    ({ confirmado: 'bg-emerald-500', pendiente: 'bg-amber-500', cancelado: 'bg-primary', completado: 'bg-slate-400' })[e] ??
     'bg-slate-500'
 
   useEffect(() => {
@@ -349,7 +349,7 @@ export default function AgendaTurnos() {
               {t.pago_estado === 'cobrado' && (
                 <button
                   onClick={() => deshacerPago(t.id)}
-                  className="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase bg-red-500/10 text-red-400 border border-red-500/20 transition-all"
+                  className="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase bg-primary/10 text-red-400 border border-red-500/20 transition-all"
                 >
                   Deshacer
                 </button>
@@ -365,7 +365,7 @@ export default function AgendaTurnos() {
             </button>
             <button
               onClick={() => eliminarTurno(t.id)}
-              className="text-[9px] font-black uppercase text-red-500/40 hover:text-red-400 hover:bg-red-500/10 px-2.5 py-1.5 rounded-lg transition-all"
+              className="text-[9px] font-black uppercase text-red-500/40 hover:text-red-400 hover:bg-primary/10 px-2.5 py-1.5 rounded-lg transition-all"
             >
               Eliminar
             </button>

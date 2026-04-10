@@ -141,7 +141,7 @@ export default function ClientesCRM() {
               <button key={c.idString} onClick={() => { setClienteSeleccionado(c.idString); cargarNotas(c.idString) }} className={`w-full text-left p-6 rounded-3xl border transition-all ${clienteSeleccionado === c.idString ? 'shadow-xl scale-[1.02]' : 'bg-white/4 border-white/5 hover:bg-white/10'}`} style={clienteSeleccionado === c.idString ? { backgroundColor: colorP, borderColor: colorP, color: '#000' } : {}}>
                 <div className="flex justify-between items-start">
                   <h3 className="font-black italic uppercase text-xl truncate">{c.nombre}</h3>
-                  {listaNegra.includes(c.telefono) && <span className="text-[10px] bg-red-500 text-white px-2 py-1 rounded-md font-black uppercase">Bloqueado</span>}
+                  {listaNegra.includes(c.telefono) && <span className="text-[10px] bg-primary text-white px-2 py-1 rounded-md font-black uppercase">Bloqueado</span>}
                 </div>
                 <p className="text-[10px] font-black uppercase opacity-70 tracking-widest mt-1">{c.telefono || 'S/T'} · {c.turnosTotal} Turnos</p>
               </button>
@@ -154,7 +154,7 @@ export default function ClientesCRM() {
             {clienteSeleccionado && clienteData ? (
               <div className="bg-white/4 border border-white/5 rounded-[3.5rem] p-10 animate-in fade-in slide-in-from-right-8 h-[70vh] overflow-y-auto custom-scrollbar relative">
                 
-                {estaBloqueado && <div className="absolute top-0 left-0 w-full h-2 bg-red-500 shadow-[0_0_20px_rgba(239,68,68,0.5)]" />}
+                {estaBloqueado && <div className="absolute top-0 left-0 w-full h-2 bg-primary shadow-[0_0_20px_rgba(239,68,68,0.5)]" />}
                 
                 {/* CABECERA DEL CLIENTE */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10 pb-8 border-b border-white/10">
@@ -168,7 +168,7 @@ export default function ClientesCRM() {
                         <span>💬</span> WhatsApp
                       </a>
                     )}
-                    <button onClick={() => toggleBloqueo(clienteData.telefono)} disabled={guardandoBloqueo} className={`px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-2 border ${estaBloqueado ? 'bg-white text-red-600 border-white hover:bg-red-50' : 'bg-red-500/10 text-red-500 border-red-500/30 hover:bg-red-500 hover:text-white'}`}>
+                    <button onClick={() => toggleBloqueo(clienteData.telefono)} disabled={guardandoBloqueo} className={`px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-colors flex items-center gap-2 border ${estaBloqueado ? 'bg-white text-red-600 border-white hover:bg-red-50' : 'bg-primary/10 text-red-500 border-red-500/30 hover:bg-primary hover:text-white'}`}>
                       {guardandoBloqueo ? '...' : (estaBloqueado ? '✅ Desbloquear' : '🚫 Lista Negra')}
                     </button>
                   </div>
@@ -205,7 +205,7 @@ export default function ClientesCRM() {
                              <p className="text-xs font-black uppercase">{t.servicio?.nombre || 'Servicio'}</p>
                              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">{t.fecha} - {t.hora.slice(0,5)}</p>
                            </div>
-                           <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md ${t.estado === 'completado' ? 'bg-emerald-500/20 text-emerald-400' : t.estado === 'cancelado' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                           <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md ${t.estado === 'completado' ? 'bg-emerald-500/20 text-emerald-400' : t.estado === 'cancelado' ? 'bg-primary/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>
                              {t.estado}
                            </span>
                          </div>

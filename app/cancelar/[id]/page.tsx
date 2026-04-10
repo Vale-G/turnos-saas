@@ -126,7 +126,7 @@ export default function CancelarTurnoPage() {
 
         {yaCancelado ? (
           <div className="animate-in fade-in">
-            <div className="w-24 h-24 rounded-full bg-rose-500/10 border-4 border-rose-500/30 text-rose-500 mx-auto mb-6 flex items-center justify-center text-4xl shadow-[0_0_40px_rgba(244,63,94,0.2)]">
+            <div className="w-24 h-24 rounded-full bg-primary/10 border-4 border-rose-500/30 text-rose-500 mx-auto mb-6 flex items-center justify-center text-4xl shadow-[0_0_40px_rgba(244,63,94,0.2)]">
               ✕
             </div>
             <h2 className="text-3xl font-black uppercase italic tracking-tighter mb-2">Turno Cancelado</h2>
@@ -194,7 +194,7 @@ export default function CancelarTurnoPage() {
               <button
                 onClick={confirmarCancelacion}
                 disabled={cancelando || !emailVerificado}
-                className="w-full py-5 rounded-[2rem] font-black uppercase italic text-sm text-white bg-rose-500 hover:bg-rose-600 active:scale-95 transition-all shadow-lg disabled:opacity-50"
+                className="w-full py-5 rounded-[2rem] font-black uppercase italic text-sm text-white bg-primary hover:bg-primary/90 active:scale-95 transition-all shadow-lg disabled:opacity-50"
               >
                 {cancelando ? 'CANCELANDO...' : 'SÍ, CANCELAR TURNO'}
               </button>

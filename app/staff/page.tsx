@@ -132,7 +132,7 @@ export default function GestionStaff() {
         )}
 
         {error && (
-          <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-6">{error}</p>
+          <p className="text-red-400 text-sm bg-primary/10 border border-red-500/20 rounded-xl px-4 py-3 mb-6">{error}</p>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

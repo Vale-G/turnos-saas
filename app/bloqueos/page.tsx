@@ -98,7 +98,7 @@ export default function BloqueosPage() {
                     <p className="text-sm font-black uppercase italic">{b.staff?.nombre}</p>
                     <p className="text-[10px] text-slate-500 font-bold uppercase">{b.fecha} · {b.hora_inicio.slice(0,5)} a {b.hora_fin.slice(0,5)}</p>
                   </div>
-                  <button onClick={() => eliminarBloqueo(b.id)} className="text-rose-500 font-black text-[10px] uppercase bg-rose-500/10 px-4 py-2 rounded-xl">Quitar</button>
+                  <button onClick={() => eliminarBloqueo(b.id)} className="text-rose-500 font-black text-[10px] uppercase bg-primary/10 px-4 py-2 rounded-xl">Quitar</button>
                 </div>
               ))}
             </div>

@@ -1,26 +1,28 @@
-import Link from 'next/link'
-import { brandConfig } from '@/config/brand'
+'use client';
+
+import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 
 export default function Footer() {
-  const year = new Date().getFullYear()
-  const appName = brandConfig.appName
+  const t = useTranslations('Footer');
+  const year = new Date().getFullYear();
 
   return (
     <footer className="border-t border-white/10 bg-black/20">
       <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 text-sm text-slate-400 md:flex-row">
         <p className="text-center md:text-left">
-          © {year} {appName}. Todos los derechos reservados.
+          {t('copyright', { year })}
         </p>
 
         <nav className="flex items-center gap-5">
           <Link href="/terminos" className="transition-colors hover:text-white">
-            Términos
+            {t('terms')}
           </Link>
           <Link href="/privacidad" className="transition-colors hover:text-white">
-            Privacidad
+            {t('privacy')}
           </Link>
         </nav>
       </div>
     </footer>
-  )
+  );
 }

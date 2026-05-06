@@ -21,9 +21,9 @@ export const viewport: Viewport = {
   maximumScale: 1,
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({ children, params: {locale} }: { children: React.ReactNode, params: {locale: string} }) {
   return (
-    <html lang="es" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <body className="min-h-screen bg-white text-slate-900 selection:bg-emerald-500/30 dark:bg-[#020617] dark:text-white">
         <Providers>
           <ThemeToggle />

@@ -4,6 +4,7 @@ import { Toaster } from 'sonner'
 import { brandConfig } from '@/config/brand'
 import Providers from './providers'
 import ThemeToggle from '@/components/ThemeToggle'
+import { Footer } from "@/components/footer"
 
 export const metadata: Metadata = {
   title: `${brandConfig.appName} | SaaS de Gestión para Barberías`,
@@ -28,6 +29,7 @@ export default function RootLayout({ children, params: {locale} }: { children: R
         <Providers>
           <ThemeToggle />
           {children}
+          <Footer />
           <Toaster theme="dark" position="top-center" richColors toastOptions={{ style: { borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.1)' } }} />
         </Providers>
       </body>

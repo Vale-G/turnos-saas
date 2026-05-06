@@ -3,5 +3,67 @@
     "copyright": "© {year} Turnly. Todos los derechos reservados.",
     "terms": "Términos",
     "privacy": "Privacidad"
+  },
+  "PrivacyPage": {
+    "backToHome": "← Volver al inicio",
+    "title": "Política de Privacidad",
+    "lastUpdated": "Última actualización: {updatedAt}",
+    "sections": {
+      "dataCollection": {
+        "title": "1. Datos que recopilamos",
+        "content": "{appName} recopila datos de identificación y contacto del negocio, información operativa de turnos y datos de clientes finales cargados por el propio negocio. Solo se solicitan datos necesarios para prestar el servicio."
+      },
+      "dataUsage": {
+        "title": "2. Finalidad del tratamiento",
+        "content": "Usamos los datos para operar la plataforma, enviar notificaciones, mejorar funcionalidades, prevenir fraude y cumplir obligaciones legales y contractuales vinculadas al servicio."
+      },
+      "legalBasis": {
+        "title": "3. Base legal y consentimiento",
+        "content": "El tratamiento se basa en la ejecución del contrato de servicio con el cliente y, cuando corresponde, en el consentimiento para finalidades específicas como comunicaciones comerciales."
+      },
+      "sharing": {
+        "title": "4. Compartición con terceros",
+        "content": "{appName} puede compartir información con proveedores de infraestructura, mensajería y cobros (como Stripe o MercadoPago), estrictamente para la prestación del servicio y bajo medidas de seguridad apropiadas."
+      },
+      "security": {
+        "title": "5. Conservación y seguridad",
+        "content": "Conservamos los datos durante el tiempo necesario para la operación contractual o por exigencias legales. Implementamos controles técnicos y organizativos razonables para proteger la confidencialidad e integridad de la información."
+      },
+      "userRights": {
+        "title": "6. Derechos del titular",
+        "content": "El titular podrá solicitar acceso, rectificación, actualización, oposición o eliminación de sus datos conforme a la normativa aplicable. Para ejercer estos derechos, deberá contactarse con el responsable del negocio o con soporte de {appName}."
+      }
+    }
+  },
+  "TermsPage": {
+    "backToHome": "← Volver al inicio",
+    "title": "Términos y Condiciones",
+    "lastUpdated": "Última actualización: {updatedAt}",
+    "sections": {
+      "serviceObject": {
+        "title": "1. Objeto del servicio",
+        "content": "{appName} es un software provisto bajo modalidad SaaS para gestión de turnos, cobros y operación comercial. El cliente acepta que {appName} actúa como proveedor tecnológico y no participa de la relación contractual entre el negocio y sus usuarios finales."
+      },
+      "accountRegistration": {
+        "title": "2. Registro y cuenta",
+        "content": "El cliente es responsable de la veracidad de la información registrada y de mantener la confidencialidad de sus credenciales. Toda acción realizada desde su cuenta se considera autorizada por el titular, salvo notificación previa de uso no autorizado."
+      },
+      "billing": {
+        "title": "3. Suscripciones, facturación y pasarelas",
+        "content": "El acceso puede estar sujeto a planes de pago. El cliente autoriza a {appName} a gestionar cobros mediante proveedores terceros (por ejemplo, Stripe o MercadoPago), quedando dichas operaciones sujetas también a los términos de esas plataformas."
+      },
+      "acceptableUse": {
+        "title": "4. Uso aceptable",
+        "content": "Está prohibido utilizar {appName} para actividades ilícitas, fraudulentas o que vulneren derechos de terceros. El incumplimiento podrá derivar en suspensión temporal o cancelación definitiva del servicio."
+      },
+      "liabilityLimitation": {
+        "title": "5. Disponibilidad y limitación de responsabilidad",
+        "content": "{appName} realiza esfuerzos razonables para asegurar continuidad operativa, pero no garantiza disponibilidad ininterrumpida. En ningún caso será responsable por lucro cesante, pérdida de datos o daños indirectos derivados del uso del servicio."
+      },
+      "intellectualProperty": {
+        "title": "6. Propiedad intelectual",
+        "content": "El software, la marca, interfaces y contenidos de {appName} son propiedad de sus titulares y se encuentran protegidos por leyes aplicables. No se concede licencia de explotación comercial sobre estos activos, salvo autorización expresa por escrito."
+      }
+    }
   }
 }

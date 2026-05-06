@@ -3,5 +3,67 @@
     "copyright": "© {year} Turnly. All rights reserved.",
     "terms": "Terms",
     "privacy": "Privacy"
+  },
+  "PrivacyPage": {
+    "backToHome": "← Back to home",
+    "title": "Privacy Policy",
+    "lastUpdated": "Last updated: {updatedAt}",
+    "sections": {
+      "dataCollection": {
+        "title": "1. Data we collect",
+        "content": "{appName} collects business identification and contact data, operational shift information, and end-customer data uploaded by the business itself. Only data necessary to provide the service is requested."
+      },
+      "dataUsage": {
+        "title": "2. Purpose of processing",
+        "content": "We use the data to operate the platform, send notifications, improve features, prevent fraud, and comply with legal and contractual obligations related to the service."
+      },
+      "legalBasis": {
+        "title": "3. Legal basis and consent",
+        "content": "The processing is based on the execution of the service contract with the client and, where applicable, on consent for specific purposes such as commercial communications."
+      },
+      "sharing": {
+        "title": "4. Sharing with third parties",
+        "content": "{appName} may share information with infrastructure, messaging, and payment providers (such as Stripe or MercadoPago), strictly for the provision of the service and under appropriate security measures."
+      },
+      "security": {
+        "title": "5. Data retention and security",
+        "content": "We retain data for the time necessary for contractual operation or as required by law. We implement reasonable technical and organizational controls to protect the confidentiality and integrity of the information."
+      },
+      "userRights": {
+        "title": "6. Rights of the data subject",
+        "content": "The data subject may request access, rectification, updating, opposition, or deletion of their data in accordance with applicable regulations. To exercise these rights, they should contact the business manager or {appName} support."
+      }
+    }
+  },
+  "TermsPage": {
+    "backToHome": "← Back to home",
+    "title": "Terms and Conditions",
+    "lastUpdated": "Last updated: {updatedAt}",
+    "sections": {
+      "serviceObject": {
+        "title": "1. Object of the service",
+        "content": "{appName} is a software provided under the SaaS modality for managing appointments, payments, and business operations. The client agrees that {appName} acts as a technology provider and does not participate in the contractual relationship between the business and its end-users."
+      },
+      "accountRegistration": {
+        "title": "2. Registration and account",
+        "content": "The client is responsible for the accuracy of the registered information and for maintaining the confidentiality of their credentials. Any action carried out from their account is considered authorized by the owner, unless prior notification of unauthorized use is given."
+      },
+      "billing": {
+        "title": "3. Subscriptions, billing, and payment gateways",
+        "content": "Access may be subject to payment plans. The client authorizes {appName} to manage payments through third-party providers (e.g., Stripe or MercadoPago), with such operations also being subject to the terms of those platforms."
+      },
+      "acceptableUse": {
+        "title": "4. Acceptable use",
+        "content": "It is prohibited to use {appName} for illicit, fraudulent, or third-party rights-infringing activities. Non-compliance may lead to temporary suspension or permanent cancellation of the service."
+      },
+      "liabilityLimitation": {
+        "title": "5. Availability and limitation of liability",
+        "content": "{appName} makes reasonable efforts to ensure operational continuity but does not guarantee uninterrupted availability. In no event shall it be liable for lost profits, data loss, or indirect damages arising from the use of the service."
+      },
+      "intellectualProperty": {
+        "title": "6. Intellectual property",
+        "content": "The software, brand, interfaces, and content of {appName} are the property of their owners and are protected by applicable laws. No license for commercial exploitation of these assets is granted, except with express written authorization."
+      }
+    }
   }
 }

@@ -1,10 +1,10 @@
 'use client'
 
+import { supabase } from '@/lib/supabase'
+import { getThemeColor } from '@/lib/theme'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import { getThemeColor } from '@/lib/theme'
 
 export default function Sidebar() {
   const pathname = usePathname()
@@ -19,7 +19,8 @@ export default function Sidebar() {
         const user = auth.user
         if (!user || !active) return
 
-        const negocioId = typeof window !== 'undefined' ? localStorage.getItem('nId') : null
+        const negocioId =
+          typeof window !== 'undefined' ? localStorage.getItem('nId') : null
 
         let tema: string | null | undefined
 
@@ -73,7 +74,10 @@ export default function Sidebar() {
 
   return (
     <div className="w-64 bg-slate-900 h-screen p-6 border-r border-slate-800 flex flex-col gap-8">
-      <div className="font-black italic text-2xl tracking-tighter" style={{ color: colorPrincipal }}>
+      <div
+        className="font-black italic text-2xl tracking-tighter"
+        style={{ color: colorPrincipal }}
+      >
         TURNLY PRO
       </div>
 
@@ -86,7 +90,9 @@ export default function Sidebar() {
               key={item.path}
               href={item.path}
               className={`flex items-center gap-3 p-4 rounded-2xl font-bold transition-all ${
-                isActive ? 'text-black' : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                isActive
+                  ? 'text-black'
+                  : 'text-slate-400 hover:bg-slate-800 hover:text-white'
               }`}
               style={
                 isActive

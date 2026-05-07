@@ -22,7 +22,10 @@ export const strictPhoneSchema = z
 
 export const loginSchema = z.object({
   email: strictEmailSchema,
-  password: z.string().min(8, 'Contraseña inválida').max(128, 'Contraseña inválida'),
+  password: z
+    .string()
+    .min(8, 'Contraseña inválida')
+    .max(128, 'Contraseña inválida'),
 })
 
 export const registroSchema = z.object({
@@ -35,7 +38,10 @@ export const registroSchema = z.object({
     .max(50, 'El slug es demasiado largo')
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug inválido'),
   email: strictEmailSchema,
-  password: z.string().min(8, 'Mínimo 8 caracteres').max(128, 'Contraseña inválida'),
+  password: z
+    .string()
+    .min(8, 'Mínimo 8 caracteres')
+    .max(128, 'Contraseña inválida'),
 })
 
 export const onboardingSchema = z.object({

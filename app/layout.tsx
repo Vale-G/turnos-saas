@@ -1,36 +1,62 @@
-import type { Metadata, Viewport } from "next"
-import "./globals.css"
+import type { Metadata, Viewport } from 'next'
+import './globals.css'
+import { Footer } from '@/components/footer'
+import { Header } from '@/components/header'
 import { Toaster } from 'sonner'
-import { brandConfig } from '@/config/brand'
 import Providers from './providers'
-import ThemeToggle from '@/components/ThemeToggle'
-import { Footer } from "@/components/footer"
+import { Inter } from 'next/font/google'
+
+const inter = Inter({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-inter',
+})
 
 export const metadata: Metadata = {
-  title: `${brandConfig.appName} | SaaS de Gestión para Barberías`,
-  description: `${brandConfig.appName}: software de reservas y control financiero.`,
+  title: 'Turnos | SaaS de Gestión para Barberías',
+  description: 'Software de reservas y control financiero.',
   icons: {
     icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>",
   },
-  manifest: "/manifest.json",
+  manifest: '/manifest.json',
 }
 
 export const viewport: Viewport = {
-  themeColor: brandConfig.brandColor,
-  width: "device-width",
+  themeColor: '#020617',
+  width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
 }
 
-export default function RootLayout({ children, params: {locale} }: { children: React.ReactNode, params: {locale: string} }) {
+export default function RootLayout({
+  children,
+  params: { locale },
+}: {
+  children: React.ReactNode
+  params: { locale: string }
+}) {
   return (
     <html lang={locale} suppressHydrationWarning>
-      <body className="min-h-screen bg-white text-slate-900 selection:bg-emerald-500/30 dark:bg-[#020617] dark:text-white">
+      <body
+        className={`${inter.variable} min-h-screen bg-white text-slate-900 selection:bg-emerald-500/30 dark:bg-[#020617] dark:text-white`}
+      >
         <Providers>
-          <ThemeToggle />
-          {children}
-          <Footer />
-          <Toaster theme="dark" position="top-center" richColors toastOptions={{ style: { borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.1)' } }} />
+          <div className="flex flex-col min-h-screen">
+            <Header />
+            <main className="flex-grow">{children}</main>
+            <Footer />
+          </div>
+          <Toaster
+            theme="dark"
+            position="top-center"
+            richColors
+            toastOptions={{
+              style: {
+                borderRadius: '1rem',
+                border: '1px solid rgba(255,255,255,0.1)',
+              },
+            }}
+          />
         </Providers>
       </body>
     </html>

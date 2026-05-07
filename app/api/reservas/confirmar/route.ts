@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { NextResponse } from 'next/server'
 
 type BodyPayload = {
   negocio_id: string
@@ -22,7 +22,10 @@ export async function POST(req: Request) {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!url || !serviceKey) {
-      return NextResponse.json({ error: 'No se pudo procesar la solicitud' }, { status: 500 })
+      return NextResponse.json(
+        { error: 'No se pudo procesar la solicitud' },
+        { status: 500 }
+      )
     }
 
     const body = (await req.json()) as BodyPayload
@@ -37,23 +40,35 @@ export async function POST(req: Request) {
       .eq('negocio_id', body.negocio_id)
 
     if (errLista) {
-      return NextResponse.json({ error: 'No se pudo procesar la solicitud' }, { status: 500 })
+      return NextResponse.json(
+        { error: 'No se pudo procesar la solicitud' },
+        { status: 500 }
+      )
     }
 
-    const bloqueado = (bloqueados || []).some((b: { usuario_id: string | null; email: string | null; telefono: string | null }) => {
-      const telBloqueado = normalizePhone(b.telefono)
-      const emailBloqueado = String(b.email || '').toLowerCase()
-      return (
-        (body.cliente_id && b.usuario_id === body.cliente_id) ||
-        (telefono && telBloqueado && telefono === telBloqueado) ||
-        (email && emailBloqueado && email === emailBloqueado)
-      )
-    })
+    const bloqueado = (bloqueados || []).some(
+      (b: {
+        usuario_id: string | null
+        email: string | null
+        telefono: string | null
+      }) => {
+        const telBloqueado = normalizePhone(b.telefono)
+        const emailBloqueado = String(b.email || '').toLowerCase()
+        return (
+          (body.cliente_id && b.usuario_id === body.cliente_id) ||
+          (telefono && telBloqueado && telefono === telBloqueado) ||
+          (email && emailBloqueado && email === emailBloqueado)
+        )
+      }
+    )
 
     if (bloqueado) {
       return NextResponse.json(
-        { error: 'No es posible agendar en este momento. Por favor, comunicate por WhatsApp' },
-        { status: 403 },
+        {
+          error:
+            'No es posible agendar en este momento. Por favor, comunicate por WhatsApp',
+        },
+        { status: 403 }
       )
     }
 
@@ -73,11 +88,17 @@ export async function POST(req: Request) {
       .single()
 
     if (errTurno || !turno) {
-      return NextResponse.json({ error: 'No se pudo procesar la solicitud' }, { status: 500 })
+      return NextResponse.json(
+        { error: 'No se pudo procesar la solicitud' },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({ turnoId: turno.id })
   } catch {
-    return NextResponse.json({ error: 'No se pudo procesar la solicitud' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'No se pudo procesar la solicitud' },
+      { status: 500 }
+    )
   }
 }

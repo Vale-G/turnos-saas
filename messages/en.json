@@ -65,5 +65,11 @@
         "content": "The software, brand, interfaces, and content of {appName} are the property of their owners and are protected by applicable laws. No license for commercial exploitation of these assets is granted, except with express written authorization."
       }
     }
+  },
+  "InactiveBusinessPage": {
+    "title": "Access Blocked",
+    "description": "Your business's trial period has ended or your subscription is inactive. To regain access to your schedule and continue receiving bookings, please renew your plan.",
+    "supportButton": "Contact Support",
+    "logoutButton": "Log Out"
   }
 }

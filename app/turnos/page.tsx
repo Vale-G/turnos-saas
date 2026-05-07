@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
 import { useRouter } from 'next/navigation'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 type TurnoItem = {
   id: string
@@ -35,7 +35,14 @@ function normalizeDateISO(input: string) {
   const month = Number(match[2])
   const day = Number(match[3])
 
-  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day) || month < 1 || month > 12 || day < 1) {
+  if (
+    !Number.isInteger(year) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(day) ||
+    month < 1 ||
+    month > 12 ||
+    day < 1
+  ) {
     return getTodayISO()
   }
 
@@ -49,25 +56,38 @@ export default function AgendaTurnos() {
   const [turnos, setTurnos] = useState<TurnoItem[]>([])
   const [negocioId, setNegocioId] = useState<string | null>(null)
   const [colorPrincipal, setColorPrincipal] = useState(getThemeColor())
-  const [fechaFiltro, setFechaFiltro] = useState(normalizeDateISO(getTodayISO()))
+  const [fechaFiltro, setFechaFiltro] = useState(
+    normalizeDateISO(getTodayISO())
+  )
   const [vista, setVista] = useState<Vista>('dia')
   const [loading, setLoading] = useState(true)
   const [reloadKey, setReloadKey] = useState(0)
   const [busqueda, setBusqueda] = useState('')
   const [turnoEditando, setTurnoEditando] = useState<string | null>(null)
   const [turnoEditar, setTurnoEditar] = useState<TurnoItem | null>(null)
-  const [_staffList, _setStaffList] = useState<{ id: string; nombre: string }[]>([])
-  const [_serviciosList, _setServiciosList] = useState<{ id: string; nombre: string; precio: number; duracion: number }[]>([])
+  const [_staffList, _setStaffList] = useState<
+    { id: string; nombre: string }[]
+  >([])
+  const [_serviciosList, _setServiciosList] = useState<
+    { id: string; nombre: string; precio: number; duracion: number }[]
+  >([])
   const router = useRouter()
 
   const totalCobrado = useMemo(
-    () => turnos.filter((t) => t.pago_estado === 'cobrado').reduce((a, t) => a + (t.servicio?.precio ?? 0), 0),
-    [turnos],
+    () =>
+      turnos
+        .filter((t) => t.pago_estado === 'cobrado')
+        .reduce((a, t) => a + (t.servicio?.precio ?? 0), 0),
+    [turnos]
   )
 
   const estadoColor = (e: string) =>
-    ({ confirmado: 'bg-emerald-500', pendiente: 'bg-amber-500', cancelado: 'bg-rose-500', completado: 'bg-slate-400' })[e] ??
-    'bg-slate-500'
+    ({
+      confirmado: 'bg-emerald-500',
+      pendiente: 'bg-amber-500',
+      cancelado: 'bg-rose-500',
+      completado: 'bg-slate-400',
+    })[e] ?? 'bg-slate-500'
 
   useEffect(() => {
     async function init() {
@@ -82,7 +102,11 @@ export default function AgendaTurnos() {
       let nId = null
       let negData = null
 
-      const { data: adm } = await supabase.from('adminrol').select('*').eq('user_id', user.id).maybeSingle()
+      const { data: adm } = await supabase
+        .from('adminrol')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle()
       if (adm?.negocio_id) {
         nId = adm.negocio_id
       } else {
@@ -105,7 +129,11 @@ export default function AgendaTurnos() {
       }
 
       if (!negData) {
-        const { data: n2 } = await supabase.from('negocio').select('id, tema').eq('id', nId).single()
+        const { data: n2 } = await supabase
+          .from('negocio')
+          .select('id, tema')
+          .eq('id', nId)
+          .single()
         negData = n2
       }
 
@@ -113,8 +141,15 @@ export default function AgendaTurnos() {
       setColorPrincipal(getThemeColor(negData?.tema))
 
       const [{ data: stf }, { data: svcs }] = await Promise.all([
-        supabase.from('staff').select('id, nombre').eq('negocio_id', nId).eq('activo', true),
-        supabase.from('servicio').select('id, nombre, precio, duracion').eq('negocio_id', nId),
+        supabase
+          .from('staff')
+          .select('id, nombre')
+          .eq('negocio_id', nId)
+          .eq('activo', true),
+        supabase
+          .from('servicio')
+          .select('id, nombre, precio, duracion')
+          .eq('negocio_id', nId),
       ])
       _setStaffList(stf ?? [])
       _setServiciosList(svcs ?? [])
@@ -150,7 +185,9 @@ export default function AgendaTurnos() {
         const domingo = new Date(lunes)
         domingo.setDate(lunes.getDate() + 6)
 
-        query = query.gte('fecha', lunes.toISOString().split('T')[0]).lte('fecha', domingo.toISOString().split('T')[0])
+        query = query
+          .gte('fecha', lunes.toISOString().split('T')[0])
+          .lte('fecha', domingo.toISOString().split('T')[0])
       }
 
       const { data } = await query
@@ -179,13 +216,19 @@ export default function AgendaTurnos() {
   }, [])
 
   const registrarPago = useCallback(async (id: string, tipo: string) => {
-    await supabase.from('turno').update({ pago_tipo: tipo, pago_estado: 'cobrado', estado: 'completado' }).eq('id', id)
+    await supabase
+      .from('turno')
+      .update({ pago_tipo: tipo, pago_estado: 'cobrado', estado: 'completado' })
+      .eq('id', id)
     setTurnoEditando(null)
     setReloadKey((k) => k + 1)
   }, [])
 
   const deshacerPago = useCallback(async (id: string) => {
-    await supabase.from('turno').update({ pago_tipo: null, pago_estado: 'pendiente' }).eq('id', id)
+    await supabase
+      .from('turno')
+      .update({ pago_tipo: null, pago_estado: 'pendiente' })
+      .eq('id', id)
     setReloadKey((k) => k + 1)
   }, [])
 
@@ -213,14 +256,16 @@ export default function AgendaTurnos() {
         motivo: 'Bloqueado desde historial de turnos',
       }
 
-      const { error } = await supabase.from('lista_negra').upsert(payload, { onConflict: 'negocio_id,identidad' })
+      const { error } = await supabase
+        .from('lista_negra')
+        .upsert(payload, { onConflict: 'negocio_id,identidad' })
       if (error) {
         alert('No se pudo procesar la solicitud')
         return
       }
       alert('Cliente bloqueado correctamente')
     },
-    [negocioId],
+    [negocioId]
   )
 
   const guardarEdicion = async () => {
@@ -244,7 +289,7 @@ export default function AgendaTurnos() {
         (t) =>
           t.cliente_nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
           t.servicio?.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
-          t.staff?.nombre?.toLowerCase().includes(busqueda.toLowerCase()),
+          t.staff?.nombre?.toLowerCase().includes(busqueda.toLowerCase())
       )
     : turnos
 
@@ -265,7 +310,13 @@ export default function AgendaTurnos() {
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(lunes)
       d.setDate(lunes.getDate() + i)
-      return { iso: d.toISOString().split('T')[0], label: d.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric' }) }
+      return {
+        iso: d.toISOString().split('T')[0],
+        label: d.toLocaleDateString('es-AR', {
+          weekday: 'short',
+          day: 'numeric',
+        }),
+      }
     })
   }, [fechaFiltro])
 
@@ -273,22 +324,42 @@ export default function AgendaTurnos() {
     <div
       className={
         'rounded-[1.5rem] border overflow-hidden transition-all ' +
-        (t.estado === 'cancelado' ? 'opacity-40 border-white/5 bg-white/2' : 'border-white/8 bg-white/4 hover:border-white/15')
+        (t.estado === 'cancelado'
+          ? 'opacity-40 border-white/5 bg-white/2'
+          : 'border-white/8 bg-white/4 hover:border-white/15')
       }
     >
       <div className="p-4 flex items-center gap-3 justify-between">
         <div className="flex items-center gap-3">
-          <div className={'w-1 h-10 rounded-full flex-shrink-0 ' + estadoColor(t.estado)} />
-          <p className="text-lg font-black italic w-12 flex-shrink-0" style={{ color: colorPrincipal }}>
+          <div
+            className={
+              'w-1 h-10 rounded-full flex-shrink-0 ' + estadoColor(t.estado)
+            }
+          />
+          <p
+            className="text-lg font-black italic w-12 flex-shrink-0"
+            style={{ color: colorPrincipal }}
+          >
             {t.hora.slice(0, 5)}
           </p>
           <div>
-            <p className="font-black uppercase text-sm leading-tight">{t.cliente_nombre}</p>
+            <p className="font-black uppercase text-sm leading-tight">
+              {t.cliente_nombre}
+            </p>
             <p className="text-[10px] text-slate-500">
               {t.servicio?.nombre} · {t.staff?.nombre}
             </p>
-            <p className={'text-[9px] font-black ' + (t.pago_estado === 'cobrado' ? 'text-emerald-400' : 'text-amber-400')}>
-              {t.pago_estado === 'cobrado' ? 'Cobrado · ' + (t.pago_tipo ?? '') : 'Sin cobrar'}
+            <p
+              className={
+                'text-[9px] font-black ' +
+                (t.pago_estado === 'cobrado'
+                  ? 'text-emerald-400'
+                  : 'text-amber-400')
+              }
+            >
+              {t.pago_estado === 'cobrado'
+                ? 'Cobrado · ' + (t.pago_tipo ?? '')
+                : 'Sin cobrar'}
               {t.servicio?.precio ? ' $' + t.servicio.precio : ''}
             </p>
           </div>
@@ -301,7 +372,9 @@ export default function AgendaTurnos() {
             Editar
           </button>
           <button
-            onClick={() => setTurnoEditando(turnoEditando === t.id ? null : t.id)}
+            onClick={() =>
+              setTurnoEditando(turnoEditando === t.id ? null : t.id)
+            }
             className="px-2 py-1.5 rounded-lg text-[9px] font-black uppercase bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
           >
             Cobro
@@ -312,7 +385,9 @@ export default function AgendaTurnos() {
       {turnoEditando === t.id && (
         <div className="border-t border-white/8 p-4 bg-black/20 space-y-3">
           <div>
-            <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-2">Estado</p>
+            <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-2">
+              Estado
+            </p>
             <div className="flex gap-2 flex-wrap">
               {ESTADOS_TURNO.map((e) => (
                 <button
@@ -320,9 +395,13 @@ export default function AgendaTurnos() {
                   onClick={() => cambiarEstado(t.id, e)}
                   className={
                     'px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase border transition-all ' +
-                    (t.estado === e ? 'text-black border-transparent' : 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10')
+                    (t.estado === e
+                      ? 'text-black border-transparent'
+                      : 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10')
                   }
-                  style={t.estado === e ? { backgroundColor: colorPrincipal } : {}}
+                  style={
+                    t.estado === e ? { backgroundColor: colorPrincipal } : {}
+                  }
                 >
                   {e}
                 </button>
@@ -330,7 +409,9 @@ export default function AgendaTurnos() {
             </div>
           </div>
           <div>
-            <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-2">Registrar cobro</p>
+            <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-2">
+              Registrar cobro
+            </p>
             <div className="flex gap-2 flex-wrap">
               {TIPOS_PAGO.map((tipo) => (
                 <button
@@ -343,7 +424,9 @@ export default function AgendaTurnos() {
                       : 'bg-white/5 text-slate-400 border-white/10 hover:bg-emerald-500/20 hover:text-emerald-400 hover:border-emerald-500/30')
                   }
                 >
-                  {tipo === 'mercadopago' ? 'MercadoPago' : tipo.charAt(0).toUpperCase() + tipo.slice(1)}
+                  {tipo === 'mercadopago'
+                    ? 'MercadoPago'
+                    : tipo.charAt(0).toUpperCase() + tipo.slice(1)}
                 </button>
               ))}
               {t.pago_estado === 'cobrado' && (
@@ -386,20 +469,32 @@ export default function AgendaTurnos() {
             >
               Volver
             </button>
-            <h1 className="text-4xl font-black uppercase italic tracking-tighter" style={{ color: colorPrincipal }}>
+            <h1
+              className="text-4xl font-black uppercase italic tracking-tighter"
+              style={{ color: colorPrincipal }}
+            >
               Agenda
             </h1>
             <div className="mt-3 bg-white/4 border border-white/8 rounded-2xl p-4 flex gap-5">
               <div>
-                <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Cobrado</p>
-                <p className="text-xl font-black" style={{ color: colorPrincipal }}>
+                <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">
+                  Cobrado
+                </p>
+                <p
+                  className="text-xl font-black"
+                  style={{ color: colorPrincipal }}
+                >
                   ${totalCobrado.toLocaleString('es-AR')}
                 </p>
               </div>
               <div className="w-px bg-white/10" />
               <div>
-                <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Turnos</p>
-                <p className="text-xl font-black">{turnos.filter((t) => t.estado !== 'cancelado').length}</p>
+                <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">
+                  Turnos
+                </p>
+                <p className="text-xl font-black">
+                  {turnos.filter((t) => t.estado !== 'cancelado').length}
+                </p>
               </div>
             </div>
           </div>
@@ -412,7 +507,9 @@ export default function AgendaTurnos() {
                   onClick={() => setVista(v)}
                   className={
                     'px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ' +
-                    (vista === v ? 'text-black' : 'text-slate-400 hover:text-white')
+                    (vista === v
+                      ? 'text-black'
+                      : 'text-slate-400 hover:text-white')
                   }
                   style={vista === v ? { backgroundColor: colorPrincipal } : {}}
                 >
@@ -421,16 +518,24 @@ export default function AgendaTurnos() {
               ))}
             </div>
             <div className="flex items-center gap-1 bg-white/5 border border-white/8 p-1.5 rounded-xl">
-              <button onClick={() => moverFecha(-1)} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-sm font-black">
+              <button
+                onClick={() => moverFecha(-1)}
+                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-sm font-black"
+              >
                 {'<'}
               </button>
               <input
                 type="date"
                 value={fechaFiltro}
-                onChange={(e) => setFechaFiltro(normalizeDateISO(e.target.value))}
+                onChange={(e) =>
+                  setFechaFiltro(normalizeDateISO(e.target.value))
+                }
                 className="bg-transparent font-black text-xs outline-none cursor-pointer px-1"
               />
-              <button onClick={() => moverFecha(1)} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-sm font-black">
+              <button
+                onClick={() => moverFecha(1)}
+                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-sm font-black"
+              >
                 {'>'}
               </button>
             </div>
@@ -449,55 +554,92 @@ export default function AgendaTurnos() {
           <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/75 px-4 pb-0 md:pb-4">
             <div className="w-full max-w-md bg-[#020617] border border-white/10 rounded-t-[2.5rem] md:rounded-[2.5rem] p-6 shadow-2xl">
               <div className="flex items-center justify-between mb-5">
-                <h3 className="font-black italic uppercase text-lg" style={{ color: colorPrincipal }}>
+                <h3
+                  className="font-black italic uppercase text-lg"
+                  style={{ color: colorPrincipal }}
+                >
                   Editar Turno
                 </h3>
-                <button onClick={() => setTurnoEditar(null)} className="text-slate-500 hover:text-white font-black">
+                <button
+                  onClick={() => setTurnoEditar(null)}
+                  className="text-slate-500 hover:text-white font-black"
+                >
                   X
                 </button>
               </div>
               <div className="space-y-4">
                 <div>
-                  <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest block mb-1">Cliente</label>
+                  <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest block mb-1">
+                    Cliente
+                  </label>
                   <input
                     type="text"
                     value={turnoEditar.cliente_nombre}
-                    onChange={(e) => setTurnoEditar({ ...turnoEditar, cliente_nombre: e.target.value })}
+                    onChange={(e) =>
+                      setTurnoEditar({
+                        ...turnoEditar,
+                        cliente_nombre: e.target.value,
+                      })
+                    }
                     className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-white/25 transition-colors"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest block mb-1">Fecha</label>
+                    <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest block mb-1">
+                      Fecha
+                    </label>
                     <input
                       type="date"
                       value={turnoEditar.fecha}
-                      onChange={(e) => setTurnoEditar({ ...turnoEditar, fecha: normalizeDateISO(e.target.value) })}
+                      onChange={(e) =>
+                        setTurnoEditar({
+                          ...turnoEditar,
+                          fecha: normalizeDateISO(e.target.value),
+                        })
+                      }
                       className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none"
                     />
                   </div>
                   <div>
-                    <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest block mb-1">Hora</label>
+                    <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest block mb-1">
+                      Hora
+                    </label>
                     <input
                       type="time"
                       value={turnoEditar.hora.slice(0, 5)}
-                      onChange={(e) => setTurnoEditar({ ...turnoEditar, hora: e.target.value + ':00' })}
+                      onChange={(e) =>
+                        setTurnoEditar({
+                          ...turnoEditar,
+                          hora: e.target.value + ':00',
+                        })
+                      }
                       className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest block mb-2">Estado</label>
+                  <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest block mb-2">
+                    Estado
+                  </label>
                   <div className="flex gap-2 flex-wrap">
                     {ESTADOS_TURNO.map((e) => (
                       <button
                         key={e}
-                        onClick={() => setTurnoEditar({ ...turnoEditar, estado: e })}
+                        onClick={() =>
+                          setTurnoEditar({ ...turnoEditar, estado: e })
+                        }
                         className={
                           'px-3 py-1.5 rounded-lg text-[9px] font-black uppercase border transition-all ' +
-                          (turnoEditar.estado === e ? 'text-black border-transparent' : 'bg-white/5 text-slate-400 border-white/10')
+                          (turnoEditar.estado === e
+                            ? 'text-black border-transparent'
+                            : 'bg-white/5 text-slate-400 border-white/10')
                         }
-                        style={turnoEditar.estado === e ? { backgroundColor: colorPrincipal } : {}}
+                        style={
+                          turnoEditar.estado === e
+                            ? { backgroundColor: colorPrincipal }
+                            : {}
+                        }
                       >
                         {e}
                       </button>
@@ -526,10 +668,14 @@ export default function AgendaTurnos() {
 
         {vista === 'dia' &&
           (loading ? (
-            <div className="text-center py-20 font-black italic text-slate-700 animate-pulse">Buscando...</div>
+            <div className="text-center py-20 font-black italic text-slate-700 animate-pulse">
+              Buscando...
+            </div>
           ) : turnosFiltrados.length === 0 ? (
             <div className="text-center py-20 bg-white/3 rounded-[2.5rem] border border-dashed border-white/10">
-              <p className="text-slate-500 font-black uppercase italic">No hay turnos para este día</p>
+              <p className="text-slate-500 font-black uppercase italic">
+                No hay turnos para este día
+              </p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -542,7 +688,9 @@ export default function AgendaTurnos() {
         {vista === 'semana' && (
           <div className="space-y-6 overflow-x-auto">
             {loading ? (
-              <div className="text-center py-20 font-black italic text-slate-700 animate-pulse">Buscando...</div>
+              <div className="text-center py-20 font-black italic text-slate-700 animate-pulse">
+                Buscando...
+              </div>
             ) : (
               diasSemana.map((dia) => {
                 const turnosDia = turnosPorFecha[dia.iso] ?? []
@@ -550,18 +698,27 @@ export default function AgendaTurnos() {
                 return (
                   <div key={dia.iso}>
                     <div className="flex items-center gap-3 mb-3">
-                      <p className={'text-xs font-black uppercase tracking-widest ' + (esHoy ? '' : 'text-slate-500')} style={esHoy ? { color: colorPrincipal } : {}}>
+                      <p
+                        className={
+                          'text-xs font-black uppercase tracking-widest ' +
+                          (esHoy ? '' : 'text-slate-500')
+                        }
+                        style={esHoy ? { color: colorPrincipal } : {}}
+                      >
                         {dia.label}
                       </p>
                       {turnosDia.length > 0 && (
                         <span className="text-[9px] font-black text-slate-600">
-                          {turnosDia.length} turno{turnosDia.length > 1 ? 's' : ''}
+                          {turnosDia.length} turno
+                          {turnosDia.length > 1 ? 's' : ''}
                         </span>
                       )}
                       <div className="flex-1 h-px bg-white/5" />
                     </div>
                     {turnosDia.length === 0 ? (
-                      <p className="text-slate-700 text-xs font-bold italic pl-2">Sin turnos</p>
+                      <p className="text-slate-700 text-xs font-bold italic pl-2">
+                        Sin turnos
+                      </p>
                     ) : (
                       <div className="space-y-2">
                         {turnosDia.map((t) => (

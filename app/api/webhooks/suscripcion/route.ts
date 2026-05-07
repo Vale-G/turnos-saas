@@ -1,17 +1,17 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
 import {
   obtenerPagoMercadoPago,
   procesarPagoSuscripcion,
   verificarFirmaMercadoPago,
   type MercadoPagoWebhookPayload,
 } from '@/lib/webhooks/mercadopago-handler'
+import { createClient } from '@supabase/supabase-js'
+import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
   try {
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
     const bodyText = await req.text()
@@ -49,7 +49,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
-    await procesarPagoSuscripcion(supabaseAdmin, paymentId, status, negocioId, tipoPlan)
+    await procesarPagoSuscripcion(
+      supabaseAdmin,
+      paymentId,
+      status,
+      negocioId,
+      tipoPlan
+    )
 
     return NextResponse.json({ ok: true })
   } catch (err) {

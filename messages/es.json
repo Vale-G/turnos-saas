@@ -65,5 +65,11 @@
         "content": "El software, la marca, interfaces y contenidos de {appName} son propiedad de sus titulares y se encuentran protegidos por leyes aplicables. No se concede licencia de explotación comercial sobre estos activos, salvo autorización expresa por escrito."
       }
     }
+  },
+  "InactiveBusinessPage": {
+    "title": "Acceso Bloqueado",
+    "description": "El período de prueba de tu negocio ha finalizado o tu suscripción se encuentra inactiva. Para recuperar el acceso a tu agenda y seguir recibiendo reservas, por favor renová tu plan.",
+    "supportButton": "Contactar a Soporte",
+    "logoutButton": "Cerrar Sesión"
   }
 }

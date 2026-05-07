@@ -3,12 +3,29 @@
 // TIPOS BASE DE LA BASE DE DATOS
 // ============================================
 
-export type VerticalNegocio = 'peluqueria' | 'spa' | 'consultorio' | 'gym' | 'taller' | 'otro'
+export type VerticalNegocio =
+  | 'peluqueria'
+  | 'spa'
+  | 'consultorio'
+  | 'gym'
+  | 'taller'
+  | 'otro'
 export type PlanNegocio = 'trial' | 'basico' | 'pro'
 export type SubscriptionStatus = 'active' | 'past_due' | 'canceled'
 export type RolUsuario = 'superadmin' | 'owner' | 'staff' | 'cliente'
-export type EstadoTurno = 'pendiente' | 'confirmado' | 'finalizado' | 'cancelado'
-export type CategoriaEgreso = 'alquiler' | 'luz' | 'agua' | 'productos' | 'sueldos' | 'impuestos' | 'otro'
+export type EstadoTurno =
+  | 'pendiente'
+  | 'confirmado'
+  | 'finalizado'
+  | 'cancelado'
+export type CategoriaEgreso =
+  | 'alquiler'
+  | 'luz'
+  | 'agua'
+  | 'productos'
+  | 'sueldos'
+  | 'impuestos'
+  | 'otro'
 export type DiaSemana = 'L' | 'Ma' | 'Mi' | 'J' | 'V' | 'S' | 'D'
 
 // ============================================
@@ -20,27 +37,27 @@ export interface Negocio {
   nombre: string
   slug: string
   owner_id: string
-  
+
   // Configuración
   vertical: VerticalNegocio
   logo_url?: string
   color_primario: string
-  
+
   // Textos personalizables
   label_servicio: string
   label_staff: string
   label_cliente: string
-  
+
   // Plan y pagos
   plan: PlanNegocio
   trial_ends_at?: string
   subscription_status: SubscriptionStatus
-  
+
   // Metadata
   created_at: string
   updated_at: string
   last_activity_at: string
-  
+
   // Relaciones (opcional, cuando se hace JOIN)
   Servicio?: Servicio[]
   Staff?: Staff[]
@@ -77,12 +94,12 @@ export interface Staff {
   avatar_url?: string
   especialidad?: string
   activo: boolean
-  
+
   // Horarios
   horario_inicio: string // "09:00"
-  horario_fin: string    // "18:00"
+  horario_fin: string // "18:00"
   dias_trabajo: DiaSemana[]
-  
+
   created_at: string
 }
 
@@ -91,28 +108,28 @@ export interface Turno {
   negocio_id: string
   servicio_id: string
   staff_id: string
-  
+
   // Cliente
   nombre_cliente: string
   telefono_cliente?: string
   email_cliente?: string
   cliente_id?: string
-  
+
   // Fecha y hora
   hora_inicio: string // ISO timestamp
   hora_fin?: string
-  
+
   // Estado
   estado: EstadoTurno
-  
+
   // Notas
   notas_internas?: string
-  
+
   // Metadata
   created_at: string
   cancelado_at?: string
   cancelado_por?: string
-  
+
   // Relaciones (cuando se hace JOIN)
   Servicio?: Servicio
   Staff?: Staff
@@ -135,11 +152,11 @@ export interface PagoSubscripcion {
   plan: PlanNegocio
   monto: number
   estado: 'pending' | 'approved' | 'rejected'
-  
+
   // Mercado Pago
   mp_payment_id?: string
   mp_preference_id?: string
-  
+
   periodo_inicio: string
   periodo_fin: string
   created_at: string
@@ -154,15 +171,15 @@ export interface FormTurno {
   telefono: string
   email: string
   servicio: string // ID del servicio
-  staff: string    // ID del staff
-  fecha: string    // datetime-local format
+  staff: string // ID del staff
+  fecha: string // datetime-local format
   notas: string
 }
 
 export interface FormServicio {
   nombre: string
   descripcion: string
-  precio: string  // string porque viene del input
+  precio: string // string porque viene del input
   duracion: string
   ocultar_precio: boolean
 }
@@ -230,17 +247,17 @@ export interface ConfiguracionNegocio {
   label_servicio: string
   label_staff: string
   label_cliente: string
-  
+
   // Horarios del negocio
   horario_apertura: string
   horario_cierre: string
   dias_atencion: DiaSemana[]
-  
+
   // Configuración de reservas
   permite_reserva_online: boolean
   requiere_confirmacion: boolean
   tiempo_anticipacion_minimo: number // horas
-  tiempo_cancelacion_maximo: number  // horas
+  tiempo_cancelacion_maximo: number // horas
 }
 
 // ============================================

@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
+import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
 const TEMAS_DISPONIBLES = [
@@ -44,7 +44,9 @@ export default function AjustesPage() {
   const [whatsapp, setWhatsapp] = useState('')
   const [apertura, setApertura] = useState('09:00')
   const [cierre, setCierre] = useState('20:00')
-  const [diasLaborales, setDiasLaborales] = useState<number[]>([1, 2, 3, 4, 5, 6])
+  const [diasLaborales, setDiasLaborales] = useState<number[]>([
+    1, 2, 3, 4, 5, 6,
+  ])
   const [logoUrl, setLogoUrl] = useState('')
   const [mpToken, setMpToken] = useState('')
   const [mpTokenMaskedValue, setMpTokenMaskedValue] = useState('')
@@ -58,15 +60,27 @@ export default function AjustesPage() {
       } = await supabase.auth.getUser()
       if (!user) return router.push('/login')
 
-      const { data: adm } = await supabase.from('adminrol').select('*').eq('user_id', user.id).maybeSingle()
+      const { data: adm } = await supabase
+        .from('adminrol')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle()
       let nId = adm?.negocio_id
       if (!nId) {
-        const { data: n } = await supabase.from('negocio').select('id').eq('owner_id', user.id).maybeSingle()
+        const { data: n } = await supabase
+          .from('negocio')
+          .select('id')
+          .eq('owner_id', user.id)
+          .maybeSingle()
         nId = n?.id
       }
 
       if (nId) {
-        const { data: neg } = await supabase.from('negocio').select('*').eq('id', nId).single()
+        const { data: neg } = await supabase
+          .from('negocio')
+          .select('*')
+          .eq('id', nId)
+          .single()
         if (neg) {
           setNegocio(neg)
           setNombre(neg.nombre || '')
@@ -78,7 +92,9 @@ export default function AjustesPage() {
           setDiasLaborales(neg.dias_laborales || [1, 2, 3, 4, 5, 6])
           setLogoUrl(neg.logo_url || '')
 
-          const tokenEnmascarado = neg.mp_access_token ? maskToken(neg.mp_access_token) : ''
+          const tokenEnmascarado = neg.mp_access_token
+            ? maskToken(neg.mp_access_token)
+            : ''
           setMpToken(tokenEnmascarado)
           setMpTokenMaskedValue(tokenEnmascarado)
           setMpTokenEditado(false)
@@ -98,7 +114,9 @@ export default function AjustesPage() {
       const file = e.target.files[0]
       const fileExt = file.name.split('.').pop()
       const fileName = `logo-${negocio?.id}-${Math.random()}.${fileExt}`
-      const { error: uploadError } = await supabase.storage.from('logos').upload(fileName, file)
+      const { error: uploadError } = await supabase.storage
+        .from('logos')
+        .upload(fileName, file)
       if (uploadError) throw uploadError
       const {
         data: { publicUrl },
@@ -139,12 +157,17 @@ export default function AjustesPage() {
     if (mpTokenEditado) {
       if (!mpToken.trim()) {
         setGuardando(false)
-        return toast.error('El Access Token no puede estar vacío si decidís modificarlo')
+        return toast.error(
+          'El Access Token no puede estar vacío si decidís modificarlo'
+        )
       }
       updatePayload.mp_access_token = mpToken.trim()
     }
 
-    const { error } = await supabase.from('negocio').update(updatePayload).eq('id', negocio.id)
+    const { error } = await supabase
+      .from('negocio')
+      .update(updatePayload)
+      .eq('id', negocio.id)
 
     setGuardando(false)
     if (error) return toast.error('Error al guardar ajustes')
@@ -180,14 +203,26 @@ export default function AjustesPage() {
 
         <form onSubmit={guardarAjustes} className="space-y-8">
           <div className="bg-white/5 border border-white/10 p-8 rounded-[3rem]">
-            <h2 className="text-xl font-black uppercase italic mb-6">1. Identidad de Marca</h2>
+            <h2 className="text-xl font-black uppercase italic mb-6">
+              1. Identidad de Marca
+            </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2 flex items-center gap-6 bg-black/50 border border-white/10 p-6 rounded-3xl">
                 <div className="w-24 h-24 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
-                  {logoUrl ? <img src={logoUrl} alt="Logo Local" className="w-full h-full object-cover" /> : <span className="text-3xl">🖼️</span>}
+                  {logoUrl ? (
+                    <img
+                      src={logoUrl}
+                      alt="Logo Local"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-3xl">🖼️</span>
+                  )}
                 </div>
                 <div className="flex-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Logo del Local</label>
+                  <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">
+                    Logo del Local
+                  </label>
                   <input
                     type="file"
                     accept="image/*"
@@ -206,7 +241,9 @@ export default function AjustesPage() {
               </div>
 
               <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Nombre del Local</label>
+                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">
+                  Nombre del Local
+                </label>
                 <input
                   type="text"
                   value={nombre}
@@ -216,18 +253,26 @@ export default function AjustesPage() {
                 />
               </div>
               <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Link de Reservas (/reservar/...)</label>
+                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">
+                  Link de Reservas (/reservar/...)
+                </label>
                 <input
                   type="text"
                   value={slug}
-                  onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
+                  onChange={(e) =>
+                    setSlug(
+                      e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-')
+                    )
+                  }
                   required
                   className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black outline-none focus:border-white/30"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 mb-4 block">Color Principal</label>
+                <label className="text-[10px] font-black uppercase text-slate-400 mb-4 block">
+                  Color Principal
+                </label>
                 <div className="flex flex-wrap gap-4">
                   {TEMAS_DISPONIBLES.map((t) => (
                     <button
@@ -235,9 +280,14 @@ export default function AjustesPage() {
                       key={t.id}
                       onClick={() => setTema(t.id)}
                       className={`w-12 h-12 rounded-full border-4 transition-all ${
-                        tema === t.id ? 'scale-110 shadow-[0_0_20px_rgba(255,255,255,0.3)]' : 'border-transparent opacity-50 hover:opacity-100'
+                        tema === t.id
+                          ? 'scale-110 shadow-[0_0_20px_rgba(255,255,255,0.3)]'
+                          : 'border-transparent opacity-50 hover:opacity-100'
                       }`}
-                      style={{ backgroundColor: t.color, borderColor: tema === t.id ? 'white' : 'transparent' }}
+                      style={{
+                        backgroundColor: t.color,
+                        borderColor: tema === t.id ? 'white' : 'transparent',
+                      }}
                       title={t.nombre}
                     />
                   ))}
@@ -247,10 +297,14 @@ export default function AjustesPage() {
           </div>
 
           <div className="bg-white/5 border border-white/10 p-8 rounded-[3rem]">
-            <h2 className="text-xl font-black uppercase italic mb-6">2. Horarios y Días Laborales</h2>
+            <h2 className="text-xl font-black uppercase italic mb-6">
+              2. Horarios y Días Laborales
+            </h2>
 
             <div className="mb-8">
-              <label className="text-[10px] font-black uppercase text-slate-400 mb-4 block">¿Qué días abrís?</label>
+              <label className="text-[10px] font-black uppercase text-slate-400 mb-4 block">
+                ¿Qué días abrís?
+              </label>
               <div className="flex flex-wrap gap-3">
                 {DIAS_SEMANA.map((d) => (
                   <button
@@ -271,7 +325,9 @@ export default function AjustesPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Apertura</label>
+                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">
+                  Apertura
+                </label>
                 <input
                   type="time"
                   value={apertura}
@@ -280,7 +336,9 @@ export default function AjustesPage() {
                 />
               </div>
               <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Cierre</label>
+                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">
+                  Cierre
+                </label>
                 <input
                   type="time"
                   value={cierre}
@@ -292,10 +350,14 @@ export default function AjustesPage() {
           </div>
 
           <div className="bg-white/5 border border-white/10 p-8 rounded-[3rem]">
-            <h2 className="text-xl font-black uppercase italic mb-6">3. Contacto y Pagos</h2>
+            <h2 className="text-xl font-black uppercase italic mb-6">
+              3. Contacto y Pagos
+            </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">WhatsApp de Contacto</label>
+                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">
+                  WhatsApp de Contacto
+                </label>
                 <input
                   type="tel"
                   value={whatsapp}
@@ -304,7 +366,9 @@ export default function AjustesPage() {
                 />
               </div>
               <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Email para Avisos</label>
+                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">
+                  Email para Avisos
+                </label>
                 <input
                   type="email"
                   value={emailContacto}
@@ -314,9 +378,13 @@ export default function AjustesPage() {
               </div>
             </div>
             <div className="relative overflow-hidden bg-blue-500/10 border border-blue-500/20 p-6 rounded-3xl mt-4">
-              <h3 className="text-sm font-black uppercase italic mb-4 text-blue-400">MercadoPago</h3>
+              <h3 className="text-sm font-black uppercase italic mb-4 text-blue-400">
+                MercadoPago
+              </h3>
               <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Access Token (Producción)</label>
+                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">
+                  Access Token (Producción)
+                </label>
                 <input
                   type="password"
                   value={mpToken}

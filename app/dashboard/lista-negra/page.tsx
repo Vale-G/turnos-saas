@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 
 type Bloqueado = {
@@ -40,7 +40,11 @@ export default function ListaNegraPage() {
       }
 
       let nId: string | null = null
-      const { data: adm } = await supabase.from('adminrol').select('negocio_id').eq('user_id', user.id).maybeSingle()
+      const { data: adm } = await supabase
+        .from('adminrol')
+        .select('negocio_id')
+        .eq('user_id', user.id)
+        .maybeSingle()
       if (adm?.negocio_id) {
         nId = adm.negocio_id
       } else {
@@ -68,7 +72,11 @@ export default function ListaNegraPage() {
 
   const desbloquear = async (id: string) => {
     if (!negocioId) return
-    const { error } = await supabase.from('lista_negra').delete().eq('id', id).eq('negocio_id', negocioId)
+    const { error } = await supabase
+      .from('lista_negra')
+      .delete()
+      .eq('id', id)
+      .eq('negocio_id', negocioId)
     if (error) {
       toast.error('No se pudo procesar la solicitud')
       return
@@ -80,8 +88,12 @@ export default function ListaNegraPage() {
   return (
     <div className="min-h-screen bg-[#020617] text-white p-6 md:p-10">
       <div className="mx-auto max-w-6xl">
-        <h1 className="text-4xl font-black uppercase italic tracking-tight mb-2">Lista Negra</h1>
-        <p className="text-slate-400 text-sm mb-8">Clientes bloqueados para nuevas reservas online.</p>
+        <h1 className="text-4xl font-black uppercase italic tracking-tight mb-2">
+          Lista Negra
+        </h1>
+        <p className="text-slate-400 text-sm mb-8">
+          Clientes bloqueados para nuevas reservas online.
+        </p>
 
         <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/5">
           <table className="w-full text-sm">
@@ -96,16 +108,38 @@ export default function ListaNegraPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">Cargando...</td></tr>
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-4 py-8 text-center text-slate-500"
+                  >
+                    Cargando...
+                  </td>
+                </tr>
               ) : items.length === 0 ? (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-slate-500">No hay clientes bloqueados.</td></tr>
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-4 py-8 text-center text-slate-500"
+                  >
+                    No hay clientes bloqueados.
+                  </td>
+                </tr>
               ) : (
                 items.map((item) => (
                   <tr key={item.id} className="border-t border-white/5">
-                    <td className="px-4 py-3 font-semibold">{item.nombre || 'Cliente'}</td>
-                    <td className="px-4 py-3 text-slate-300">{item.telefono || item.email || '-'}</td>
-                    <td className="px-4 py-3 text-slate-400">{item.motivo || '-'}</td>
-                    <td className="px-4 py-3 text-slate-400">{new Date(item.creado_en).toLocaleDateString('es-AR')}</td>
+                    <td className="px-4 py-3 font-semibold">
+                      {item.nombre || 'Cliente'}
+                    </td>
+                    <td className="px-4 py-3 text-slate-300">
+                      {item.telefono || item.email || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-slate-400">
+                      {item.motivo || '-'}
+                    </td>
+                    <td className="px-4 py-3 text-slate-400">
+                      {new Date(item.creado_en).toLocaleDateString('es-AR')}
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <button
                         onClick={() => desbloquear(item.id)}

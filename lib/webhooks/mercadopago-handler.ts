@@ -27,7 +27,9 @@ export function verificarFirmaMercadoPago(headers: Headers): boolean {
   }
 
   try {
-    const parts = Object.fromEntries(xSignature.split(',').map((p) => p.split('=')))
+    const parts = Object.fromEntries(
+      xSignature.split(',').map((p) => p.split('='))
+    )
     const ts = parts.ts
     const v1 = parts.v1
 
@@ -44,16 +46,21 @@ export function verificarFirmaMercadoPago(headers: Headers): boolean {
   }
 }
 
-export async function obtenerPagoMercadoPago(paymentId: string | number): Promise<MercadoPagoPayment | null> {
+export async function obtenerPagoMercadoPago(
+  paymentId: string | number
+): Promise<MercadoPagoPayment | null> {
   const accessToken = process.env.MP_ACCESS_TOKEN
   if (!accessToken) {
     throw new Error('MP_ACCESS_TOKEN no configurado')
   }
 
-  const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-    cache: 'no-store',
-  })
+  const mpRes = await fetch(
+    `https://api.mercadopago.com/v1/payments/${paymentId}`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    }
+  )
 
   if (!mpRes.ok) {
     return null
@@ -66,7 +73,7 @@ export async function procesarPagoTurno(
   supabaseAdmin: SupabaseClient,
   paymentId: string | number,
   status: string,
-  turnoId: string,
+  turnoId: string
 ): Promise<void> {
   const estadoTurno: Record<string, string> = {
     approved: 'confirmado',
@@ -90,7 +97,7 @@ export async function procesarPagoSuscripcion(
   paymentId: string | number,
   status: string,
   negocioId: string,
-  tipoPlan: string,
+  tipoPlan: string
 ): Promise<void> {
   if (tipoPlan === 'sena') {
     if (status === 'approved') {

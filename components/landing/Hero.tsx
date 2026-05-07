@@ -10,7 +10,9 @@ export default function Hero({ onPrimaryClick, onSecondaryClick }: HeroProps) {
     <section className="max-w-5xl mx-auto px-6 pt-16 pb-24 text-center">
       <div className="inline-flex items-center gap-2 bg-[#6366F1]/10 border border-[#6366F1]/20 rounded-full px-4 py-1.5 mb-6">
         <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-        <span className="text-xs font-bold text-[#6366F1]">30 días gratis · Sin tarjeta de crédito</span>
+        <span className="text-xs font-bold text-[#6366F1]">
+          30 días gratis · Sin tarjeta de crédito
+        </span>
       </div>
       <h1 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter leading-none mb-6">
         Tus clientes reservan solos.
@@ -18,7 +20,8 @@ export default function Hero({ onPrimaryClick, onSecondaryClick }: HeroProps) {
         <span className="text-[#6366F1]">Vos te concentrás en cortar.</span>
       </h1>
       <p className="text-slate-400 text-lg max-w-xl mx-auto mb-10 leading-relaxed">
-        El sistema de turnos para barberías, peluquerías y centros de estética que no quieren perder tiempo con WhatsApps y llamadas.
+        El sistema de turnos para barberías, peluquerías y centros de estética
+        que no quieren perder tiempo con WhatsApps y llamadas.
       </p>
       <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
         <button
@@ -34,7 +37,9 @@ export default function Hero({ onPrimaryClick, onSecondaryClick }: HeroProps) {
           Ver demo en vivo →
         </button>
       </div>
-      <p className="text-slate-600 text-xs mt-4">Sin tarjeta de crédito · Cancelás cuando quieras</p>
+      <p className="text-slate-600 text-xs mt-4">
+        Sin tarjeta de crédito · Cancelás cuando quieras
+      </p>
     </section>
   )
 }

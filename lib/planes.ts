@@ -60,7 +60,10 @@ export function getPlan(planId?: string | null): PlanConfig {
   return PLANES[DEFAULT_PLAN_ID]
 }
 
-export function getPlanEfectivo(suscripcion_tipo?: string | null, trial_hasta?: string | null): PlanId {
+export function getPlanEfectivo(
+  suscripcion_tipo?: string | null,
+  trial_hasta?: string | null
+): PlanId {
   if (suscripcion_tipo === 'pro') return 'pro'
   if (suscripcion_tipo === 'basico') return 'basico'
   if (trial_hasta && new Date(trial_hasta) > new Date()) return 'trial'

@@ -16,8 +16,13 @@ export async function GET(request: NextRequest) {
         cookies: {
           getAll: () => cookieStore.getAll(),
           setAll: (toSet) => {
-            try { toSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options)) }
-            catch { /* Server Component — ignorar */ }
+            try {
+              toSet.forEach(({ name, value, options }) =>
+                cookieStore.set(name, value, options)
+              )
+            } catch {
+              /* Server Component — ignorar */
+            }
           },
         },
       }

@@ -76,7 +76,10 @@ export function createRateLimiter(options: RateLimitOptions) {
 
       const remaining = Math.max(0, limit - existing.count)
       const success = existing.count <= limit
-      const retryAfter = Math.max(0, Math.ceil((existing.resetAt - currentTime) / 1000))
+      const retryAfter = Math.max(
+        0,
+        Math.ceil((existing.resetAt - currentTime) / 1000)
+      )
 
       return {
         success,
@@ -92,7 +95,7 @@ export function createRateLimiter(options: RateLimitOptions) {
 export function rateLimitByIp(
   request: NextRequest | Request,
   options: RateLimitOptions,
-  scope = 'global',
+  scope = 'global'
 ): RateLimitResult {
   const ip = getClientIp(request)
   const limiter = createRateLimiter(options)

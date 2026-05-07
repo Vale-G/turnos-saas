@@ -23,8 +23,12 @@ export default function Features({ items }: FeaturesProps) {
             className="bg-white/4 border border-white/8 rounded-2xl p-5 hover:bg-white/6 transition-colors"
           >
             <div className="text-2xl mb-3">{feature.icon}</div>
-            <h3 className="font-black uppercase italic mb-1">{feature.titulo}</h3>
-            <p className="text-slate-400 text-sm leading-relaxed">{feature.desc}</p>
+            <h3 className="font-black uppercase italic mb-1">
+              {feature.titulo}
+            </h3>
+            <p className="text-slate-400 text-sm leading-relaxed">
+              {feature.desc}
+            </p>
           </div>
         ))}
       </div>

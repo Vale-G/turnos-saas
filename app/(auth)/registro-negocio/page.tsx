@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
-import { toast } from 'sonner'
 import { registroSchema } from '@/lib/validation'
+import { useRouter } from 'next/navigation'
+import { useCallback, useEffect, useState } from 'react'
+import { toast } from 'sonner'
 
 function validarPassword(password: string): string | null {
   if (password.length < 8) return 'Mínimo 8 caracteres'
@@ -93,9 +93,9 @@ export default function RegistroNegocio() {
 
     // Validaciones previas
     const pwError = validarPassword(password)
-    if (pwError) { 
+    if (pwError) {
       setPasswordError(pwError)
-      return 
+      return
     }
 
     if (!slug || slug.length < 3) {
@@ -117,7 +117,12 @@ export default function RegistroNegocio() {
     setLoading(true)
 
     try {
-      const validated = registroSchema.safeParse({ email, password, nombreNegocio, slug })
+      const validated = registroSchema.safeParse({
+        email,
+        password,
+        nombreNegocio,
+        slug,
+      })
       if (!validated.success) {
         toast.error(validated.error.issues[0]?.message ?? 'Datos inválidos')
         return
@@ -143,7 +148,8 @@ export default function RegistroNegocio() {
       }
 
       if (authData.user) {
-        const slugFinal = validated.data.slug || slugify(validated.data.nombreNegocio)
+        const slugFinal =
+          validated.data.slug || slugify(validated.data.nombreNegocio)
 
         // Validación final server-side (por las dudas)
         const { data: slugExiste } = await supabase
@@ -160,9 +166,8 @@ export default function RegistroNegocio() {
         const trialHasta = new Date()
         trialHasta.setDate(trialHasta.getDate() + diasTrial)
 
-        const { error: dbError } = await supabase
-          .from('negocio')
-          .insert([{
+        const { error: dbError } = await supabase.from('negocio').insert([
+          {
             owner_id: authData.user.id,
             nombre: validated.data.nombreNegocio,
             slug: slugFinal,
@@ -170,7 +175,8 @@ export default function RegistroNegocio() {
             trial_hasta: trialHasta.toISOString(),
             activo: true,
             onboarding_completo: false,
-          }])
+          },
+        ])
 
         if (dbError) {
           toast.error('No se pudo procesar la solicitud')
@@ -196,7 +202,11 @@ export default function RegistroNegocio() {
       case 'taken':
         return { icon: '✗', color: 'text-rose-500', text: 'Ya está en uso' }
       case 'invalid':
-        return { icon: '⚠', color: 'text-amber-500', text: 'Mínimo 3 caracteres' }
+        return {
+          icon: '⚠',
+          color: 'text-amber-500',
+          text: 'Mínimo 3 caracteres',
+        }
       default:
         return null
     }
@@ -228,11 +238,11 @@ export default function RegistroNegocio() {
                 placeholder="tu-negocio-aqui"
                 value={slug}
                 className={`w-full bg-black/50 border p-4 rounded-2xl outline-none font-mono text-sm transition-all ${
-                  slugStatus === 'available' 
-                    ? 'border-emerald-500 text-emerald-400' 
-                    : slugStatus === 'taken' 
-                    ? 'border-rose-500 text-rose-400'
-                    : 'border-slate-800 text-slate-300 focus:border-emerald-500'
+                  slugStatus === 'available'
+                    ? 'border-emerald-500 text-emerald-400'
+                    : slugStatus === 'taken'
+                      ? 'border-rose-500 text-rose-400'
+                      : 'border-slate-800 text-slate-300 focus:border-emerald-500'
                 }`}
                 onChange={(e) => handleSlugChange(e.target.value)}
                 required
@@ -241,8 +251,12 @@ export default function RegistroNegocio() {
               <div className="absolute right-4 top-4 flex items-center gap-2">
                 {statusUI && (
                   <>
-                    <span className={`text-base ${statusUI.color}`}>{statusUI.icon}</span>
-                    <span className={`text-[9px] font-bold uppercase tracking-wider ${statusUI.color}`}>
+                    <span className={`text-base ${statusUI.color}`}>
+                      {statusUI.icon}
+                    </span>
+                    <span
+                      className={`text-[9px] font-bold uppercase tracking-wider ${statusUI.color}`}
+                    >
                       {statusUI.text}
                     </span>
                   </>
@@ -252,7 +266,9 @@ export default function RegistroNegocio() {
             {slug && (
               <p className="text-[11px] text-slate-500 ml-2">
                 Tu link de reservas:{' '}
-                <span className={`font-mono font-bold ${slugStatus === 'available' ? 'text-emerald-400' : 'text-slate-400'}`}>
+                <span
+                  className={`font-mono font-bold ${slugStatus === 'available' ? 'text-emerald-400' : 'text-slate-400'}`}
+                >
                   /reservar/{slug}
                 </span>
               </p>
@@ -278,19 +294,31 @@ export default function RegistroNegocio() {
                   ? 'border-red-500 focus:border-red-400'
                   : 'border-slate-800 focus:border-emerald-500'
               }`}
-              onChange={(e) => { setPassword(e.target.value); if (passwordError) setPasswordError(null) }}
+              onChange={(e) => {
+                setPassword(e.target.value)
+                if (passwordError) setPasswordError(null)
+              }}
               required
             />
             {passwordError ? (
-              <p className="text-red-400 text-xs ml-2 font-bold">{passwordError}</p>
+              <p className="text-red-400 text-xs ml-2 font-bold">
+                {passwordError}
+              </p>
             ) : (
-              <p className="text-slate-600 text-[11px] ml-2">Mín. 8 caracteres, una mayúscula y un número</p>
+              <p className="text-slate-600 text-[11px] ml-2">
+                Mín. 8 caracteres, una mayúscula y un número
+              </p>
             )}
           </div>
 
           <button
             type="submit"
-            disabled={loading || slugStatus === 'taken' || slugStatus === 'checking' || slugStatus === 'invalid'}
+            disabled={
+              loading ||
+              slugStatus === 'taken' ||
+              slugStatus === 'checking' ||
+              slugStatus === 'invalid'
+            }
             className="w-full bg-emerald-500 text-black font-black uppercase italic py-5 rounded-2xl hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           >
             {loading ? 'Procesando...' : 'Crear mi cuenta gratis'}
@@ -298,7 +326,10 @@ export default function RegistroNegocio() {
 
           <p className="text-slate-500 text-sm text-center">
             ¿Ya tenés cuenta?{' '}
-            <a href="/login" className="text-emerald-500 font-black hover:underline">
+            <a
+              href="/login"
+              className="text-emerald-500 font-black hover:underline"
+            >
               Iniciar sesión
             </a>
           </p>

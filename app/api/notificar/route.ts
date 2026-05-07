@@ -9,10 +9,22 @@ export async function POST(req: Request) {
     const resend = new Resend(apiKey)
 
     const body = await req.json()
-    const { clienteNombre, clienteEmail, negocioNombre, fecha, hora, servicio, emailNegocio } = body
+    const {
+      clienteNombre,
+      clienteEmail,
+      negocioNombre,
+      fecha,
+      hora,
+      servicio,
+      emailNegocio,
+    } = body
 
     // 1. Mandar ticket al Cliente
-    if (clienteEmail && clienteEmail.includes('@') && apiKey !== 're_dummy_key_para_build') {
+    if (
+      clienteEmail &&
+      clienteEmail.includes('@') &&
+      apiKey !== 're_dummy_key_para_build'
+    ) {
       await resend.emails.send({
         from: 'Turnly <onboarding@resend.dev>',
         to: clienteEmail,
@@ -29,23 +41,30 @@ export async function POST(req: Request) {
             </div>
             <p style="font-size: 12px; color: #64748b; margin-top: 20px; text-transform: uppercase; letter-spacing: 2px;">Powered by Turnly</p>
           </div>
-        `
+        `,
       })
     }
 
     // 2. Avisarle al Dueño del Local
-    if (emailNegocio && emailNegocio.includes('@') && apiKey !== 're_dummy_key_para_build') {
-       await resend.emails.send({
-         from: 'Turnly Avisos <onboarding@resend.dev>',
-         to: emailNegocio,
-         subject: `🚀 Nuevo Turno: ${clienteNombre.split('·')[0]}`,
-         html: `<div style="font-family: sans-serif;"><h2>¡Nuevo cliente agendado!</h2><p><strong>${clienteNombre.split('·')[0]}</strong> reservó <strong>${servicio}</strong> para el <strong>${fecha}</strong> a las <strong>${hora}</strong>.</p><p>Revisá tu panel de Turnly para más detalles.</p></div>`
-       })
+    if (
+      emailNegocio &&
+      emailNegocio.includes('@') &&
+      apiKey !== 're_dummy_key_para_build'
+    ) {
+      await resend.emails.send({
+        from: 'Turnly Avisos <onboarding@resend.dev>',
+        to: emailNegocio,
+        subject: `🚀 Nuevo Turno: ${clienteNombre.split('·')[0]}`,
+        html: `<div style="font-family: sans-serif;"><h2>¡Nuevo cliente agendado!</h2><p><strong>${clienteNombre.split('·')[0]}</strong> reservó <strong>${servicio}</strong> para el <strong>${fecha}</strong> a las <strong>${hora}</strong>.</p><p>Revisá tu panel de Turnly para más detalles.</p></div>`,
+      })
     }
 
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('[Resend Error]', error)
-    return NextResponse.json({ error: 'Error enviando correo' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Error enviando correo' },
+      { status: 500 }
+    )
   }
 }

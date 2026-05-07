@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import { brandConfig } from '@/config/brand'
+import { useEffect, useState } from 'react'
 
 export default function ThemeToggle() {
   const [isDark, setIsDark] = useState(false)

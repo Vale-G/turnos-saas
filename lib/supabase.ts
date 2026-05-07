@@ -13,6 +13,6 @@ export function getOAuthRedirectUrl(path = '/auth/callback') {
   const origin =
     typeof window !== 'undefined'
       ? window.location.origin
-      : process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+      : (process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000')
   return `${origin}${path}`
 }

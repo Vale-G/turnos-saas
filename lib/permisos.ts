@@ -1,13 +1,34 @@
-import { PLANES, getPlanEfectivo, diasTrialRestantes } from './planes'
+import { diasTrialRestantes, getPlanEfectivo, PLANES } from './planes'
+
 export type Plan = 'normal' | 'pro'
 export type { PlanId } from './planes'
 export { PLANES, getPlanEfectivo, diasTrialRestantes }
 
 export const LIMITES = {
-  normal: { maxStaff: 2,   maxServicios: 5,   mercadopago: false, estadisticas: false },
-  pro:    { maxStaff: 999, maxServicios: 999, mercadopago: true,  estadisticas: true  },
-  trial:  { maxStaff: 999, maxServicios: 999, mercadopago: true,  estadisticas: true  },
-  basico: { maxStaff: 2,   maxServicios: 5,   mercadopago: false, estadisticas: false },
+  normal: {
+    maxStaff: 2,
+    maxServicios: 5,
+    mercadopago: false,
+    estadisticas: false,
+  },
+  pro: {
+    maxStaff: 999,
+    maxServicios: 999,
+    mercadopago: true,
+    estadisticas: true,
+  },
+  trial: {
+    maxStaff: 999,
+    maxServicios: 999,
+    mercadopago: true,
+    estadisticas: true,
+  },
+  basico: {
+    maxStaff: 2,
+    maxServicios: 5,
+    mercadopago: false,
+    estadisticas: false,
+  },
 }
 
 export function puedeAgregarStaff(plan: string, cantidad: number): boolean {

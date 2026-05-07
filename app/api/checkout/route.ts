@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { crearPreferenciaMercadoPago } from '@/lib/mercadopago'
 import { rateLimitByIp } from '@/lib/rate-limit'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
+import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
   try {
@@ -10,7 +10,9 @@ export async function POST(req: NextRequest) {
 
     if (!rate.success) {
       return NextResponse.json(
-        { error: 'Demasiadas solicitudes. Intentá nuevamente en unos segundos.' },
+        {
+          error: 'Demasiadas solicitudes. Intentá nuevamente en unos segundos.',
+        },
         {
           status: 429,
           headers: {
@@ -19,7 +21,7 @@ export async function POST(req: NextRequest) {
             'X-RateLimit-Remaining': String(rate.remaining),
             'X-RateLimit-Reset': String(rate.reset),
           },
-        },
+        }
       )
     }
 
@@ -27,7 +29,10 @@ export async function POST(req: NextRequest) {
     const { turnoId, servicioId, negocioSlug, precio: precioCliente } = body
 
     if (!turnoId || !servicioId || !negocioSlug) {
-      return NextResponse.json({ error: 'Faltan campos requeridos' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Faltan campos requeridos' },
+        { status: 400 }
+      )
     }
 
     const cookieStore = await cookies()
@@ -39,13 +44,15 @@ export async function POST(req: NextRequest) {
           getAll: () => cookieStore.getAll(),
           setAll: (toSet) => {
             try {
-              toSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
+              toSet.forEach(({ name, value, options }) =>
+                cookieStore.set(name, value, options)
+              )
             } catch {
               return
             }
           },
         },
-      },
+      }
     )
 
     const {
@@ -67,7 +74,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (turno.servicio_id !== servicioId) {
-      return NextResponse.json({ error: 'Servicio inválido para el turno' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Servicio inválido para el turno' },
+        { status: 400 }
+      )
     }
 
     const { data: negocio, error: negocioError } = await supabase
@@ -77,7 +87,10 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (negocioError || !negocio) {
-      return NextResponse.json({ error: 'Negocio inexistente' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Negocio inexistente' },
+        { status: 404 }
+      )
     }
 
     if (negocio.slug !== negocioSlug) {
@@ -91,23 +104,40 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (servicioError || !servicio) {
-      return NextResponse.json({ error: 'Servicio inexistente' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Servicio inexistente' },
+        { status: 404 }
+      )
     }
 
     if (servicio.negocio_id !== turno.negocio_id) {
-      return NextResponse.json({ error: 'Servicio no corresponde al negocio del turno' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Servicio no corresponde al negocio del turno' },
+        { status: 400 }
+      )
     }
 
     const precioReal = Number(servicio.precio)
     if (!Number.isFinite(precioReal) || precioReal <= 0) {
-      return NextResponse.json({ error: 'Precio de servicio inválido' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Precio de servicio inválido' },
+        { status: 400 }
+      )
     }
 
     if (precioCliente !== undefined && Number(precioCliente) !== precioReal) {
-      return NextResponse.json({ error: 'El precio enviado no coincide con el valor real del servicio' }, { status: 400 })
+      return NextResponse.json(
+        {
+          error: 'El precio enviado no coincide con el valor real del servicio',
+        },
+        { status: 400 }
+      )
     }
 
-    const origin = req.headers.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+    const origin =
+      req.headers.get('origin') ??
+      process.env.NEXT_PUBLIC_SITE_URL ??
+      'http://localhost:3000'
 
     const preferencia = await crearPreferenciaMercadoPago({
       titulo: servicio.nombre,
@@ -125,7 +155,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         id: preferencia.id,
-        url: process.env.NODE_ENV === 'production' ? preferencia.init_point : preferencia.sandbox_init_point,
+        url:
+          process.env.NODE_ENV === 'production'
+            ? preferencia.init_point
+            : preferencia.sandbox_init_point,
       },
       {
         headers: {
@@ -133,13 +166,13 @@ export async function POST(req: NextRequest) {
           'X-RateLimit-Remaining': String(rate.remaining),
           'X-RateLimit-Reset': String(rate.reset),
         },
-      },
+      }
     )
   } catch (err) {
     console.error('[Turnly] Error checkout:', err)
     return NextResponse.json(
       { error: err instanceof Error ? err.message : 'Error interno' },
-      { status: 500 },
+      { status: 500 }
     )
   }
 }

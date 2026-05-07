@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
           getAll: () => cookieStore.getAll(),
           setAll: () => {},
         },
-      },
+      }
     )
 
     const {
@@ -37,7 +37,10 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (turnoError || !turnoData) {
-      return NextResponse.json({ error: 'Turno no encontrado' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Turno no encontrado' },
+        { status: 404 }
+      )
     }
 
     const { data: negocioData, error: negocioError } = await supabase
@@ -47,7 +50,10 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (negocioError || !negocioData) {
-      return NextResponse.json({ error: 'Negocio no encontrado' }, { status: 404 })
+      return NextResponse.json(
+        { error: 'Negocio no encontrado' },
+        { status: 404 }
+      )
     }
 
     if (negocioData.owner_id !== user.id) {
@@ -55,7 +61,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (!negocioData.mp_access_token) {
-      return NextResponse.json({ error: 'El negocio no tiene MercadoPago configurado' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'El negocio no tiene MercadoPago configurado' },
+        { status: 400 }
+      )
     }
 
     const mpBody = {
@@ -72,14 +81,17 @@ export async function POST(req: NextRequest) {
       statement_descriptor: 'TURNLY LOCAL',
     }
 
-    const mpRes = await fetch('https://api.mercadopago.com/checkout/preferences', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + negocioData.mp_access_token,
-      },
-      body: JSON.stringify(mpBody),
-    })
+    const mpRes = await fetch(
+      'https://api.mercadopago.com/checkout/preferences',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + negocioData.mp_access_token,
+        },
+        body: JSON.stringify(mpBody),
+      }
+    )
 
     if (!mpRes.ok) {
       throw new Error('Error MP')

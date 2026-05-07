@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect } from 'react'
 import { brandConfig } from '@/config/brand'
+import { useEffect } from 'react'
 
 export default function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {

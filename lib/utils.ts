@@ -9,7 +9,11 @@ const currencyLocaleFallback: Record<string, string> = {
   PEN: 'es-PE',
 }
 
-export function formatCurrency(amount: number, currencyCode = 'ARS', locale?: string): string {
+export function formatCurrency(
+  amount: number,
+  currencyCode = 'ARS',
+  locale?: string
+): string {
   const safeAmount = Number.isFinite(amount) ? amount : 0
   const safeCurrency = (currencyCode || 'ARS').toUpperCase()
   const safeLocale = locale || currencyLocaleFallback[safeCurrency] || 'es-AR'

@@ -12,7 +12,6 @@ export default function OnboardingElite() {
   const [loading, setLoading] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [user, setUser] = useState<any>(null)
-  const [diasTrial, setDiasTrial] = useState(14)
 
   const [nombre, setNombre] = useState('')
   const [slug, setSlug] = useState('')
@@ -24,46 +23,35 @@ export default function OnboardingElite() {
   const router = useRouter()
 
   useEffect(() => {
-    async function check() {
+    async function checkUserStatus() {
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser()
-        if (!user) return router.push('/registro-negocio')
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          router.push('/registro-negocio')
+          return
+        }
         setUser(user)
 
-        const { data: neg } = await supabase
+        const { data: negocio } = await supabase
           .from('negocio')
           .select('id')
           .eq('owner_id', user.id)
           .maybeSingle()
-        if (neg) {
-          const { data: adm } = await supabase
-            .from('adminrol')
-            .select('role')
-            .eq('user_id', user.id)
-            .maybeSingle()
-          if (adm?.role === 'superadmin') return router.push('/superadmin')
-          return router.push('/dashboard')
-        }
 
-        const { data: cfg } = await supabase
-          .from('config')
-          .select('valor')
-          .eq('clave', 'dias_trial')
-          .maybeSingle()
-        if (cfg) setDiasTrial(Number(cfg.valor))
-      } catch {
-        toast.error('No se pudo procesar la solicitud')
+        if (negocio) {
+          router.push('/dashboard')
+        }
+      } catch (error) {
+        toast.error('Error al verificar la sesión. Intenta recargar la página.')
       } finally {
         setLoading(false)
       }
     }
-    check()
+    checkUserStatus()
   }, [router])
 
   useEffect(() => {
-    if (paso === 1 && nombre) {
+    if (paso === 1 && nombre && !slug) {
       setSlug(
         nombre
           .toLowerCase()
@@ -73,62 +61,40 @@ export default function OnboardingElite() {
           .replace(/-+/g, '-')
       )
     }
-  }, [nombre, paso])
+  }, [nombre, paso, slug])
 
   const crearNegocio = async (e: React.FormEvent) => {
     e.preventDefault()
     setGuardando(true)
 
     try {
-      const validated = onboardingSchema.safeParse({ nombre, slug, whatsapp })
-      if (!validated.success) {
-        toast.error(validated.error.issues[0]?.message ?? 'Datos inválidos')
-        return
-      }
-
-      const trialHasta = new Date()
-      trialHasta.setDate(trialHasta.getDate() + diasTrial)
-
-      const { data, error } = await supabase
-        .from('negocio')
-        .insert({
-          owner_id: user.id,
-          nombre: validated.data.nombre,
-          slug: validated.data.slug,
-          whatsapp: validated.data.whatsapp || null,
-          tema,
-          hora_apertura: apertura + ':00',
-          hora_cierre: cierre + ':00',
-          suscripcion_tipo: 'trial',
-          trial_hasta: trialHasta.toISOString().split('T')[0],
-        })
-        .select('id')
-        .single()
+      const { error } = await supabase.functions.invoke('crear-negocio', {
+        body: { nombre, slug, whatsapp, tema, apertura, cierre },
+      })
 
       if (error) {
-        toast.error('No se pudo procesar la solicitud')
+        console.error('Function invocation error:', error)
+        toast.error('Error al crear tu negocio. Por favor, intenta de nuevo.')
         return
       }
-
-      await supabase
-        .from('adminrol')
-        .insert({ user_id: user.id, role: 'owner', negocio_id: data.id })
 
       toast.success('¡Negocio creado con éxito! Bienvenido a Turnly 🚀')
       router.push('/dashboard')
-    } catch {
-      toast.error('No se pudo procesar la solicitud')
+    } catch (err) {
+      console.error('Unexpected error:', err)
+      toast.error('Ocurrió un error inesperado al procesar la solicitud.')
     } finally {
       setGuardando(false)
     }
   }
 
-  if (loading)
+  if (loading) {
     return (
       <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black italic text-white text-3xl animate-pulse tracking-tighter">
         PREPARANDO ENTORNO...
       </div>
     )
+  }
 
   const colorP = getThemeColor(tema)
 
@@ -262,7 +228,7 @@ export default function OnboardingElite() {
                   <input
                     type="time"
                     value={cierre}
-                    onChange={(e) => setCierre(e.target.value)}
+                    onChange={(e) => setCierre(e.targe.value)}
                     required
                     className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-sm font-black outline-none focus:border-white/30 transition-all [&::-webkit-calendar-picker-indicator]:invert"
                   />
@@ -333,7 +299,7 @@ export default function OnboardingElite() {
             {guardando
               ? 'CREANDO...'
               : paso === 3
-                ? '¡LANZAR MI SAAS!'
+                ? '¡LANZAR MI PLATAFORMA!'
                 : 'CONTINUAR'}
           </button>
         </form>

@@ -14,11 +14,13 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@supabase/auth-helpers-nextjs": "^0.15.0",
     "@supabase/ssr": "^0.3.0",
     "@supabase/supabase-js": "^2.43.4",
     "date-fns": "^3.6.0",
     "date-fns-tz": "^3.1.3",
     "lucide-react": "^0.395.0",
+    "mercadopago": "^2.12.0",
     "next": "^14.2.4",
     "next-intl": "^3.15.2",
     "react": "^18.3.1",

@@ -6,10 +6,12 @@ import type { NextConfig } from 'next';
 // https://nextjs.org/docs/app/building-your-application/configuring/content-security-policy
 const cspHeader = `
     default-src 'self';
-    script-src 'self' 'unsafe-inline';
+    script-src 'self' 'unsafe-inline' 'unsafe-eval' *.stripe.com *.mercadopago.com *.vercel.com;
     style-src 'self' 'unsafe-inline';
-    img-src 'self' blob: data:;
+    img-src 'self' blob: data: *.stripe.com *.mercadolibre.com;
     font-src 'self';
+    connect-src 'self' *.stripe.com *.mercadopago.com;
+    frame-src 'self' *.stripe.com;
     object-src 'none';
     base-uri 'self';
     form-action 'self';

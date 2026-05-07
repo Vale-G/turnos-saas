@@ -85,68 +85,78 @@ export default function CajaElite() {
     init()
   }, [router])
 
-  const cargarDatos = async () => {
-    if (!negocio?.id || !tieneAcceso) return
-    const startOfMonth = `${mesFiltro}-01`
-    const endOfMonth = `${mesFiltro}-31`
-
-    const [{ data: turnos }, { data: gst }] = await Promise.all([
-      supabase
-        .from('turno')
-        .select('fecha, servicio(precio)')
-        .eq('negocio_id', negocio.id)
-        .eq('estado', 'completado')
-        .gte('fecha', startOfMonth)
-        .lte('fecha', endOfMonth),
-      supabase
-        .from('gasto')
-        .select('*')
-        .eq('negocio_id', negocio.id)
-        .gte('fecha', startOfMonth)
-        .lte('fecha', endOfMonth)
-        .order('fecha', { ascending: false }),
-    ])
-    setIngresos(turnos || [])
-    setGastos(gst || [])
-  }
-
   useEffect(() => {
+    if (!negocio?.id || !tieneAcceso) return
+
+    const cargarDatos = async () => {
+      const startOfMonth = `${mesFiltro}-01`
+      const endOfMonth = `${mesFiltro}-31`
+
+      const [{ data: turnos }, { data: gst }] = await Promise.all([
+        supabase
+          .from('turno')
+          .select('fecha, servicio(precio)')
+          .eq('negocio_id', negocio.id)
+          .eq('estado', 'completado')
+          .gte('fecha', startOfMonth)
+          .lte('fecha', endOfMonth),
+        supabase
+          .from('gasto')
+          .select('*')
+          .eq('negocio_id', negocio.id)
+          .gte('fecha', startOfMonth)
+          .lte('fecha', endOfMonth)
+          .order('fecha', { ascending: false }),
+      ])
+      setIngresos(turnos || [])
+      setGastos(gst || [])
+    }
+
     cargarDatos()
   }, [negocio, mesFiltro, tieneAcceso])
 
   const agregarGasto = async (e: React.FormEvent) => {
     e.preventDefault()
     setGuardando(true)
-    const { error } = await supabase.from('gasto').insert({
-      negocio_id: negocio.id,
-      concepto,
-      monto: Number(monto),
-      fecha: fechaGasto,
-    })
+    const { data: nuevoGasto, error } = await supabase
+      .from('gasto')
+      .insert({
+        negocio_id: negocio.id,
+        concepto,
+        monto: Number(monto),
+        fecha: fechaGasto,
+      })
+      .select()
+      .single()
+
     setGuardando(false)
-    if (error) return toast.error('Error al registrar el gasto')
+    if (error) {
+      toast.error('Error al registrar el gasto')
+      return
+    }
+
     toast.success('Gasto registrado con éxito')
+    setGastos((gastosActuales) => [nuevoGasto, ...gastosActuales])
     setConcepto('')
     setMonto('')
-    cargarDatos()
   }
 
   const eliminarGasto = async (id: string) => {
-    if (!confirm('¿Eliminar este gasto?')) return
+    if (!window.confirm('¿Eliminar este gasto?')) return
     await supabase.from('gasto').delete().eq('id', id)
     setGastos(gastos.filter((g) => g.id !== id))
     toast.success('Gasto eliminado')
   }
 
-  // AHORA SÍ: Los early returns van después de los Hooks
-  if (loading)
+  if (loading) {
     return (
       <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black italic text-white text-3xl animate-pulse tracking-tighter">
         CALCULANDO FINANZAS...
       </div>
     )
+  }
 
-  if (!tieneAcceso)
+  if (!tieneAcceso) {
     return (
       <div className="min-h-screen bg-[#020617] text-white p-6 md:p-12 flex items-center justify-center relative overflow-hidden">
         <button
@@ -168,6 +178,7 @@ export default function CajaElite() {
         </div>
       </div>
     )
+  }
 
   return (
     <div className="min-h-screen bg-[#020617] text-white p-6 md:p-12 font-sans">

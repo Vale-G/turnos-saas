@@ -13,6 +13,7 @@ function toBaDateStr(date: Date): string {
 export default function InformesElite() {
   const [negocio, setNegocio] = useState<any>(null)
   const [turnos, setTurnos] = useState<any[]>([])
+  const [turnosFuturos, setTurnosFuturos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [tieneAcceso, setTieneAcceso] = useState(false)
   const [mesFiltro, setMesFiltro] = useState(
@@ -73,13 +74,25 @@ export default function InformesElite() {
     async function fetchMetricas() {
       const startOfMonth = `${mesFiltro}-01`
       const endOfMonth = `${mesFiltro}-31`
-      const { data } = await supabase
-        .from('turno')
-        .select('estado, servicio(nombre, precio), staff(nombre)')
-        .eq('negocio_id', negocio.id)
-        .gte('fecha', startOfMonth)
-        .lte('fecha', endOfMonth)
-      setTurnos(data || [])
+      const hoy = toBaDateStr(new Date())
+
+      const [{ data: turnosMes }, { data: futuros }] = await Promise.all([
+         supabase
+            .from('turno')
+            .select('estado, servicio(nombre, precio), staff(nombre)')
+            .eq('negocio_id', negocio.id)
+            .gte('fecha', startOfMonth)
+            .lte('fecha', endOfMonth),
+         supabase
+            .from('turno')
+            .select('servicio(precio)')
+            .eq('negocio_id', negocio.id)
+            .gte('fecha', hoy)
+            .not('estado', 'in', '("cancelado", "completado", "ausente")')
+      ])
+
+      setTurnos(turnosMes || [])
+      setTurnosFuturos(futuros || [])
     }
     fetchMetricas()
   }, [negocio, mesFiltro, tieneAcceso])
@@ -102,15 +115,11 @@ export default function InformesElite() {
         ingresos += precio
         completados++
 
-        // Sumar a Servicios
-        if (!topServicios[nombreServicio])
-          topServicios[nombreServicio] = { count: 0, total: 0 }
+        if (!topServicios[nombreServicio]) topServicios[nombreServicio] = { count: 0, total: 0 }
         topServicios[nombreServicio].count++
         topServicios[nombreServicio].total += precio
 
-        // Sumar a Staff
-        if (!topStaff[nombreStaff])
-          topStaff[nombreStaff] = { count: 0, total: 0 }
+        if (!topStaff[nombreStaff]) topStaff[nombreStaff] = { count: 0, total: 0 }
         topStaff[nombreStaff].count++
         topStaff[nombreStaff].total += precio
       } else if (t.estado === 'cancelado') {
@@ -121,8 +130,9 @@ export default function InformesElite() {
     })
 
     const totalTurnos = completados + cancelados + pendientes
-    const tasaAsistencia =
-      totalTurnos > 0 ? Math.round((completados / totalTurnos) * 100) : 0
+    const tasaAsistencia = totalTurnos > 0 ? Math.round((completados / (totalTurnos - pendientes)) * 100) : 0;
+    const ticketPromedio = completados > 0 ? Math.round(ingresos / completados) : 0;
+    const ingresosProyectados = turnosFuturos.reduce((acc, t) => acc + (t.servicio?.precio || 0), 0)
 
     return {
       ingresos,
@@ -131,12 +141,45 @@ export default function InformesElite() {
       pendientes,
       totalTurnos,
       tasaAsistencia,
+      ticketPromedio,
+      ingresosProyectados,
       servicios: Object.entries(topServicios)
         .sort((a, b) => b[1].total - a[1].total)
         .slice(0, 5),
       staff: Object.entries(topStaff).sort((a, b) => b[1].total - a[1].total),
     }
-  }, [turnos])
+  }, [turnos, turnosFuturos])
+
+  const exportarCSV = () => {
+    const headers = ['Fecha', 'Hora', 'Cliente', 'Servicio', 'Staff', 'Precio', 'Estado'];
+    const csvRows = [headers.join(',')];
+
+    for (const turno of turnos) {
+        const row = [
+            turno.fecha,
+            turno.hora,
+            `"${turno.cliente_nombre || 'N/A'}"`,
+            `"${turno.servicio?.nombre || 'N/A'}"`,
+            `"${turno.staff?.nombre || 'N/A'}"`,
+            turno.servicio?.precio || 0,
+            turno.estado
+        ];
+        csvRows.push(row.join(','));
+    }
+
+    const csvString = csvRows.join('\n');
+    const blob = new Blob([csvString], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.setAttribute('hidden', '');
+    a.setAttribute('href', url);
+    a.setAttribute('download', `informe_${mesFiltro}.csv`);
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('Informe CSV descargado.')
+  }
 
   if (loading)
     return (
@@ -185,35 +228,43 @@ export default function InformesElite() {
               Informes <span style={{ color: colorP }}>PRO</span>
             </h1>
           </div>
-          <div className="bg-white/5 border border-white/10 px-4 py-2 rounded-2xl backdrop-blur-md">
-            <input
-              type="month"
-              value={mesFiltro}
-              onChange={(e) => setMesFiltro(e.target.value)}
-              className="bg-transparent font-black text-sm outline-none text-white uppercase tracking-widest [&::-webkit-calendar-picker-indicator]:invert cursor-pointer"
-            />
+          <div className="flex items-center gap-4">
+            <button onClick={exportarCSV} className="px-5 py-3 rounded-2xl text-[10px] font-black uppercase bg-white/5 hover:bg-white hover:text-black transition-all">
+                Exportar CSV
+            </button>
+            <div className="bg-white/5 border border-white/10 px-4 py-2 rounded-2xl backdrop-blur-md">
+                <input
+                type="month"
+                value={mesFiltro}
+                onChange={(e) => setMesFiltro(e.target.value)}
+                className="bg-transparent font-black text-sm outline-none text-white uppercase tracking-widest [&::-webkit-calendar-picker-indicator]:invert cursor-pointer"
+                />
+            </div>
           </div>
         </header>
 
-        {/* TARJETAS PRINCIPALES */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-          <div className="bg-white/5 border border-white/10 p-8 rounded-[2.5rem] relative overflow-hidden group">
-            <div
-              className="absolute top-0 right-0 w-32 h-32 blur-[60px] opacity-20 transition-all group-hover:opacity-40"
-              style={{ backgroundColor: colorP }}
-            />
-            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">
-              Ingresos Brutos
-            </p>
-            <p className="text-4xl font-black italic" style={{ color: colorP }}>
-              ${metricas.ingresos.toLocaleString('es-AR')}
-            </p>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div className="bg-white/5 border border-white/10 p-8 rounded-[2.5rem] relative overflow-hidden group col-span-1 md:col-span-1">
+                <div className="absolute top-0 right-0 w-32 h-32 blur-[60px] opacity-20 transition-all group-hover:opacity-40" style={{ backgroundColor: colorP }}/>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">Ingresos (MES)</p>
+                <p className="text-4xl font-black italic" style={{ color: colorP }}>${metricas.ingresos.toLocaleString('es-AR')}</p>
+            </div>
+            <div className="bg-white/5 border border-white/10 p-8 rounded-[2.5rem]">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">Ticket Promedio</p>
+                <p className="text-4xl font-black italic text-white">${metricas.ticketPromedio.toLocaleString('es-AR')}</p>
+            </div>
+             <div className="bg-white/5 border border-white/10 p-8 rounded-[2.5rem]">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">Ingresos Proyectados</p>
+                <p className="text-4xl font-black italic text-white">${metricas.ingresosProyectados.toLocaleString('es-AR')}</p>
+            </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
           <div className="bg-white/5 border border-white/10 p-8 rounded-[2.5rem]">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">
               Turnos Completados
             </p>
-            <p className="text-4xl font-black italic text-white">
+            <p className="text-4xl font-black italic text-emerald-400">
               {metricas.completados}
             </p>
           </div>
@@ -236,7 +287,6 @@ export default function InformesElite() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* TOP SERVICIOS */}
           <div className="bg-white/4 border border-white/5 p-8 rounded-[3.5rem] shadow-2xl">
             <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-8 flex items-center gap-2">
               🏆 Servicios Más Rentables
@@ -267,7 +317,6 @@ export default function InformesElite() {
                         </p>
                       </div>
                     </div>
-                    {/* Barra de progreso visual */}
                     <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full opacity-80"
@@ -283,7 +332,6 @@ export default function InformesElite() {
             )}
           </div>
 
-          {/* RENDIMIENTO DEL STAFF */}
           <div className="bg-white/4 border border-white/5 p-8 rounded-[3.5rem] shadow-2xl">
             <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-8 flex items-center gap-2">
               👥 Rendimiento del Equipo

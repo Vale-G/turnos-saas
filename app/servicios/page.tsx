@@ -16,50 +16,37 @@ export default function ServiciosConfig() {
   // Formulario
   const [editId, setEditId] = useState<string | null>(null)
   const [nombre, setNombre] = useState('')
+  const [descripcion, setDescripcion] = useState('')
   const [precio, setPrecio] = useState('')
   const [duracion, setDuracion] = useState('30')
-  const [señaTipo, setSeñaTipo] = useState('porcentaje') // porcentaje, fijo, ninguno
+  const [señaTipo, setSeñaTipo] = useState('porcentaje')
   const [señaValor, setSeñaValor] = useState('50')
   const [guardando, setGuardando] = useState(false)
 
   useEffect(() => {
     async function init() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
+      const { data: { user } } = await supabase.auth.getUser()
       if (!user) return router.push('/login')
 
-      const { data: adm } = await supabase
-        .from('adminrol')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle()
+      const { data: adm } = await supabase.from('adminrol').select('negocio_id').eq('user_id', user.id).maybeSingle()
       let nId = adm?.negocio_id
+
       if (!nId) {
-        const { data: n } = await supabase
-          .from('negocio')
-          .select('id, tema')
-          .eq('owner_id', user.id)
-          .maybeSingle()
+        const { data: n } = await supabase.from('negocio').select('id').eq('owner_id', user.id).maybeSingle()
         nId = n?.id
-        setNegocio(n)
-      } else {
-        const { data: n } = await supabase
-          .from('negocio')
-          .select('id, tema')
-          .eq('id', nId)
-          .single()
-        setNegocio(n)
       }
 
-      if (nId) {
-        const { data: s } = await supabase
-          .from('servicio')
-          .select('*')
-          .eq('negocio_id', nId)
-          .order('created_at')
-        setServicios(s || [])
+      if (!nId) {
+        toast.error('No se encontró un negocio asociado.')
+        router.push('/dashboard')
+        return
       }
+
+      const { data: neg } = await supabase.from('negocio').select('*').eq('id', nId).single()
+      setNegocio(neg)
+
+      const { data: s } = await supabase.from('servicio').select('*').eq('negocio_id', nId).order('created_at')
+      setServicios(s || [])
       setLoading(false)
     }
     init()
@@ -69,6 +56,7 @@ export default function ServiciosConfig() {
     if (s) {
       setEditId(s.id)
       setNombre(s.nombre)
+      setDescripcion(s.descripcion || '')
       setPrecio(s.precio)
       setDuracion(s.duracion)
       setSeñaTipo(s.seña_tipo || 'porcentaje')
@@ -76,6 +64,7 @@ export default function ServiciosConfig() {
     } else {
       setEditId(null)
       setNombre('')
+      setDescripcion('')
       setPrecio('')
       setDuracion('30')
       setSeñaTipo('porcentaje')
@@ -90,31 +79,49 @@ export default function ServiciosConfig() {
     const payload = {
       negocio_id: negocio.id,
       nombre,
+      descripcion,
       precio: Number(precio),
       duracion: Number(duracion),
       seña_tipo: señaTipo,
       seña_valor: señaTipo === 'ninguno' ? 0 : Number(señaValor),
     }
 
-    const { error } = editId
-      ? await supabase.from('servicio').update(payload).eq('id', editId)
-      : await supabase.from('servicio').insert(payload)
+    const { data: savedService, error } = editId
+      ? await supabase.from('servicio').update(payload).eq('id', editId).select().single()
+      : await supabase.from('servicio').insert(payload).select().single()
 
-    if (error) toast.error('Error al guardar')
-    else {
-      toast.success('Servicio guardado')
+    if (error) {
+      toast.error('Error al guardar el servicio.')
+    } else {
+      if (editId) {
+        setServicios(servicios.map(s => s.id === savedService.id ? savedService : s))
+        toast.success('Servicio actualizado')
+      } else {
+        setServicios([savedService, ...servicios])
+        toast.success('Servicio creado')
+      }
       setShowModal(false)
-      window.location.reload()
     }
     setGuardando(false)
   }
 
-  if (loading)
-    return (
-      <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black animate-pulse text-white">
-        CARGANDO SERVICIOS...
-      </div>
-    )
+  const handleDelete = async (serviceId: string) => {
+    if (window.confirm('¿Estás seguro de que quieres eliminar este servicio? Esta acción no se puede deshacer.')) {
+      const { error } = await supabase.from('servicio').delete().eq('id', serviceId)
+
+      if (error) {
+        toast.error('No se pudo eliminar el servicio.')
+      } else {
+        setServicios(servicios.filter(s => s.id !== serviceId))
+        toast.success('Servicio eliminado')
+      }
+    }
+  }
+
+  if (loading) return (
+    <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black animate-pulse text-white">CARGANDO SERVICIOS...</div>
+  )
+
   const colorP = getThemeColor(negocio?.tema)
 
   return (
@@ -122,52 +129,44 @@ export default function ServiciosConfig() {
       <div className="max-w-5xl mx-auto">
         <header className="flex justify-between items-end mb-12">
           <div>
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="text-slate-600 text-[10px] font-black uppercase tracking-[0.3em] mb-4 hover:text-white transition-colors"
-            >
+            <button onClick={() => router.push('/dashboard')} className="text-slate-600 text-[10px] font-black uppercase tracking-[0.3em] mb-4 hover:text-white transition-colors">
               ← Dashboard
             </button>
             <h1 className="text-6xl font-black uppercase italic tracking-tighter leading-none">
               Mis <span style={{ color: colorP }}>Servicios</span>
             </h1>
           </div>
-          <button
-            onClick={() => abrirModal()}
-            className="bg-white text-black px-8 py-4 rounded-2xl font-black uppercase italic text-sm hover:scale-105 transition-all active:scale-95"
-          >
+          <button onClick={() => abrirModal()} className="bg-white text-black px-8 py-4 rounded-2xl font-black uppercase italic text-sm hover:scale-105 transition-all active:scale-95">
             Nuevo Servicio +
           </button>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {servicios.map((s) => (
-            <div
-              key={s.id}
-              className="bg-white/5 border border-white/10 p-8 rounded-[2.5rem] flex justify-between items-center group hover:border-white/20 transition-all"
-            >
-              <div>
-                <h3 className="text-2xl font-black uppercase italic">
-                  {s.nombre}
-                </h3>
-                <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-1">
-                  ${s.precio} · {s.duracion} min ·
-                  <span className="text-white ml-1">
-                    Seña:{' '}
-                    {s.seña_tipo === 'porcentaje'
-                      ? `${s.seña_valor}%`
-                      : s.seña_tipo === 'fijo'
-                        ? `$${s.seña_valor}`
-                        : 'Sin seña'}
-                  </span>
-                </p>
+            <div key={s.id} className="bg-white/5 border border-white/10 p-8 rounded-[2.5rem] flex flex-col justify-between group hover:border-white/20 transition-all">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-2xl font-black uppercase italic">{s.nombre}</h3>
+                  <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-1">
+                    ${s.precio} · {s.duracion} min ·
+                    <span className="text-white ml-1">
+                      Seña: {' '}
+                      {s.seña_tipo === 'porcentaje' ? `${s.seña_valor}%` : s.seña_tipo === 'fijo' ? `$${s.seña_valor}` : 'Sin seña'}
+                    </span>
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-4">
+                  <button onClick={() => abrirModal(s)} title="Editar servicio" className="bg-white/10 p-4 rounded-2xl hover:bg-white hover:text-black transition-all">
+                    ✏️
+                  </button>
+                  <button onClick={() => handleDelete(s.id)} title="Eliminar servicio" className="bg-rose-500/10 text-rose-400 p-4 rounded-2xl hover:bg-rose-500 hover:text-white transition-all">
+                    🗑️
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={() => abrirModal(s)}
-                className="opacity-0 group-hover:opacity-100 bg-white/10 p-4 rounded-2xl hover:bg-white hover:text-black transition-all"
-              >
-                ✏️
-              </button>
+              {s.descripcion && (
+                <p className="text-slate-400 text-sm mt-4 border-t border-white/10 pt-4">{s.descripcion}</p>
+              )}
             </div>
           ))}
         </div>
@@ -180,9 +179,7 @@ export default function ServiciosConfig() {
               </h2>
               <form onSubmit={guardar} className="space-y-5">
                 <div>
-                  <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">
-                    Nombre
-                  </label>
+                  <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">Nombre</label>
                   <input
                     type="text"
                     value={nombre}
@@ -191,11 +188,18 @@ export default function ServiciosConfig() {
                     className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-xs font-black outline-none focus:border-white/30"
                   />
                 </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">Descripción (Opcional)</label>
+                  <textarea
+                    value={descripcion}
+                    onChange={(e) => setDescripcion(e.target.value)}
+                    rows={3}
+                    className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-xs font-light outline-none focus:border-white/30 resize-y"
+                  />
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">
-                      Precio ($)
-                    </label>
+                    <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">Precio ($)</label>
                     <input
                       type="number"
                       value={precio}
@@ -205,9 +209,7 @@ export default function ServiciosConfig() {
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">
-                      Duración (min)
-                    </label>
+                    <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">Duración (min)</label>
                     <input
                       type="number"
                       value={duracion}
@@ -219,28 +221,21 @@ export default function ServiciosConfig() {
                 </div>
 
                 <div className="bg-white/5 p-6 rounded-3xl border border-white/5">
-                  <label className="text-[10px] font-black uppercase text-slate-400 mb-4 block tracking-widest">
-                    Configuración de Seña
-                  </label>
+                  <label className="text-[10px] font-black uppercase text-slate-400 mb-4 block tracking-widest">Configuración de Seña</label>
                   <div className="grid grid-cols-3 gap-2 mb-4">
                     {['porcentaje', 'fijo', 'ninguno'].map((t) => (
                       <button
                         type="button"
                         key={t}
                         onClick={() => setSeñaTipo(t)}
-                        className={`py-2 rounded-xl text-[9px] font-black uppercase border transition-all ${señaTipo === t ? 'bg-white text-black border-white' : 'border-white/10 text-slate-500'}`}
-                      >
+                        className={`py-2 rounded-xl text-[9px] font-black uppercase border transition-all ${señaTipo === t ? 'bg-white text-black border-white' : 'border-white/10 text-slate-500'}`}>
                         {t}
                       </button>
                     ))}
                   </div>
                   {señaTipo !== 'ninguno' && (
                     <div className="animate-in slide-in-from-top-2">
-                      <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">
-                        {señaTipo === 'porcentaje'
-                          ? 'Porcentaje (%)'
-                          : 'Monto Fijo ($)'}
-                      </label>
+                      <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">{señaTipo === 'porcentaje' ? 'Porcentaje (%)' : 'Monto Fijo ($)'}</label>
                       <input
                         type="number"
                         value={señaValor}
@@ -252,19 +247,12 @@ export default function ServiciosConfig() {
                 </div>
 
                 <div className="flex gap-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowModal(false)}
-                    className="flex-1 py-4 text-xs font-black uppercase text-slate-500"
-                  >
-                    Cancelar
-                  </button>
+                  <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-4 text-xs font-black uppercase text-slate-500">Cancelar</button>
                   <button
                     type="submit"
                     disabled={guardando}
                     className="flex-[2] py-4 rounded-2xl font-black uppercase italic text-black"
-                    style={{ backgroundColor: colorP }}
-                  >
+                    style={{ backgroundColor: colorP }}>
                     {guardando ? 'GUARDANDO...' : 'GUARDAR'}
                   </button>
                 </div>

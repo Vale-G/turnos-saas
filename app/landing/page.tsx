@@ -38,7 +38,10 @@ const FEATURES = [
 
 export default function Landing() {
   const router = useRouter()
-  const [precios, setPrecios] = React.useState({ basico: 5000, pro: 25000 })
+  const [precios, setPrecios] = React.useState<{
+    basico: number
+    pro: number
+  } | null>(null)
 
   React.useEffect(() => {
     import('@/lib/supabase').then(({ supabase }) => {
@@ -129,7 +132,7 @@ export default function Landing() {
             onClick={() => router.push('/reservar/demo')}
             className="w-full sm:w-auto bg-white/8 hover:bg-white/12 border border-white/10 text-white font-black text-sm px-8 py-4 rounded-2xl transition-colors"
           >
-            Ver demo en vivo →
+            Probar la Reserva como Cliente →
           </button>
         </div>
         <p className="text-slate-600 text-xs mt-4">
@@ -260,12 +263,16 @@ export default function Landing() {
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1">
                 Básico
               </p>
-              <div className="flex items-baseline gap-1">
-                <span className="text-4xl font-black">
-                  ${precios.basico.toLocaleString('es-AR')}
-                </span>
-                <span className="text-slate-400 text-sm">ARS/mes</span>
-              </div>
+              {precios ? (
+                <div className="flex items-baseline gap-1">
+                  <span className="text-4xl font-black">
+                    ${precios.basico.toLocaleString('es-AR')}
+                  </span>
+                  <span className="text-slate-400 text-sm">ARS/mes</span>
+                </div>
+              ) : (
+                <div className="h-10 bg-white/10 rounded-lg animate-pulse w-40" />
+              )}
             </div>
             <div className="p-6 space-y-2.5">
               {[
@@ -310,12 +317,16 @@ export default function Landing() {
                   Recomendado
                 </span>
               </div>
-              <div className="flex items-baseline gap-1">
-                <span className="text-4xl font-black text-[#6366F1]">
-                  ${precios.pro.toLocaleString('es-AR')}
-                </span>
-                <span className="text-slate-400 text-sm">ARS/mes</span>
-              </div>
+              {precios ? (
+                <div className="flex items-baseline gap-1">
+                  <span className="text-4xl font-black text-[#6366F1]">
+                    ${precios.pro.toLocaleString('es-AR')}
+                  </span>
+                  <span className="text-slate-400 text-sm">ARS/mes</span>
+                </div>
+              ) : (
+                <div className="h-10 bg-white/10 rounded-lg animate-pulse w-40" />
+              )}
             </div>
             <div className="p-6 space-y-2.5">
               {[

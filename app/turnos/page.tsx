@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { toast } from 'sonner'
 
 type TurnoItem = {
   id: string
@@ -61,7 +62,6 @@ export default function AgendaTurnos() {
   )
   const [vista, setVista] = useState<Vista>('dia')
   const [loading, setLoading] = useState(true)
-  const [reloadKey, setReloadKey] = useState(0)
   const [busqueda, setBusqueda] = useState('')
   const [turnoEditando, setTurnoEditando] = useState<string | null>(null)
   const [turnoEditar, setTurnoEditar] = useState<TurnoItem | null>(null)
@@ -201,7 +201,7 @@ export default function AgendaTurnos() {
     return () => {
       mounted = false
     }
-  }, [negocioId, fechaFiltro, vista, reloadKey])
+  }, [negocioId, fechaFiltro, vista])
 
   const moverFecha = (dias: number) => {
     const base = normalizeDateISO(fechaFiltro)
@@ -211,40 +211,77 @@ export default function AgendaTurnos() {
   }
 
   const cambiarEstado = useCallback(async (id: string, estado: string) => {
-    await supabase.from('turno').update({ estado }).eq('id', id)
-    setReloadKey((k) => k + 1)
+    const { data: updatedTurno, error } = await supabase
+      .from('turno')
+      .update({ estado })
+      .eq('id', id)
+      .select('*, servicio(nombre, precio), staff(nombre)')
+      .single()
+    if (error) return toast.error('Error al cambiar estado')
+
+    setTurnos((turnos) =>
+      turnos.map((t) => (t.id === id ? (updatedTurno as TurnoItem) : t))
+    )
+    toast.success('Estado actualizado')
   }, [])
 
   const registrarPago = useCallback(async (id: string, tipo: string) => {
-    await supabase
+    const { data: updatedTurno, error } = await supabase
       .from('turno')
       .update({ pago_tipo: tipo, pago_estado: 'cobrado', estado: 'completado' })
       .eq('id', id)
+      .select('*, servicio(nombre, precio), staff(nombre)')
+      .single()
+    if (error) return toast.error('Error al registrar el pago')
+
+    setTurnos((turnos) =>
+      turnos.map((t) => (t.id === id ? (updatedTurno as TurnoItem) : t))
+    )
     setTurnoEditando(null)
-    setReloadKey((k) => k + 1)
+    toast.success('Pago registrado')
   }, [])
 
   const deshacerPago = useCallback(async (id: string) => {
-    await supabase
+    const { data: updatedTurno, error } = await supabase
       .from('turno')
       .update({ pago_tipo: null, pago_estado: 'pendiente' })
       .eq('id', id)
-    setReloadKey((k) => k + 1)
+      .select('*, servicio(nombre, precio), staff(nombre)')
+      .single()
+    if (error) return toast.error('Error al deshacer el pago')
+
+    setTurnos((turnos) =>
+      turnos.map((t) => (t.id === id ? (updatedTurno as TurnoItem) : t))
+    )
+    toast.success('Pago deshecho')
   }, [])
 
   const eliminarTurno = useCallback(async (id: string) => {
-    if (!confirm('Seguro?')) return
-    await supabase.from('turno').delete().eq('id', id)
-    setReloadKey((k) => k + 1)
+    if (!window.confirm('¿Seguro que quieres eliminar este turno?')) return
+    const { error } = await supabase.from('turno').delete().eq('id', id)
+    if (error) return toast.error('Error al eliminar el turno')
+
+    setTurnos((turnos) => turnos.filter((t) => t.id !== id))
+    toast.success('Turno eliminado')
   }, [])
 
   const bloquearCliente = useCallback(
     async (turno: TurnoItem) => {
       if (!negocioId) return
 
-      const [nombreRaw, telefonoRaw] = String(turno.cliente_nombre || '')
-        .split('·')
-        .map((p) => p.trim())
+      const nombreRaw = String(turno.cliente_nombre || '')
+        .split('·')[0]
+        .trim()
+      if (
+        !window.confirm(
+          `¿Seguro que quieres bloquear a ${nombreRaw || 'este cliente'}?`
+        )
+      )
+        return
+
+      const telefonoRaw = String(turno.cliente_nombre || '')
+        .split('·')[1]
+        ?.trim()
       const telefono = (telefonoRaw || '').replace(/\D/g, '') || null
 
       const payload = {
@@ -260,17 +297,18 @@ export default function AgendaTurnos() {
         .from('lista_negra')
         .upsert(payload, { onConflict: 'negocio_id,identidad' })
       if (error) {
-        alert('No se pudo procesar la solicitud')
+        toast.error('No se pudo bloquear al cliente')
         return
       }
-      alert('Cliente bloqueado correctamente')
+      toast.success('Cliente bloqueado correctamente')
     },
     [negocioId]
   )
 
-  const guardarEdicion = async () => {
+  const guardarEdicion = useCallback(async () => {
     if (!turnoEditar) return
-    await supabase
+
+    const { data: updatedTurno, error } = await supabase
       .from('turno')
       .update({
         cliente_nombre: turnoEditar.cliente_nombre,
@@ -279,10 +317,22 @@ export default function AgendaTurnos() {
         estado: turnoEditar.estado,
       })
       .eq('id', turnoEditar.id)
+      .select('*, servicio(nombre, precio), staff(nombre)')
+      .single()
 
+    if (error) {
+      toast.error('Error al guardar el turno')
+      return
+    }
+
+    setTurnos((turnos) =>
+      turnos.map((t) =>
+        t.id === updatedTurno.id ? (updatedTurno as TurnoItem) : t
+      )
+    )
     setTurnoEditar(null)
-    setReloadKey((k) => k + 1)
-  }
+    toast.success('Turno actualizado')
+  }, [turnoEditar])
 
   const turnosFiltrados = busqueda.trim()
     ? turnos.filter(
@@ -377,16 +427,16 @@ export default function AgendaTurnos() {
             }
             className="px-2 py-1.5 rounded-lg text-[9px] font-black uppercase bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
           >
-            Cobro
+            Acciones
           </button>
         </div>
       </div>
 
       {turnoEditando === t.id && (
-        <div className="border-t border-white/8 p-4 bg-black/20 space-y-3">
+        <div className="border-t border-white/8 p-4 bg-black/20 space-y-3 animate-in fade-in">
           <div>
             <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-2">
-              Estado
+              Estado del Turno
             </p>
             <div className="flex gap-2 flex-wrap">
               {ESTADOS_TURNO.map((e) => (
@@ -410,7 +460,7 @@ export default function AgendaTurnos() {
           </div>
           <div>
             <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-2">
-              Registrar cobro
+              Registrar Pago
             </p>
             <div className="flex gap-2 flex-wrap">
               {TIPOS_PAGO.map((tipo) => (
@@ -432,25 +482,25 @@ export default function AgendaTurnos() {
               {t.pago_estado === 'cobrado' && (
                 <button
                   onClick={() => deshacerPago(t.id)}
-                  className="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase bg-red-500/10 text-red-400 border border-red-500/20 transition-all"
+                  className="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase bg-red-500/10 text-red-400 border border-red-500/20 transition-all hover:bg-red-500/20 hover:text-red-300"
                 >
                   Deshacer
                 </button>
               )}
             </div>
           </div>
-          <div className="flex justify-end">
+          <div className="pt-2 flex justify-end gap-2">
             <button
               onClick={() => bloquearCliente(t)}
-              className="text-[9px] font-black uppercase text-amber-300/70 hover:text-amber-300 hover:bg-amber-500/10 px-2.5 py-1.5 rounded-lg transition-all mr-2"
+              className="text-[9px] font-black uppercase text-amber-300/70 hover:text-amber-300 hover:bg-amber-500/10 px-2.5 py-1.5 rounded-lg transition-all"
             >
               Bloquear cliente
             </button>
             <button
               onClick={() => eliminarTurno(t.id)}
-              className="text-[9px] font-black uppercase text-red-500/40 hover:text-red-400 hover:bg-red-500/10 px-2.5 py-1.5 rounded-lg transition-all"
+              className="text-[9px] font-black uppercase text-red-500/70 hover:text-red-400 hover:bg-red-500/10 px-2.5 py-1.5 rounded-lg transition-all"
             >
-              Eliminar
+              Eliminar Turno
             </button>
           </div>
         </div>
@@ -544,7 +594,7 @@ export default function AgendaTurnos() {
 
         <input
           type="text"
-          placeholder="Buscar cliente, servicio o barbero..."
+          placeholder="Buscar cliente, servicio o profesional..."
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
           className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-sm outline-none focus:border-white/25 transition-colors mb-4"
@@ -552,7 +602,7 @@ export default function AgendaTurnos() {
 
         {turnoEditar && (
           <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/75 px-4 pb-0 md:pb-4">
-            <div className="w-full max-w-md bg-[#020617] border border-white/10 rounded-t-[2.5rem] md:rounded-[2.5rem] p-6 shadow-2xl">
+            <div className="w-full max-w-md bg-[#020617] border border-white/10 rounded-t-[2.5rem] md:rounded-[2.5rem] p-6 shadow-2xl animate-in slide-in-from-bottom-5 md:zoom-in-95">
               <div className="flex items-center justify-between mb-5">
                 <h3
                   className="font-black italic uppercase text-lg"
@@ -678,7 +728,7 @@ export default function AgendaTurnos() {
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 animate-in fade-in">
               {turnosFiltrados.map((t) => (
                 <TurnoCard key={t.id} t={t} />
               ))}
@@ -720,7 +770,7 @@ export default function AgendaTurnos() {
                         Sin turnos
                       </p>
                     ) : (
-                      <div className="space-y-2">
+                      <div className="space-y-2 animate-in fade-in">
                         {turnosDia.map((t) => (
                           <TurnoCard key={t.id} t={t} />
                         ))}

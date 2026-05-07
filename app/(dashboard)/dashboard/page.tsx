@@ -49,21 +49,17 @@ export default function DashboardPrincipal() {
         return
       }
 
-      let currentRol = 'owner'
-      let negocioId = null
-
+      // Primero, obtenemos el rol para saber qué negocio mirar.
       const { data: adminData } = await supabase
         .from('adminrol')
         .select('*')
         .eq('user_id', user.id)
         .maybeSingle()
 
-      if (adminData) {
-        currentRol = adminData.role
-        negocioId = adminData.negocio_id
-      }
+      let currentRol = adminData?.role || 'owner'
+      let negocioId = adminData?.negocio_id
 
-      // Si no tiene negocio_id en adminrol, buscamos por owner_id en negocio (fallback)
+      // Fallback para usuarios antiguos que no tengan un negocio_id en adminrol
       if (!negocioId) {
         const { data: negViejo } = await supabase
           .from('negocio')
@@ -74,75 +70,70 @@ export default function DashboardPrincipal() {
       }
 
       setRol(currentRol)
-
-      // FIX: Si es Superadmin, guardamos el estado para mostrarle el botón de volver.
-      // Solo lo redirigimos a la fuerza si NO tiene un negocio creado.
       if (currentRol === 'superadmin') {
         setEsSuperAdmin(true)
-        if (!negocioId) {
-          router.push('/superadmin')
-          return
-        }
       }
 
-      if (negocioId) {
-        const { data: neg } = await supabase
-          .from('negocio')
-          .select('*')
-          .eq('id', negocioId)
-          .maybeSingle()
-        if (neg) {
-          const diasRestantes = diasTrialRestantes(neg.trial_hasta)
-          // Si es superadmin, no lo bloqueamos nunca con el paywall
-          if (currentRol !== 'superadmin') {
-            if (neg.suscripcion_tipo === 'trial' && diasRestantes < 0) {
-              router.push('/negocio-inactivo')
-              return
-            }
-            if (
-              neg.suscripcion_tipo === 'inactiva' ||
-              neg.suscripcion_tipo === 'vencida'
-            ) {
-              router.push('/negocio-inactivo')
-              return
-            }
-          }
-
-          setNegocio(neg)
-
-          if (currentRol === 'owner' || currentRol === 'superadmin') {
-            const [{ count: sc }, { count: svc }] = await Promise.all([
-              supabase
-                .from('staff')
-                .select('*', { count: 'exact', head: true })
-                .eq('negocio_id', neg.id),
-              supabase
-                .from('servicio')
-                .select('*', { count: 'exact', head: true })
-                .eq('negocio_id', neg.id),
-            ])
-            setStaffCount(sc ?? 0)
-            setServiciosCount(svc ?? 0)
-          }
+      if (!negocioId) {
+        if (currentRol === 'superadmin') {
+          router.push('/superadmin')
         } else {
           router.push('/onboarding')
-          return
         }
-      } else {
+        return
+      }
+
+      // Una vez tenemos el negocioId, pedimos TODO en paralelo.
+      const [
+        { data: neg, error: negError },
+        { count: sc },
+        { count: svc },
+      ] = await Promise.all([
+        supabase.from('negocio').select('*').eq('id', negocioId).single(),
+        supabase
+          .from('staff')
+          .select('id', { count: 'exact', head: true })
+          .eq('negocio_id', negocioId),
+        supabase
+          .from('servicio')
+          .select('id', { count: 'exact', head: true })
+          .eq('negocio_id', negocioId),
+      ])
+
+      if (negError || !neg) {
         router.push('/onboarding')
         return
       }
+
+      // Procesamos los datos que ya llegaron todos juntos.
+      const diasRestantes = diasTrialRestantes(neg.trial_hasta)
+      if (currentRol !== 'superadmin') {
+        if (
+          (neg.suscripcion_tipo === 'trial' && diasRestantes < 0) ||
+          neg.suscripcion_tipo === 'inactiva' ||
+          neg.suscripcion_tipo === 'vencida'
+        ) {
+          router.push('/negocio-inactivo')
+          return
+        }
+      }
+
+      setNegocio(neg)
+      setStaffCount(sc ?? 0)
+      setServiciosCount(svc ?? 0)
       setLoading(false)
     }
+
     cargarDatos()
   }, [router])
 
-  if (loading)
+  if (loading) {
     return (
       <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black italic text-white text-3xl uppercase tracking-tighter animate-pulse">
         CARGANDO PANEL...
       </div>
     )
+  }
 
   const colorPrincipal = getThemeColor(negocio?.tema)
   const plan = (negocio?.suscripcion_tipo ?? 'normal') as keyof typeof LIMITES

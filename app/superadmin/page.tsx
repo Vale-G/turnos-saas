@@ -23,13 +23,16 @@ export default function SuperAdminElite() {
   const router = useRouter()
 
   const cargarDatos = useCallback(async () => {
-    const { data: negs } = await supabase
-      .from('negocio')
-      .select('*')
-      .order('created_at', { ascending: false })
+    const [{ data: negs }, { data: cfg }] = await Promise.all([
+      supabase
+        .from('negocio')
+        .select('*')
+        .order('created_at', { ascending: false }),
+      supabase.from('config').select('*'),
+    ])
+
     setNegocios(negs || [])
 
-    const { data: cfg } = await supabase.from('config').select('*')
     if (cfg) {
       const configMap: any = {}
       cfg.forEach((r) => {
@@ -77,11 +80,15 @@ export default function SuperAdminElite() {
       { clave: 'precio_pro', valor: String(configEdit.precio_pro) },
       { clave: 'dias_trial', valor: String(configEdit.dias_trial) },
     ]
-    for (const u of updates) {
-      await supabase.from('config').upsert(u, { onConflict: 'clave' })
-    }
-    toast.success('Precios y Configuración actualizados en vivo')
+
+    const { error } = await supabase.from('config').upsert(updates, { onConflict: 'clave' })
+
     setGuardandoConfig(false)
+    if (error) {
+      toast.error('Error al actualizar la configuración.')
+    } else {
+      toast.success('Precios y Configuración actualizados en vivo')
+    }
   }
 
   const togglePlan = async (id: string, actual: string) => {

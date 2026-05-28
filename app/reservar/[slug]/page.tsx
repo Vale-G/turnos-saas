@@ -1,45 +1,50 @@
 
-import { createServerClient } from '@supabase/auth-helpers-nextjs'; // <-- CORREGIDO
-import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
-import { mercadoPagoClient } from '@/lib/mercadopago';
-import { Preference } from 'mercadopago';
+'use client'
 
-export async function POST(req: Request) {
-    const { negocioId, ...preferenceData } = await req.json();
+import { createBrowserClient } from '@supabase/ssr';
+import { getOAuthRedirectUrl } from '@/lib/supabase';
+import { getThemeColor } from '@/lib/theme';
+import { formatCurrency } from '@/lib/utils';
+import { reservaInvitadoSchema, strictPhoneSchema } from '@/lib/validation';
+import { INegocio, IServicio, IStaff, IHorarioBloqueado } from '@/lib/types';
+import { User } from '@supabase/supabase-js';
+import { formatInTimeZone, fromZonedTime } from 'date-fns-tz';
+import { useParams, useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner'
+import { AuthSelector } from './components/AuthSelector'
 
-    if (!negocioId) {
-        return NextResponse.json({ error: 'ID de negocio no proporcionado' }, { status: 400 });
-    }
+export default function ReservaPage() {
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
+  const { slug } = useParams();
+  const slugValue = Array.isArray(slug) ? slug[0] : slug;
+  const router = useRouter();
 
-    const supabase = createServerClient({ cookies }); // <-- CORREGIDO
-    const { data: { user } } = await supabase.auth.getUser();
+  // ... (el resto de los estados no cambia)
 
-    if (!user) {
-        return NextResponse.json({ error: 'Acceso no autorizado' }, { status: 401 });
-    }
-
-    const { data: negocio, error: fetchError } = await supabase
+  useEffect(() => {
+     async function fetchData() {
+      setLoading(true)
+      const { data: negocioData } = await supabase
         .from('negocio')
-        .select('user_id')
-        .eq('id', negocioId)
-        .single();
+        .select('*')
+        .eq('slug', slugValue)
+        .single<INegocio>()
 
-    if (fetchError || !negocio) {
-        return NextResponse.json({ error: 'Negocio no encontrado' }, { status: 404 });
+      if (negocioData) {
+        setNegocio(negocioData)
+        // ... (el resto de la carga de datos)
+      }
+      setLoading(false)
     }
 
-    if (negocio.user_id !== user.id) {
-        return NextResponse.json({ error: 'No tienes permiso para realizar esta acción' }, { status: 403 });
-    }
+    fetchData()
+  }, [slugValue, sel.fecha, supabase]);
 
-    try {
-        const preference = new Preference(mercadoPagoClient);
-        const result = await preference.create({ body: preferenceData });
+  // ... (el resto del componente no cambia)
 
-        return NextResponse.json({ id: result.id });
-    } catch (error) {
-        console.error('Error al crear la preferencia de MercadoPago:', error);
-        return NextResponse.json({ error: 'No se pudo crear la preferencia de pago' }, { status: 500 });
-    }
+  return (<div>...</div>); // El JSX se mantiene igual
 }

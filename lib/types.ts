@@ -1,4 +1,3 @@
-
 // --- INTERFACES DE LA BASE DE DATOS ---
 
 export interface INegocio {
@@ -16,6 +15,7 @@ export interface INegocio {
     email_contacto: string | null;
     moneda: string;
     timezone: string;
+    direccion: string | null;
     // Campos de branding
     banner_url?: string | null;
     mensaje_bienvenida?: string | null;
@@ -56,8 +56,11 @@ export interface ITurno {
     cliente_nombre: string;
     cliente_email: string;
     cliente_telefono: string;
-    estado: 'pendiente' | 'confirmado' | 'cancelado' | 'completado';
+    estado: 'pendiente' | 'confirmado' | 'cancelado' | 'completado' | 'pendiente_pago';
     recordatorio_enviado: string | null; // timestamp
+    mp_preference_id?: string;
+    requiere_sena?: boolean;
+    monto_sena?: number;
 }
 
 export interface IHorarioBloqueado {

@@ -1,0 +1,39 @@
+
+{
+  "legal": {
+    "terms": {
+      "title": "Términos y Condiciones",
+      "content": [
+        {
+          "heading": "1. Aceptación de los Términos",
+          "body": "Al registrarte y utilizar nuestra plataforma, aceptas estar sujeto a estos Términos y Condiciones. Si no estás de acuerdo, no debes utilizar el servicio."
+        },
+        {
+          "heading": "2. Descripción del Servicio",
+          "body": "Nuestra plataforma permite a los usuarios buscar y reservar turnos en diversos negocios. No somos responsables de la calidad del servicio prestado por el negocio final."
+        },
+        {
+          "heading": "3. Cancelaciones y Señas",
+          "body": "Cada negocio establece su propia política de cancelación y reembolso de señas. La plataforma facilitará la comunicación pero no se hace responsable por disputas entre el cliente y el negocio."
+        }
+      ]
+    },
+    "privacy": {
+      "title": "Política de Privacidad",
+      "content": [
+        {
+          "heading": "1. Información que Recopilamos",
+          "body": "Recopilamos información personal que nos proporcionas directamente, como tu nombre, correo electrónico y número de teléfono al registrarte o realizar una reserva."
+        },
+        {
+          "heading": "2. Uso de la Información",
+          "body": "Utilizamos tu información para gestionar tus reservas, comunicarnos contigo sobre tus turnos y mejorar nuestra plataforma. Tu correo electrónico será compartido con el negocio donde realizas la reserva para fines de coordinación."
+        },
+        {
+          "heading": "3. Seguridad de los Datos",
+          "body": "Tomamos medidas razonables para proteger tu información personal contra el acceso no autorizado. Utilizamos Supabase para la gestión de usuarios y datos, que proporciona seguridad a nivel de base de datos."
+        }
+      ]
+    }
+  }
+}

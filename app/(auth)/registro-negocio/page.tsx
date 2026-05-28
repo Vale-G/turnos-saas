@@ -1,3 +1,4 @@
+
 'use client'
 
 import { supabase } from '@/lib/supabase'
@@ -15,6 +16,7 @@ function validarPassword(password: string): string | null {
 export default function RegistroNegocio() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [aceptaTerminos, setAceptaTerminos] = useState(false)
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
@@ -26,6 +28,10 @@ export default function RegistroNegocio() {
     if (pwError) {
       setPasswordError(pwError)
       return
+    }
+    if (!aceptaTerminos) {
+        toast.error('Debes aceptar los Términos y Condiciones para continuar.');
+        return;
     }
     setPasswordError(null)
     setLoading(true)
@@ -99,10 +105,26 @@ export default function RegistroNegocio() {
               </p>
             )}
           </div>
+          
+          <div className="flex items-center space-x-2 pt-2">
+            <input 
+              type="checkbox" 
+              id="terms"
+              checked={aceptaTerminos}
+              onChange={(e) => setAceptaTerminos(e.target.checked)}
+              className="h-5 w-5 rounded bg-slate-800 border-slate-700 text-emerald-500 focus:ring-emerald-500/50 focus:ring-offset-black"
+            />
+            <label htmlFor="terms" className="text-sm text-slate-400">
+              Acepto los{' '}
+              <a href="/legal/terminos-y-condiciones" target="_blank" rel="noopener noreferrer" className="text-emerald-500 hover:underline">
+                Términos y Condiciones
+              </a>
+            </label>
+          </div>
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !aceptaTerminos}
             className="w-full bg-emerald-500 text-black font-black uppercase italic py-5 rounded-2xl hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
           >
             {loading ? 'Procesando...' : 'Crear mi cuenta gratis'}

@@ -90,7 +90,7 @@ export default function OnboardingElite() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black italic text-white text-3xl animate-pulse tracking-tighter">
+      <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black italic text-3xl animate-pulse tracking-tighter">
         PREPARANDO ENTORNO...
       </div>
     )
@@ -228,7 +228,7 @@ export default function OnboardingElite() {
                   <input
                     type="time"
                     value={cierre}
-                    onChange={(e) => setCierre(e.targe.value)}
+                    onChange={(e) => setCierre(e.target.value)}
                     required
                     className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-sm font-black outline-none focus:border-white/30 transition-all [&::-webkit-calendar-picker-indicator]:invert"
                   />

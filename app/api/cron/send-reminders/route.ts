@@ -35,7 +35,7 @@ export async function GET(request: Request) {
         id,
         fecha,
         hora,
-        clientes ( nombre, email ), // <-- CAMBIO AQUÍ: email en lugar de telefono
+        clientes ( nombre, email ),
         servicios ( nombre_servicio ),
         negocios ( nombre )
       `)

@@ -119,7 +119,7 @@ export default function ReservaPage() {
 
   const montoSeña = useMemo(() => {
     if (!sel.servicio) return 0;
-    const { seña_tipo, seña_valor, precio }.sel.servicio;
+    const { seña_tipo, seña_valor, precio } = sel.servicio;
     if (seña_tipo === 'fijo') return seña_valor;
     if (seña_tipo === 'porcentual') return (precio * seña_valor) / 100;
     return 0;

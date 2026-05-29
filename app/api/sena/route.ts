@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server';
 import { senaSchema } from '@/lib/validations/sena';
 import { createSenaPreference } from '@/lib/services/sena.service';
 import { env } from '@/lib/env';
@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const validatedData = senaSchema.parse(body);
 
-    const supabase = createSupabaseServerClient();
+    const supabase = createClient();
     const origin = req.headers.get('origin') ?? env.NEXT_PUBLIC_SITE_URL ?? 'https://turnly.app';
 
     const result = await createSenaPreference(supabase, validatedData, origin);

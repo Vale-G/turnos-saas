@@ -72,3 +72,24 @@ Proyecto revisado: `akpwhsizquuhhlwincqs` (el usuario confirmó que es el proyec
 - No hay un runner de proyecto disponible a través de las herramientas conectadas, así que no se ejecutaron lint, build ni pruebas.
 - No se modificaron policies, esquema, datos, secretos, variables ni producción.
 - La implementación debe continuar solo con acceso a una instancia Supabase de prueba y con el esquema/migraciones reales disponibles. No aplicar una policy o RPC por suposición.
+
+
+## Revisión estática adicional: webhooks y limitación de solicitudes
+
+1. `app/api/webhooks/mercadopago/route.ts` procesa notificaciones de pagos sin llamar a `verificarFirmaMercadoPago`. Aunque después consulta el pago en Mercado Pago, una petición no autenticada podría intentar disparar el procesamiento de cualquier ID de pago conocido. Prioridad alta: validar firma según la documentación vigente y verificar que el pago corresponda al turno y al importe esperado antes de actualizar estado.
+2. `lib/webhooks/mercadopago-handler.ts` actualiza el turno con el estado consultado en Mercado Pago, pero no valida importe, moneda, referencia de turno y estado previo contra una orden esperada. También mapea estados no reconocidos a `pendiente`. Debe diseñarse una validación idempotente y estricta antes de activar confirmaciones.
+3. `verificarFirmaMercadoPago` construye el manifiesto con `id:${xRequestId}` y `request-id:${xRequestId}`. No asumir que la firma es correcta: comparar la construcción exacta del manifiesto con la documentación actual de Mercado Pago y añadir pruebas con casos válidos e inválidos. El webhook de suscripción sí llama a esta función; su corrección debe verificarse antes de depender de ella.
+4. `app/api/checkout/route.ts` tiene validación parcial y rate limit, pero el acceso a turno/negocio/servicio depende de las policies actuales. La validación de pertenencia entre servicio y negocio existe; todavía hay que verificar que el turno pertenece al usuario autenticado y está en estado cobrable.
+5. `lib/rate-limit.ts` mantiene el contador en un `Map` en memoria. En entornos serverless, los límites pueden reiniciarse o variar entre instancias; tratarlo como defensa adicional, no como protección robusta contra abuso distribuido.
+6. No se encontró `app/api/webhooks/sena/route.ts` en la rama revisada, aunque `app/api/sena/route.ts` establece esa URL como `notification_url`. La confirmación de señas parece no tener una ruta específica correspondiente en esta versión; confirmar referencias y comportamiento antes de implementar.
+
+### Criterios adicionales para pagos
+
+- [ ] El webhook de pagos valida la firma correctamente en producción.
+- [ ] Se consulta el pago a Mercado Pago usando credencial privada del servidor.
+- [ ] Se verifica referencia externa, moneda, importe, negocio/turno y estado esperado antes de modificar datos.
+- [ ] La operación es idempotente: reintentos de la misma notificación no duplican efectos ni revierten un estado más avanzado.
+- [ ] Los pagos de señas y las suscripciones se procesan por flujos separados y con referencias inequívocas.
+- [ ] Existen pruebas para firma ausente/incorrecta, pago de importe distinto, moneda incorrecta, referencia inválida y notificación duplicada.
+
+Estos hallazgos proceden de inspección estática de código; no se enviaron pagos ni webhooks reales y no se cambiaron rutas ni variables.

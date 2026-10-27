@@ -38,3 +38,11 @@ Aplicación web Next.js con App Router, React, Supabase y rutas de API para rese
 ## Reglas de evidencia
 
 Etiquetar cada afirmación como **confirmada**, **inferida** o **pendiente de verificar** cuando corresponda. Nunca guardar secretos, tokens, variables de entorno ni datos personales reales. No afirmar que una prueba pasó sin leer su resultado real. Si el bloqueo es de entorno, continuar solo con trabajo estático/documental seguro.
+
+
+## Seguimiento más reciente — 2026-10-27
+
+- PR #11 sigue abierto en borrador. El último run observado antes del fix incremental es [40502014733](https://github.com/Vale-G/turnos-saas/actions/runs/40502014733): build aprobado, lint fallido (35 errores, 15 warnings), baseline de lint fallido y auditoría de dependencias informativa.
+- La auditoría reportó 20 vulnerabilidades (1 baja, 6 moderadas, 12 altas, 1 crítica) y avisos de Next.js. No se actualizaron dependencias sin regenerar `package-lock.json` y probar compatibilidad.
+- Fix de lint en curso en `app/servicios/page.tsx`: tipos explícitos para servicio/negocio y guard previo al guardado. Revisar el siguiente run de CI antes de afirmar el resultado.
+- No hay suite de tests ni entorno aislado Supabase. Los riesgos P0 de acceso público a turnos/campos privados y P1 de pagos/RLS continúan sin mitigación.

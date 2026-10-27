@@ -127,3 +127,11 @@ No se hizo merge, despliegue, migración, cambio de RLS, escritura en la base ac
 - Run [40504213203](https://github.com/Vale-G/turnos-saas/actions/runs/40504213203) probó el tipado inicial de `app/informes/page.tsx`: lint bajó a 30 errores/15 warnings, pero **build falló** porque Supabase devuelve las relaciones `servicio` y `staff` como arrays, no como objetos únicos.
 - La causa quedó identificada en el log TypeScript de `app/informes/page.tsx:70`. Se corrigió en commit `d06bfd54987f2d5a4b05606a529d04fc9b38c26f` permitiendo relaciones como objeto o array y tomando el primer registro cuando llega un array. Esto también hace que los cálculos de informes lean el resultado de la relación array.
 - La corrección es una hipótesis de arreglo hasta que un nuevo run confirme build y lint. No se declara aprobado todavía.
+
+
+### Revalidación de la normalización de relaciones — 2026-10-27
+
+- Run [40504440927](https://github.com/Vale-G/turnos-saas/actions/runs/40504440927) terminó para el head documental `e89d3b2d0c5fb8be6f157e624c424b789c85335b`, que incluye el fix de código `d06bfd54987f2d5a4b05606a529d04fc9b38c26f`.
+- `npm ci`: aprobado; build: **APROBADO**; lint: **FALLIDO**, 30 errores y 15 warnings; baseline exacto: 37 errores y 15 warnings; auditoría informativa ejecutada.
+- El build ya pasa tras admitir relaciones Supabase como objeto o array. La CI global sigue fallando por lint; no se desactivaron reglas.
+- La revisión QA independiente fue solicitada de nuevo para este ciclo; su estado/resultado debe comprobarse por separado.

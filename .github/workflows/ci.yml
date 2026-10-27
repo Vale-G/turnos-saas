@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   lint:
-    name: ESLint
+    name: ESLint (PR)
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -60,3 +60,41 @@ jobs:
 
       - name: Compilar aplicación
         run: npm run build
+
+  baseline-lint:
+    name: ESLint en base (informativo)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Descargar commit base del PR
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Ejecutar ESLint en la base
+        id: baseline
+        continue-on-error: true
+        run: npm run lint
+
+      - name: Resumir baseline
+        if: always()
+        env:
+          BASELINE_OUTCOME: ${{ steps.baseline.outcome }}
+        run: |
+          if [ "$BASELINE_OUTCOME" = "success" ]; then
+            echo "ESLint en el commit base: aprobado." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$BASELINE_OUTCOME" = "failure" ]; then
+            echo "ESLint en el commit base: falló. Revisar el log de este paso para medir deuda preexistente; el job ESLint del PR sigue siendo el control obligatorio." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ESLint en el commit base: no ejecutado o bloqueado; revisar los pasos previos." >> "$GITHUB_STEP_SUMMARY"
+          fi

@@ -8,7 +8,7 @@ Leer este archivo primero y después solo los documentos necesarios. No inferir 
 - Rama de referencia para cambios: `codex/revisar-informes-de-turnos-cancelados`; base observada en los PR activos: `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`.
 - Último deployment de Vercel marcado como producción observado el 2026-10-27: commit `bc234fb0b8c981935602168ca0b6982d24d0956f`, rama `codex/revisar-informes-de-turnos-cancelados`. Producción y punta de rama no coinciden exactamente.
 - PR #10 (borrador): plan de contención P0, rama `codex/auditoria-turnly-2026-10-26`. Solo documentación.
-- PR #11 (borrador): CI y documentación, rama `codex/ci-automatico-lint-build`; base `07bd2ee...`. Último commit comprobado antes de la iteración de CI con placeholders: `ac581183ede93a229f110fa23e53f2ab67fae63d`.
+- PR #11 (borrador): CI y documentación, rama `codex/ci-automatico-lint-build`; base `07bd2ee...`. El commit de la primera separación de jobs es `06e751192e6438b7c28ffb884a29fd6129e6173e`; la siguiente iteración agrega medición de baseline de lint en la base exacta del PR.
 - No fusionar, desplegar a producción ni modificar la rama estable sin aprobación explícita. Los deployments de preview no prueban flujos funcionales.
 
 ## Qué es el proyecto
@@ -32,7 +32,7 @@ Aplicación web Next.js con App Router, React, Supabase y rutas de API para rese
 - P0: políticas públicas demasiado amplias en `turno` y `negocio`; la página de reserva consulta `negocio.select('*')` y lee turnos desde el navegador.
 - P1: la política de gestión de `bloqueo` no verifica propiedad del negocio.
 - Pagos: el webhook genérico de Mercado Pago no valida firma; faltan verificaciones estrictas de importe, moneda, referencia e idempotencia. El endpoint de señas apunta a `/api/webhooks/sena`, ruta que no se encontró en la rama auditada.
-- CI en `ac581183`: instalación aprobada en ambos jobs; lint falló con 37 errores y 15 warnings; build llegó a prerender y falló porque faltaban variables públicas de Supabase. La siguiente iteración usa placeholders locales ficticios; resultado pendiente.
+- Run [40500358257](https://github.com/Vale-G/turnos-saas/actions/runs/40500358257): build aprobado con placeholders locales ficticios; lint falló con 37 errores y 15 warnings. El siguiente workflow mide el baseline de lint sobre el SHA base exacto.
 - No hay script `test` ni entorno de Supabase de prueba confirmado. No ejecutar migraciones, cambios de RLS ni pruebas de escritura en la base activa.
 
 ## Reglas de evidencia

@@ -14,7 +14,9 @@ Actualmente `package.json` no declara un script `test`. No hay una suite unitari
 
 El workflow [CI - Lint y build](../.github/workflows/ci.yml) se ejecuta en pushes a ramas `codex/**`, en pull requests dirigidos a `codex/revisar-informes-de-turnos-cancelados` y manualmente desde GitHub Actions.
 
-Lint y build son jobs independientes; un fallo de ESLint no debe omitir la compilación. Cada job instala dependencias con `npm ci`. El job de build usa únicamente valores ficticios locales para inicializar el cliente público durante prerender; no utiliza credenciales reales ni debe desplegar artefactos.
+- Lint y build son jobs independientes; un fallo de ESLint no omite la compilación.
+- El job de build usa valores ficticios apuntando a localhost solo para inicializar el cliente público durante prerender. No utiliza credenciales reales ni debe desplegar artefactos.
+- En pull requests se ejecuta un baseline informativo de ESLint sobre el SHA base exacto. El job ESLint del PR sigue siendo el control obligatorio y no se neutralizan sus fallos.
 
 ## Evidencia de CI
 
@@ -28,18 +30,15 @@ Lint y build son jobs independientes; un fallo de ESLint no debe omitir la compi
 - `npm run build`: omitido porque lint falló en el mismo job.
 - Instalación informó 20 vulnerabilidades en dependencias (1 baja, 6 moderadas, 12 altas y 1 crítica). Todavía no se ha identificado aquí el árbol de dependencias afectado.
 
-### Primera ejecución con jobs independientes
+### Jobs independientes y placeholders locales
 
-- Commit: `ac581183ede93a229f110fa23e53f2ab67fae63d`.
-- Ejecución: [run 40500059792](https://github.com/Vale-G/turnos-saas/actions/runs/40500059792).
+- Commit: `06e751192e6438b7c28ffb884a29fd6129e6173e`.
+- Ejecución: [run 40500358257](https://github.com/Vale-G/turnos-saas/actions/runs/40500358257).
 - `npm ci`: aprobado en ambos jobs.
-- `npm run lint`: fallido con los mismos 37 errores y 15 warnings.
-- `npm run build`: fallido durante el prerender de `/clientes` y `/registro-negocio`, porque el entorno CI no definía `NEXT_PUBLIC_SUPABASE_URL` ni `NEXT_PUBLIC_SUPABASE_ANON_KEY`. La compilación de Next.js y TypeScript había terminado antes de ese error.
-- El PR solo cambia workflow y documentación, no código de aplicación; los errores de lint pertenecen al código existente en la base. Aún no se ejecutó lint directamente sobre el commit base.
-
-### Seguimiento
-
-La siguiente iteración agrega al job de build valores públicos ficticios apuntando a localhost, solo para permitir inicializar el cliente durante el build sin conectar a Supabase real. Resultado de esa iteración: pendiente de nueva ejecución de Actions. Si el build falla por otra causa, registrar el error exacto y no añadir secretos para silenciarlo.
+- `npm run lint`: fallido con 37 errores y 15 warnings.
+- `npm run build`: aprobado. Next.js compiló y terminó el build con placeholders públicos ficticios de localhost; no se usaron credenciales reales.
+- El build anterior había fallado en prerender de `/clientes` y `/registro-negocio` por variables públicas ausentes. Los placeholders corrigieron ese bloqueo de CI sin cambiar el runtime.
+- El PR no modifica código de aplicación. La nueva tarea `baseline-lint` medirá el resultado en el SHA base exacto; su primera ejecución queda pendiente.
 
 ## Limitaciones y estrategia de QA
 

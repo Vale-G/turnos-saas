@@ -14,20 +14,32 @@ Actualmente `package.json` no declara un script `test`. No hay una suite unitari
 
 El workflow [CI - Lint y build](../.github/workflows/ci.yml) se ejecuta en pushes a ramas `codex/**`, en pull requests dirigidos a `codex/revisar-informes-de-turnos-cancelados` y manualmente desde GitHub Actions.
 
-Lint y build ahora son jobs independientes: un fallo de ESLint no debe omitir la compilación. Cada job instala dependencias con `npm ci`; ninguno despliega ni modifica producción o Supabase.
+Lint y build son jobs independientes; un fallo de ESLint no debe omitir la compilación. Cada job instala dependencias con `npm ci`. El job de build usa únicamente valores ficticios locales para inicializar el cliente público durante prerender; no utiliza credenciales reales ni debe desplegar artefactos.
 
-## Último resultado observado antes de separar los jobs
+## Evidencia de CI
+
+### Antes de separar los jobs
 
 - PR: [#11 — CI: ejecutar lint y build](https://github.com/Vale-G/turnos-saas/pull/11).
-- Commit revisado: `f871b0553352dbc0fee8cb2733964d8f0c2b86e8`.
+- Commit: `f871b0553352dbc0fee8cb2733964d8f0c2b86e8`.
 - Ejecución: [run 40411983369](https://github.com/Vale-G/turnos-saas/actions/runs/40411983369).
 - `npm ci`: aprobado.
 - `npm run lint`: fallido, 37 errores y 15 warnings.
 - `npm run build`: omitido porque lint falló en el mismo job.
-- `npm ci` informó 20 vulnerabilidades en dependencias (1 baja, 6 moderadas, 12 altas y 1 crítica); todavía no se ha identificado aquí el árbol de dependencias afectado.
-- El PR #11 solo cambia el workflow y documentación, no código de aplicación; por ello, los errores de lint observados son deuda previa a este PR. No se ha ejecutado aún una medición directa del lint en el commit base.
+- Instalación informó 20 vulnerabilidades en dependencias (1 baja, 6 moderadas, 12 altas y 1 crítica). Todavía no se ha identificado aquí el árbol de dependencias afectado.
 
-**Pendiente:** esperar el workflow nuevo y registrar por separado los resultados de lint y build. No declarar CI aprobada mientras lint falle.
+### Primera ejecución con jobs independientes
+
+- Commit: `ac581183ede93a229f110fa23e53f2ab67fae63d`.
+- Ejecución: [run 40500059792](https://github.com/Vale-G/turnos-saas/actions/runs/40500059792).
+- `npm ci`: aprobado en ambos jobs.
+- `npm run lint`: fallido con los mismos 37 errores y 15 warnings.
+- `npm run build`: fallido durante el prerender de `/clientes` y `/registro-negocio`, porque el entorno CI no definía `NEXT_PUBLIC_SUPABASE_URL` ni `NEXT_PUBLIC_SUPABASE_ANON_KEY`. La compilación de Next.js y TypeScript había terminado antes de ese error.
+- El PR solo cambia workflow y documentación, no código de aplicación; los errores de lint pertenecen al código existente en la base. Aún no se ejecutó lint directamente sobre el commit base.
+
+### Seguimiento
+
+La siguiente iteración agrega al job de build valores públicos ficticios apuntando a localhost, solo para permitir inicializar el cliente durante el build sin conectar a Supabase real. Resultado de esa iteración: pendiente de nueva ejecución de Actions. Si el build falla por otra causa, registrar el error exacto y no añadir secretos para silenciarlo.
 
 ## Limitaciones y estrategia de QA
 

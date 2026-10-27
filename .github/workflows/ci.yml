@@ -41,6 +41,10 @@ jobs:
     name: Build Next.js
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Valores ficticios solo para prerender de CI; no conectan a un proyecto real ni se despliegan.
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-not-a-real-key
     steps:
       - name: Descargar código
         uses: actions/checkout@v4

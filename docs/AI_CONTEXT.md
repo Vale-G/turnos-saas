@@ -46,3 +46,6 @@ Etiquetar cada afirmación como **confirmada**, **inferida** o **pendiente de ve
 - La auditoría reportó 20 vulnerabilidades (1 baja, 6 moderadas, 12 altas, 1 crítica) y avisos de Next.js. No se actualizaron dependencias sin regenerar `package-lock.json` y probar compatibilidad.
 - Fix de lint en curso en `app/servicios/page.tsx`: tipos explícitos para servicio/negocio y guard previo al guardado. Revisar el siguiente run de CI antes de afirmar el resultado.
 - No hay suite de tests ni entorno aislado Supabase. Los riesgos P0 de acceso público a turnos/campos privados y P1 de pagos/RLS continúan sin mitigación.
+
+
+QA independiente: se solicitó una ejecución inmediata después del cambio; el informe de esa ejecución es asíncrono y todavía no se debe tratar como aprobado.

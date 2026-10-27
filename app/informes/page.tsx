@@ -22,8 +22,8 @@ type NegocioInforme = {
 
 type TurnoInforme = {
   estado: string | null
-  servicio: { nombre: string | null; precio: number | null } | null
-  staff: { nombre: string | null } | null
+  servicio: { nombre: string | null; precio: number | null } | { nombre: string | null; precio: number | null }[] | null
+  staff: { nombre: string | null } | { nombre: string | null }[] | null
 }
 
 export default function InformesElite() {
@@ -101,9 +101,11 @@ export default function InformesElite() {
     const topStaff: Record<string, { count: number, total: number }> = {}
 
     turnos.forEach(t => {
-      const precio = t.servicio?.precio || 0
-      const nombreServicio = t.servicio?.nombre || 'Desconocido'
-      const nombreStaff = t.staff?.nombre || 'Sin Asignar'
+      const servicio = Array.isArray(t.servicio) ? t.servicio[0] : t.servicio
+      const staff = Array.isArray(t.staff) ? t.staff[0] : t.staff
+      const precio = servicio?.precio || 0
+      const nombreServicio = servicio?.nombre || 'Desconocido'
+      const nombreStaff = staff?.nombre || 'Sin Asignar'
 
       if (t.estado === 'completado') {
         ingresos += precio

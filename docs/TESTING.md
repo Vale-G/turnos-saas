@@ -7,6 +7,7 @@ En la raíz del repositorio:
 - `npm ci`: instala las dependencias usando `package-lock.json`.
 - `npm run lint`: ejecuta ESLint.
 - `npm run build`: intenta compilar la aplicación Next.js para producción.
+- `npm audit --json`: inspecciona vulnerabilidades declaradas para el lockfile; no actualiza paquetes.
 
 Actualmente `package.json` no declara un script `test`. No hay una suite unitaria, de integración o E2E confirmada.
 
@@ -16,7 +17,8 @@ El workflow [CI - Lint y build](../.github/workflows/ci.yml) se ejecuta en pushe
 
 - Lint y build son jobs independientes; un fallo de ESLint no omite la compilación.
 - El job de build usa valores ficticios apuntando a localhost solo para inicializar el cliente público durante prerender. No utiliza credenciales reales ni debe desplegar artefactos.
-- En pull requests se ejecuta un baseline informativo de ESLint sobre el SHA base exacto. El job ESLint del PR sigue siendo el control obligatorio; el baseline no neutraliza sus fallos.
+- En pull requests se ejecuta un baseline informativo de ESLint sobre el SHA base exacto.
+- En pull requests también se ejecuta `npm audit --json` como diagnóstico informativo; no actualiza dependencias y no oculta el fallo del job ESLint.
 
 ## Evidencia de CI
 
@@ -27,7 +29,7 @@ El workflow [CI - Lint y build](../.github/workflows/ci.yml) se ejecuta en pushe
 - `npm ci`: aprobado.
 - `npm run lint`: fallido, 37 errores y 15 warnings.
 - `npm run build`: omitido porque lint falló en el mismo job.
-- Instalación informó 20 vulnerabilidades en dependencias (1 baja, 6 moderadas, 12 altas y 1 crítica). Todavía no se ha identificado aquí el árbol de dependencias afectado.
+- Instalación informó 20 vulnerabilidades (1 baja, 6 moderadas, 12 altas y 1 crítica). El detalle por paquete está pendiente de la nueva tarea de auditoría.
 
 ### Jobs independientes y placeholders locales
 
@@ -36,15 +38,12 @@ El workflow [CI - Lint y build](../.github/workflows/ci.yml) se ejecuta en pushe
 - `npm ci`: aprobado en ambos jobs.
 - `npm run lint`: fallido con 37 errores y 15 warnings.
 - `npm run build`: aprobado con placeholders públicos ficticios de localhost; no se usaron credenciales reales.
-- El build anterior había fallado en prerender de `/clientes` y `/registro-negocio` por variables públicas ausentes. Los placeholders corrigieron ese bloqueo de CI sin cambiar el runtime.
 
 ### Baseline exacto de la rama base
 
-- Commit de workflow con baseline: `2f3044ac1bce998d90c0015e6b33e5a15f9b9580`.
 - Ejecución: [run 40500691882](https://github.com/Vale-G/turnos-saas/actions/runs/40500691882).
-- El job informativo hizo checkout del SHA base exacto del PR (`07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`), instaló dependencias y ejecutó ESLint.
+- SHA base exacto: `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`.
 - **Base: 37 errores y 15 warnings. PR antes del fix: 37 errores y 15 warnings.** La deuda de lint inicial ya estaba en la base.
-- La repetición sobre el head documental [run 40500899105](https://github.com/Vale-G/turnos-saas/actions/runs/40500899105) dio el mismo resultado: build aprobado, lint fallido con 37 errores y 15 warnings, baseline idéntico.
 
 ### Limpieza incremental de lint
 
@@ -53,16 +52,20 @@ El workflow [CI - Lint y build](../.github/workflows/ci.yml) se ejecuta en pushe
 - Validación: [run 40501240344](https://github.com/Vale-G/turnos-saas/actions/runs/40501240344).
 - `npm ci`: aprobado en los tres jobs.
 - `npm run build`: aprobado.
-- `npm run lint` en el PR: **35 errores y 15 warnings**.
-- Baseline en la base exacta: **37 errores y 15 warnings**.
-- Resultado: el fix quitó dos errores JSX y no agregó errores nuevos. La CI sigue fallando por 35 errores preexistentes pendientes.
+- `npm run lint` en el PR: 35 errores y 15 warnings.
+- Baseline en la base exacta: 37 errores y 15 warnings.
+- Repetición del head documental: [run 40501476049](https://github.com/Vale-G/turnos-saas/actions/runs/40501476049), mismo resultado.
+- Resultado: el fix quitó dos errores JSX y no agregó errores nuevos.
+
+### Auditoría detallada de dependencias
+
+La tarea informativa de `npm audit --json` se acaba de agregar al workflow para identificar paquetes, severidad, rangos afectados y disponibilidad de corrección. El primer reporte queda pendiente. No ejecutar `npm audit fix --force` ni actualizar dependencias a ciegas.
 
 ## Limitaciones y estrategia de QA
 
 - Lint y build no reemplazan las pruebas funcionales de reservas, permisos/RLS, pagos y webhooks.
 - No usar credenciales, pagos ni datos reales para probar. Los tests de integración requieren mocks, sandbox y un entorno de Supabase aislado.
 - No ejecutar migraciones ni pruebas de escritura contra la base activa.
-- No usar `npm audit fix --force` ni actualizar dependencias a ciegas.
 - Registrar por commit el comando, resultado, vínculo al run y cualquier bloqueo.
 
 ## Prioridad de pruebas pendientes

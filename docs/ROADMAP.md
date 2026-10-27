@@ -22,3 +22,10 @@ El orden es deliberado: no avanzar a funciones nuevas mientras el riesgo crític
 ## Puerta de salida para P0
 
 No considerar el riesgo contenido hasta demostrar, con evidencia reproducible, que anon no puede leer turnos privados ni campos sensibles, que una reserva válida sigue funcionando, que hay aislamiento entre negocios y que las reservas concurrentes no generan solapamientos. No fusionar ni desplegar sin revisión y aprobación explícitas.
+
+
+## Actualización de prioridad — 2026-10-27
+
+- **Urgente, antes de funciones nuevas:** preparar una actualización controlada de `next` y `eslint-config-next`. La auditoría de [run 40503354300](https://github.com/Vale-G/turnos-saas/actions/runs/40503354300) reportó 20 vulnerabilidades (incluida una crítica); el proyecto declara Next.js 16.1.6.
+- La advisory oficial [GHSA-2464-fhr4-w9xw](https://github.com/vercel/next.js/security/advisories/GHSA-2464-fhr4-w9xw) confirma el parche desde 16.4.1; el release estable observado es [16.4.3](https://github.com/vercel/next.js/releases). Regenerar el lockfile y probar compatibilidad en rama aislada antes de considerar mitigado el riesgo.
+- El run 40503354300 compiló, pero lint sigue fallando con 32 errores y 15 warnings; baseline exacto tiene 37 errores y 15 warnings. No aprobar ni fusionar el PR.

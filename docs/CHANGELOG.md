@@ -12,3 +12,11 @@
 - Run [40501476049](https://github.com/Vale-G/turnos-saas/actions/runs/40501476049): mismo resultado en el head documental posterior.
 - Nueva tarea: ejecutar `npm audit --json` sin cambios automáticos para identificar paquetes y avisos. Resultado pendiente.
 - No se desactivaron reglas. No se modificaron Supabase, datos, secretos ni producción.
+
+
+## 2026-10-27 — tipado incremental en servicios y seguimiento de dependencias
+
+- Rama: `codex/ci-automatico-lint-build`; PR #11, borrador y sin fusionar.
+- Código: `app/servicios/page.tsx` ahora usa tipos locales explícitos para negocio y servicios en lugar de tres usos de `any`; convierte valores numéricos a texto para los inputs y evita iniciar guardado cuando no hay negocio cargado.
+- Evidencia previa al fix: [run 40502014733](https://github.com/Vale-G/turnos-saas/actions/runs/40502014733), build aprobado, lint fallido con 35 errores/15 warnings, baseline fallido y auditoría informativa con 20 vulnerabilidades (incluida una crítica). El fix aún debe ser validado por una nueva ejecución.
+- No se modificaron dependencias/lockfile, Supabase, RLS, datos, secretos ni producción. No se declara QA aprobado.

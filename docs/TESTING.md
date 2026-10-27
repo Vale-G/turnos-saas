@@ -78,3 +78,15 @@ La tarea informativa de `npm audit --json` se acaba de agregar al workflow para 
 6. Notificaciones: validación, escape HTML y límites de envío.
 
 Las pruebas de RLS y flujos reales permanecen bloqueadas hasta disponer de un entorno de prueba aislado.
+
+
+### Seguimiento 2026-10-27 — run 40502014733 y fix incremental
+
+- Run: [40502014733](https://github.com/Vale-G/turnos-saas/actions/runs/40502014733), ejecutado sobre el merge ref del PR #11 cuyo head examinado era `e0a07fa73ac2e240d9261324fffad59f0ff42f5e`.
+- `npm ci`: aprobado en los jobs que lo ejecutaron.
+- `npm run build`: aprobado; compiló 32 páginas con placeholders ficticios locales. Esto no prueba los flujos de negocio.
+- `npm run lint`: fallido, 35 errores y 15 warnings; el baseline de la rama base también falló. El baseline no es un gate de aprobación.
+- `npm audit --json`: ejecutado. El informe reporta 20 vulnerabilidades (1 baja, 6 moderadas, 12 altas y 1 crítica); Next.js aparece en varios avisos, incluidos rangos críticos. No se cambiaron dependencias porque no hay un lockfile regenerado por npm ni prueba de compatibilidad en este entorno.
+- Fix incremental posterior: `app/servicios/page.tsx` reemplaza tres usos de `any` por tipos locales de negocio/servicio y convierte precio/duración/importe de seña a string al poblar inputs; añade un guard para evitar guardar si falta el negocio. No se alteró el flujo normal de guardar servicios.
+- Los commits de este fix y esta actualización documental todavía requieren una nueva ejecución de CI; no se declara validado hasta leerla.
+- No se ejecutaron tests unitarios, integración ni E2E. El aislamiento RLS, reservas, pagos y webhooks sigue bloqueado por falta de un entorno Supabase de prueba.

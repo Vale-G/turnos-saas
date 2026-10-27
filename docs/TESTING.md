@@ -16,7 +16,7 @@ El workflow [CI - Lint y build](../.github/workflows/ci.yml) se ejecuta en pushe
 
 - Lint y build son jobs independientes; un fallo de ESLint no omite la compilación.
 - El job de build usa valores ficticios apuntando a localhost solo para inicializar el cliente público durante prerender. No utiliza credenciales reales ni debe desplegar artefactos.
-- En pull requests se ejecuta un baseline informativo de ESLint sobre el SHA base exacto. El job ESLint del PR sigue siendo el control obligatorio y no se neutralizan sus fallos.
+- En pull requests se ejecuta un baseline informativo de ESLint sobre el SHA base exacto. El job ESLint del PR sigue siendo el control obligatorio; el baseline no neutraliza sus fallos.
 
 ## Evidencia de CI
 
@@ -36,9 +36,16 @@ El workflow [CI - Lint y build](../.github/workflows/ci.yml) se ejecuta en pushe
 - Ejecución: [run 40500358257](https://github.com/Vale-G/turnos-saas/actions/runs/40500358257).
 - `npm ci`: aprobado en ambos jobs.
 - `npm run lint`: fallido con 37 errores y 15 warnings.
-- `npm run build`: aprobado. Next.js compiló y terminó el build con placeholders públicos ficticios de localhost; no se usaron credenciales reales.
+- `npm run build`: aprobado con placeholders públicos ficticios de localhost; no se usaron credenciales reales.
 - El build anterior había fallado en prerender de `/clientes` y `/registro-negocio` por variables públicas ausentes. Los placeholders corrigieron ese bloqueo de CI sin cambiar el runtime.
-- El PR no modifica código de aplicación. La nueva tarea `baseline-lint` medirá el resultado en el SHA base exacto; su primera ejecución queda pendiente.
+
+### Baseline exacto de la rama base
+
+- Commit de workflow con baseline: `2f3044ac1bce998d90c0015e6b33e5a15f9b9580`.
+- Ejecución: [run 40500691882](https://github.com/Vale-G/turnos-saas/actions/runs/40500691882).
+- El job informativo hizo checkout del SHA base exacto del PR (`07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`), instaló dependencias y ejecutó ESLint.
+- **Base: 37 errores y 15 warnings. PR: 37 errores y 15 warnings.** El resultado confirma que la deuda de lint observada ya estaba en la base; el cambio del workflow no introdujo esos errores.
+- El job de baseline se configura como informativo para permitir comparar la deuda; el job ESLint del PR continúa fallando y mantiene la CI global en rojo.
 
 ## Limitaciones y estrategia de QA
 

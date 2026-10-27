@@ -52,3 +52,6 @@ QA independiente: se solicitó una ejecución inmediata después del cambio; el 
 
 
 - Fix incremental nuevo en `app/informes/page.tsx` (commit `d8b9a3f208276c1f7a2e5b8bd38e3629d9ee784e`): tipado de negocio/filas de informes y captura de ID local para consultas; validación de CI pendiente. Mantener el estado global como no aprobado hasta leer el run.
+
+
+- En `app/informes/page.tsx`, el run 40504213203 detectó una regresión de build: las relaciones Supabase `servicio`/`staff` llegan como arrays. Corregido en commit `d06bfd54987f2d5a4b05606a529d04fc9b38c26f` para admitir objeto o array y usar el primer registro. El siguiente run debe confirmar que build vuelve a pasar.

@@ -39,3 +39,9 @@
 
 - Run [40504213203](https://github.com/Vale-G/turnos-saas/actions/runs/40504213203) falló el build de TypeScript: `servicio` y `staff` se infieren como arrays, incompatibles con el tipo inicial. Lint quedó en 30 errores/15 warnings.
 - Commit `d06bfd54987f2d5a4b05606a529d04fc9b38c26f` amplía el tipo a objeto/array/null y normaliza la relación al calcular las métricas. Revalidación pendiente; no se declara aprobado.
+
+
+## 2026-10-27 — revalidación del fix de informes
+
+- [Run 40504440927](https://github.com/Vale-G/turnos-saas/actions/runs/40504440927): `npm ci` aprobado; build aprobado; lint fallido con 30 errores/15 warnings; baseline exacto 37 errores/15 warnings; auditoría informativa completada.
+- La corrección de `app/informes/page.tsx` ahora compila con relaciones Supabase que pueden llegar como arrays. La CI global sigue no aprobada por lint y faltan tests funcionales.

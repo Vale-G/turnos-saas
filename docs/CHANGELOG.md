@@ -26,3 +26,10 @@
 ## 2026-10-27 — riesgo crítico de Next.js documentado
 
 - La auditoría de dependencias en run 40503354300 sigue reportando 20 vulnerabilidades, incluida una crítica. La versión declarada `next` es 16.1.6. La advisory oficial [GHSA-2464-fhr4-w9xw](https://github.com/vercel/next.js/security/advisories/GHSA-2464-fhr4-w9xw) marca parche desde 16.4.1; la lista oficial de releases muestra 16.4.3 como estable. No se actualizó paquete ni lockfile sin un proceso reproducible de instalación y pruebas.
+
+
+## 2026-10-27 — tipado incremental de informes
+
+- Commit `d8b9a3f208276c1f7a2e5b8bd38e3629d9ee784e`, archivo `app/informes/page.tsx`.
+- Reemplaza dos usos de `any` por tipos locales para los datos de métricas y usa un ID de negocio local tras validar su existencia. Sin cambios intencionales en los cálculos ni consultas.
+- Resultado de CI pendiente; no se declara aprobado hasta que lint/build terminen y se lean sus logs.

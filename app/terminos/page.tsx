@@ -15,7 +15,7 @@ export default function TerminosYCondiciones() {
         <div className="space-y-8 text-slate-300 text-sm leading-relaxed">
           <section className="bg-white/5 border border-white/10 p-8 rounded-[2rem]">
             <h2 className="text-xl font-black uppercase italic text-white mb-4">1. Naturaleza del Servicio (SaaS)</h2>
-            <p>Turnly (desarrollado por F&V Tech) provee un software de gestión y reservas en la nube (Software as a Service) para profesionales y negocios ("El Cliente"). Turnly <strong>no es parte</strong> de la relación comercial entre El Cliente y sus usuarios finales.</p>
+            <p>Turnly (desarrollado por F&V Tech) provee un software de gestión y reservas en la nube (Software as a Service) para profesionales y negocios (&quot;El Cliente&quot;). Turnly <strong>no es parte</strong> de la relación comercial entre El Cliente y sus usuarios finales.</p>
           </section>
 
           <section className="bg-white/5 border border-white/10 p-8 rounded-[2rem]">

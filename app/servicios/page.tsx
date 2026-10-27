@@ -5,9 +5,25 @@ import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
 import { toast } from 'sonner'
 
+type NegocioTema = {
+  id: string
+  tema: string | null
+}
+
+type Servicio = {
+  id: string
+  negocio_id: string
+  nombre: string
+  precio: number
+  duracion: number
+  seña_tipo: string | null
+  seña_valor: number | null
+  created_at?: string
+}
+
 export default function ServiciosConfig() {
-  const [negocio, setNegocio] = useState<any>(null)
-  const [servicios, setServicios] = useState<any[]>([])
+  const [negocio, setNegocio] = useState<NegocioTema | null>(null)
+  const [servicios, setServicios] = useState<Servicio[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const router = useRouter()
@@ -46,10 +62,10 @@ export default function ServiciosConfig() {
     init()
   }, [router])
 
-  const abrirModal = (s: any = null) => {
+  const abrirModal = (s: Servicio | null = null) => {
     if (s) {
-      setEditId(s.id); setNombre(s.nombre); setPrecio(s.precio); setDuracion(s.duracion);
-      setSeñaTipo(s.seña_tipo || 'porcentaje'); setSeñaValor(s.seña_valor || '50');
+      setEditId(s.id); setNombre(s.nombre); setPrecio(String(s.precio)); setDuracion(String(s.duracion));
+      setSeñaTipo(s.seña_tipo || 'porcentaje'); setSeñaValor(String(s.seña_valor || '50'));
     } else {
       setEditId(null); setNombre(''); setPrecio(''); setDuracion('30');
       setSeñaTipo('porcentaje'); setSeñaValor('50');

@@ -17,8 +17,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  lint-and-build:
-    name: Lint y build
+  lint:
+    name: ESLint
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -36,6 +36,23 @@ jobs:
 
       - name: Ejecutar ESLint
         run: npm run lint
+
+  build:
+    name: Build Next.js
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
 
       - name: Compilar aplicación
         run: npm run build

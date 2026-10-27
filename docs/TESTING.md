@@ -113,3 +113,10 @@ Las pruebas de RLS y flujos reales permanecen bloqueadas hasta disponer de un en
 - P0 de acceso público a filas de turnos y campos privados/token potencialmente expuesto sigue sin mitigación. P1 de pagos, webhooks, aislamiento por negocio y notificaciones sigue pendiente.
 
 No se hizo merge, despliegue, migración, cambio de RLS, escritura en la base activa ni modificación de secretos. Próximas acciones: corregir lint incrementalmente, planificar actualización coordinada de `next`/`eslint-config-next` y validar los flujos críticos en un entorno aislado.
+
+
+### Fix incremental siguiente — 2026-10-27
+
+- Commit de código: `d8b9a3f208276c1f7a2e5b8bd38e3629d9ee784e`, archivo `app/informes/page.tsx`.
+- Se agregaron tipos locales para negocio y filas de métricas, y se capturó `negocioId` antes de las consultas/realtime para evitar usos de `any` y accesos no estrechados. El cambio pretende eliminar dos errores de lint sin cambiar cálculos ni consultas de negocio.
+- CI y revisión QA del nuevo head aún pendientes; no afirmar que el cambio pasó hasta comprobar build y lint. No se añadieron pruebas funcionales porque no existe suite configurada.

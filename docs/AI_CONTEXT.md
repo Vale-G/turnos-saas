@@ -8,7 +8,7 @@ Leer este archivo primero y después solo los documentos necesarios. No inferir 
 - Rama de referencia para cambios: `codex/revisar-informes-de-turnos-cancelados`; base observada en los PR activos: `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`.
 - Último deployment de Vercel marcado como producción observado el 2026-10-27: commit `bc234fb0b8c981935602168ca0b6982d24d0956f`, rama `codex/revisar-informes-de-turnos-cancelados`. Producción y punta de rama no coinciden exactamente.
 - PR #10 (borrador): plan de contención P0, rama `codex/auditoria-turnly-2026-10-26`. Solo documentación.
-- PR #11 (borrador): CI y documentación, rama `codex/ci-automatico-lint-build`; base `07bd2ee...`. Commit actual de limpieza incremental: `20485a0fe924d71a292fcc9d8bf1e0cb160a096f`.
+- PR #11 (borrador): CI y documentación, rama `codex/ci-automatico-lint-build`; base `07bd2ee...`. Fix incremental en `20485a0fe924d71a292fcc9d8bf1e0cb160a096f`; último head documental conocido `163e652db789c1865ecefa0f01329ad6a732feaa`.
 - No fusionar, desplegar a producción ni modificar la rama estable sin aprobación explícita. Los deployments de preview no prueban flujos funcionales.
 
 ## Qué es el proyecto
@@ -32,8 +32,7 @@ Aplicación web Next.js con App Router, React, Supabase y rutas de API para rese
 - P0: políticas públicas demasiado amplias en `turno` y `negocio`; la página de reserva consulta `negocio.select('*')` y lee turnos desde el navegador.
 - P1: la política de gestión de `bloqueo` no verifica propiedad del negocio.
 - Pagos: el webhook genérico de Mercado Pago no valida firma; faltan verificaciones estrictas de importe, moneda, referencia e idempotencia. El endpoint de señas apunta a `/api/webhooks/sena`, ruta que no se encontró en la rama auditada.
-- Run [40500691882](https://github.com/Vale-G/turnos-saas/actions/runs/40500691882): build aprobado; lint del PR y baseline de la base fallaron con los mismos 37 errores y 15 warnings. Run [40500899105](https://github.com/Vale-G/turnos-saas/actions/runs/40500899105) repitió ese resultado.
-- El commit `20485a0` corrige dos errores de comillas en JSX; la validación de esa corrección está pendiente.
+- Run [40501240344](https://github.com/Vale-G/turnos-saas/actions/runs/40501240344): build aprobado; lint bajó de 37 a 35 errores y mantuvo 15 warnings; baseline de la base continúa en 37 errores y 15 warnings. La corrección incremental quitó dos errores JSX.
 - No hay script `test` ni entorno de Supabase de prueba confirmado. No ejecutar migraciones, cambios de RLS ni pruebas de escritura en la base activa.
 
 ## Reglas de evidencia

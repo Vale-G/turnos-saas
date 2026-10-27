@@ -43,15 +43,19 @@ El workflow [CI - Lint y build](../.github/workflows/ci.yml) se ejecuta en pushe
 - Commit de workflow con baseline: `2f3044ac1bce998d90c0015e6b33e5a15f9b9580`.
 - Ejecución: [run 40500691882](https://github.com/Vale-G/turnos-saas/actions/runs/40500691882).
 - El job informativo hizo checkout del SHA base exacto del PR (`07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`), instaló dependencias y ejecutó ESLint.
-- **Base: 37 errores y 15 warnings. PR: 37 errores y 15 warnings.** La deuda de lint observada ya estaba en la base.
+- **Base: 37 errores y 15 warnings. PR antes del fix: 37 errores y 15 warnings.** La deuda de lint inicial ya estaba en la base.
 - La repetición sobre el head documental [run 40500899105](https://github.com/Vale-G/turnos-saas/actions/runs/40500899105) dio el mismo resultado: build aprobado, lint fallido con 37 errores y 15 warnings, baseline idéntico.
 
-### Corrección incremental en curso
+### Limpieza incremental de lint
 
-- Commit: `20485a0fe924d71a292fcc9d8bf1e0cb160a096f`.
-- Archivo: `app/terminos/page.tsx`.
-- Cambio: escapar dos comillas en el texto JSX con `&quot;`, sin cambiar el texto visible ni la lógica de negocio.
-- Validación del commit: pendiente de la nueva ejecución de GitHub Actions. No asumir que el contador de lint bajó hasta comprobarlo.
+- Fix: commit `20485a0fe924d71a292fcc9d8bf1e0cb160a096f`, archivo `app/terminos/page.tsx`.
+- Cambio: escapar dos comillas en el texto JSX con `&quot;`, sin alterar texto visible ni lógica.
+- Validación: [run 40501240344](https://github.com/Vale-G/turnos-saas/actions/runs/40501240344).
+- `npm ci`: aprobado en los tres jobs.
+- `npm run build`: aprobado.
+- `npm run lint` en el PR: **35 errores y 15 warnings**.
+- Baseline en la base exacta: **37 errores y 15 warnings**.
+- Resultado: el fix quitó dos errores JSX y no agregó errores nuevos. La CI sigue fallando por 35 errores preexistentes pendientes.
 
 ## Limitaciones y estrategia de QA
 

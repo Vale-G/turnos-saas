@@ -88,5 +88,12 @@ Las pruebas de RLS y flujos reales permanecen bloqueadas hasta disponer de un en
 - `npm run lint`: fallido, 35 errores y 15 warnings; el baseline de la rama base también falló. El baseline no es un gate de aprobación.
 - `npm audit --json`: ejecutado. El informe reporta 20 vulnerabilidades (1 baja, 6 moderadas, 12 altas y 1 crítica); Next.js aparece en varios avisos, incluidos rangos críticos. No se cambiaron dependencias porque no hay un lockfile regenerado por npm ni prueba de compatibilidad en este entorno.
 - Fix incremental posterior: `app/servicios/page.tsx` reemplaza tres usos de `any` por tipos locales de negocio/servicio y convierte precio/duración/importe de seña a string al poblar inputs; añade un guard para evitar guardar si falta el negocio. No se alteró el flujo normal de guardar servicios.
-- Los commits de este fix y esta actualización documental todavía requieren una nueva ejecución de CI; no se declara validado hasta leerla.
+- Run [40503354300](https://github.com/Vale-G/turnos-saas/actions/runs/40503354300), head `442650520caec2ef6a1c45632a7519e0b71c428f`: `npm ci` aprobado; build aprobado; lint fallido con **32 errores y 15 warnings**. Baseline exacto de la rama base: **37 errores y 15 warnings**. El cambio en `app/servicios/page.tsx` redujo tres errores sin desactivar reglas. La CI global continúa fallida.
 - No se ejecutaron tests unitarios, integración ni E2E. El aislamiento RLS, reservas, pagos y webhooks sigue bloqueado por falta de un entorno Supabase de prueba.
+
+
+### Resultado confirmado del fix de tipado — 2026-10-27
+
+- Run [40503354300](https://github.com/Vale-G/turnos-saas/actions/runs/40503354300): build **APROBADO**; lint **FALLIDO** con 32 errores/15 warnings; baseline de la base 37 errores/15 warnings; auditoría informativa ejecutada y mantiene 20 vulnerabilidades.
+- Fix `app/servicios/page.tsx` redujo el total del PR de 35 a 32 errores. Los errores restantes siguen bloqueando la CI.
+- QA independiente fue invocado inmediatamente tras el cambio; el resultado de esa ejecución aún no se había recibido al actualizar este archivo.

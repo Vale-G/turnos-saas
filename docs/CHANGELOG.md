@@ -18,5 +18,11 @@
 
 - Rama: `codex/ci-automatico-lint-build`; PR #11, borrador y sin fusionar.
 - Código: `app/servicios/page.tsx` ahora usa tipos locales explícitos para negocio y servicios en lugar de tres usos de `any`; convierte valores numéricos a texto para los inputs y evita iniciar guardado cuando no hay negocio cargado.
-- Evidencia previa al fix: [run 40502014733](https://github.com/Vale-G/turnos-saas/actions/runs/40502014733), build aprobado, lint fallido con 35 errores/15 warnings, baseline fallido y auditoría informativa con 20 vulnerabilidades (incluida una crítica). El fix aún debe ser validado por una nueva ejecución.
+- Evidencia previa al fix: [run 40502014733](https://github.com/Vale-G/turnos-saas/actions/runs/40502014733), build aprobado, lint fallido con 35 errores/15 warnings, baseline fallido y auditoría informativa con 20 vulnerabilidades (incluida una crítica).
+- Validación posterior: [run 40503354300](https://github.com/Vale-G/turnos-saas/actions/runs/40503354300), build aprobado, lint fallido con 32 errores/15 warnings; baseline exacto 37 errores/15 warnings. La corrección de tipado redujo tres errores; CI continúa no aprobada.
 - No se modificaron dependencias/lockfile, Supabase, RLS, datos, secretos ni producción. No se declara QA aprobado.
+
+
+## 2026-10-27 — riesgo crítico de Next.js documentado
+
+- La auditoría de dependencias en run 40503354300 sigue reportando 20 vulnerabilidades, incluida una crítica. La versión declarada `next` es 16.1.6. La advisory oficial [GHSA-2464-fhr4-w9xw](https://github.com/vercel/next.js/security/advisories/GHSA-2464-fhr4-w9xw) marca parche desde 16.4.1; la lista oficial de releases muestra 16.4.3 como estable. No se actualizó paquete ni lockfile sin un proceso reproducible de instalación y pruebas.

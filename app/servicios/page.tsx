@@ -75,6 +75,7 @@ export default function ServiciosConfig() {
 
   const guardar = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!negocio) return toast.error('No se encontró el negocio')
     setGuardando(true)
     const payload = {
       negocio_id: negocio.id,

@@ -18,3 +18,11 @@ Los hallazgos están documentados, no corregidos. El [PR #10](https://github.com
 - No cambiar policies/migraciones sobre la base activa desde una rama de trabajo.
 - Probar anon, propietario, otro negocio y administrador con datos ficticios en un entorno aislado.
 - Considerar potencialmente expuesto el token de Mercado Pago hasta contener y verificar el acceso; coordinar rotación segura sin registrar su valor.
+
+
+## Riesgo de dependencias — verificado el 2026-10-27
+
+- `package.json` fija `next` en 16.1.6 y `eslint-config-next` en 16.1.6.
+- El job `npm audit --json` del [run 40503354300](https://github.com/Vale-G/turnos-saas/actions/runs/40503354300) reportó 20 vulnerabilidades (1 baja, 6 moderadas, 12 altas, 1 crítica), con advisories críticas de Next.js.
+- La advisory oficial [GHSA-2464-fhr4-w9xw](https://github.com/vercel/next.js/security/advisories/GHSA-2464-fhr4-w9xw) marca afectadas las versiones 16.0.0–16.4.0 y parche desde 16.4.1. El release estable oficial observado es [16.4.3](https://github.com/vercel/next.js/releases).
+- Acción pendiente: actualizar `next` y `eslint-config-next` de forma coordinada, regenerar `package-lock.json` con npm, revisar los demás paquetes afectados y ejecutar `npm ci`, lint, build y regresión. No usar `npm audit fix --force`. Ninguna dependencia fue actualizada en esta jornada.

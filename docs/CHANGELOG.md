@@ -33,3 +33,9 @@
 - Commit `d8b9a3f208276c1f7a2e5b8bd38e3629d9ee784e`, archivo `app/informes/page.tsx`.
 - Reemplaza dos usos de `any` por tipos locales para los datos de métricas y usa un ID de negocio local tras validar su existencia. Sin cambios intencionales en los cálculos ni consultas.
 - Resultado de CI pendiente; no se declara aprobado hasta que lint/build terminen y se lean sus logs.
+
+
+## 2026-10-27 — corrección de forma de relaciones en informes
+
+- Run [40504213203](https://github.com/Vale-G/turnos-saas/actions/runs/40504213203) falló el build de TypeScript: `servicio` y `staff` se infieren como arrays, incompatibles con el tipo inicial. Lint quedó en 30 errores/15 warnings.
+- Commit `d06bfd54987f2d5a4b05606a529d04fc9b38c26f` amplía el tipo a objeto/array/null y normaliza la relación al calcular las métricas. Revalidación pendiente; no se declara aprobado.

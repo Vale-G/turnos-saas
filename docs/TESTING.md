@@ -97,3 +97,19 @@ Las pruebas de RLS y flujos reales permanecen bloqueadas hasta disponer de un en
 - Run [40503354300](https://github.com/Vale-G/turnos-saas/actions/runs/40503354300): build **APROBADO**; lint **FALLIDO** con 32 errores/15 warnings; baseline de la base 37 errores/15 warnings; auditoría informativa ejecutada y mantiene 20 vulnerabilidades.
 - Fix `app/servicios/page.tsx` redujo el total del PR de 35 a 32 errores. Los errores restantes siguen bloqueando la CI.
 - QA independiente fue invocado inmediatamente tras el cambio; el resultado de esa ejecución aún no se había recibido al actualizar este archivo.
+
+
+### QA de respaldo — 2026-10-27 — head documental `21d69c58673b223c7ddbcec134501bf1d3f7280b`
+
+- La última modificación de código examinada sigue siendo el tipado incremental de `app/servicios/page.tsx`; los commits posteriores de esta validación solo actualizan documentación. No se repitió QA funcional de negocio porque no hay un nuevo diff de runtime.
+- Revalidación de continuidad: [run 40503627422](https://github.com/Vale-G/turnos-saas/actions/runs/40503627422), sobre el head documental indicado.
+- `npm ci`: aprobado.
+- `npm run build`: aprobado; se generaron las 32 páginas estáticas con placeholders ficticios locales.
+- `npm run lint`: fallido, **32 errores y 15 warnings**.
+- Baseline exacto `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`: **37 errores y 15 warnings**. La reducción de cinco errores se mantiene y no hay aumento de warnings.
+- `npm audit --json`: 20 vulnerabilidades (1 baja, 6 moderadas, 12 altas y 1 crítica). El paquete directo `next@16.1.6` está en el rango vulnerable reportado; npm indica `16.4.3` como versión de corrección disponible. No se actualizaron dependencias.
+- El run confirma que los commits documentales no introdujeron regresiones de lint/build; **no aprueba la CI global** porque el gate de lint continúa fallando.
+- No existen tests unitarios/integración/E2E ni un entorno de Supabase aislado confirmado. Reservas, RLS, concurrencia, pagos/webhooks e trial continúan **BLOQUEADOS/NO PROBADOS**.
+- P0 de acceso público a filas de turnos y campos privados/token potencialmente expuesto sigue sin mitigación. P1 de pagos, webhooks, aislamiento por negocio y notificaciones sigue pendiente.
+
+No se hizo merge, despliegue, migración, cambio de RLS, escritura en la base activa ni modificación de secretos. Próximas acciones: corregir lint incrementalmente, planificar actualización coordinada de `next`/`eslint-config-next` y validar los flujos críticos en un entorno aislado.

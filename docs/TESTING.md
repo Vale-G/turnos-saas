@@ -22,7 +22,6 @@ El workflow [CI - Lint y build](../.github/workflows/ci.yml) se ejecuta en pushe
 
 ### Antes de separar los jobs
 
-- PR: [#11 — CI: ejecutar lint y build](https://github.com/Vale-G/turnos-saas/pull/11).
 - Commit: `f871b0553352dbc0fee8cb2733964d8f0c2b86e8`.
 - Ejecución: [run 40411983369](https://github.com/Vale-G/turnos-saas/actions/runs/40411983369).
 - `npm ci`: aprobado.
@@ -44,8 +43,15 @@ El workflow [CI - Lint y build](../.github/workflows/ci.yml) se ejecuta en pushe
 - Commit de workflow con baseline: `2f3044ac1bce998d90c0015e6b33e5a15f9b9580`.
 - Ejecución: [run 40500691882](https://github.com/Vale-G/turnos-saas/actions/runs/40500691882).
 - El job informativo hizo checkout del SHA base exacto del PR (`07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`), instaló dependencias y ejecutó ESLint.
-- **Base: 37 errores y 15 warnings. PR: 37 errores y 15 warnings.** El resultado confirma que la deuda de lint observada ya estaba en la base; el cambio del workflow no introdujo esos errores.
-- El job de baseline se configura como informativo para permitir comparar la deuda; el job ESLint del PR continúa fallando y mantiene la CI global en rojo.
+- **Base: 37 errores y 15 warnings. PR: 37 errores y 15 warnings.** La deuda de lint observada ya estaba en la base.
+- La repetición sobre el head documental [run 40500899105](https://github.com/Vale-G/turnos-saas/actions/runs/40500899105) dio el mismo resultado: build aprobado, lint fallido con 37 errores y 15 warnings, baseline idéntico.
+
+### Corrección incremental en curso
+
+- Commit: `20485a0fe924d71a292fcc9d8bf1e0cb160a096f`.
+- Archivo: `app/terminos/page.tsx`.
+- Cambio: escapar dos comillas en el texto JSX con `&quot;`, sin cambiar el texto visible ni la lógica de negocio.
+- Validación del commit: pendiente de la nueva ejecución de GitHub Actions. No asumir que el contador de lint bajó hasta comprobarlo.
 
 ## Limitaciones y estrategia de QA
 

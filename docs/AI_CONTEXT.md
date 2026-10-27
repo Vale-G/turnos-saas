@@ -55,3 +55,6 @@ QA independiente: se solicitó una ejecución inmediata después del cambio; el 
 
 
 - En `app/informes/page.tsx`, el run 40504213203 detectó una regresión de build: las relaciones Supabase `servicio`/`staff` llegan como arrays. Corregido en commit `d06bfd54987f2d5a4b05606a529d04fc9b38c26f` para admitir objeto o array y usar el primer registro. El siguiente run debe confirmar que build vuelve a pasar.
+
+
+- Run [40504440927](https://github.com/Vale-G/turnos-saas/actions/runs/40504440927) confirmó build aprobado tras el fix `d06bfd54987f2d5a4b05606a529d04fc9b38c26f`; lint sigue fallando con 30 errores/15 warnings; baseline 37 errores/15 warnings. No marcar CI global como aprobada.

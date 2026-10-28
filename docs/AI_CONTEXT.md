@@ -58,3 +58,10 @@ QA independiente: se solicitó una ejecución inmediata después del cambio; el 
 
 
 - Run [40504440927](https://github.com/Vale-G/turnos-saas/actions/runs/40504440927) confirmó build aprobado tras el fix `d06bfd54987f2d5a4b05606a529d04fc9b38c26f`; lint sigue fallando con 30 errores/15 warnings; baseline 37 errores/15 warnings. No marcar CI global como aprobada.
+
+
+## Seguimiento — 2026-10-28
+
+- Fix incremental en `app/bloqueos/page.tsx`, commit `aaaf6e9be257ff546c10be42f8bd0804cf9f8bf6`: tipos explícitos para negocio/staff/bloqueos, relación staff objeto/array y guard de negocio antes de insertar. CI posterior pendiente de comprobación.
+- PR #11 sigue draft y sin merge. Rama base `codex/revisar-informes-de-turnos-cancelados` (SHA `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`); producción verificada previamente en `bc234fb0b8c981935602168ca0b6982d24d0956f`.
+- El Día 3 de contención de lectura pública sigue bloqueado: no existe instancia Supabase de prueba confirmada. No tocar RLS ni producción. El P0 continúa abierto.

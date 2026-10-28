@@ -73,3 +73,11 @@ QA independiente: se solicitó una ejecución inmediata después del cambio; el 
 - Auditoría de dependencias: 20 vulnerabilidades (1 baja, 6 moderadas, 12 altas, 1 crítica); actualización pendiente, sin cambios de lockfile.
 - QA independiente invocado; la última consulta seguía `in_progress`, sin resultado final todavía.
 - P0 de lectura pública/RLS continúa abierto por falta de instancia Supabase aislada. No modificar producción ni la base activa.
+
+
+### QA y corrección posterior — 2026-10-28
+
+- QA del commit `aaaf6e9be257ff546c10be42f8bd0804cf9f8bf6` concluyó **NO APROBADO**; reportó build aprobado, lint 27 errores/15 warnings y ausencia de pruebas funcionales. Además identificó que no se validaba fin > inicio y que el borrado no comprobaba errores.
+- Se corrigió `app/bloqueos/page.tsx` para validar el rango y comprobar el resultado de eliminación. Se extrajeron helpers puros a `lib/bloqueos-helpers.mjs` con declaraciones TS y se agregaron pruebas Node nativas en `tests/bloqueos-helpers.test.mjs`.
+- `package.json` ahora define `npm test`; `.github/workflows/ci.yml` incorpora un job unitario separado. El resultado de CI y el re-QA de esta corrección aún deben comprobarse.
+- Los riesgos P0 de RLS/lectura pública y las 20 vulnerabilidades de dependencias siguen abiertos; no tocar producción ni la base activa.

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
 import { toast } from 'sonner'
+import { esRangoHorarioValido, getStaffNombre } from '@/lib/bloqueos-helpers.mjs'
 
 type NegocioBloqueos = { id: string; tema: string | null }
 type StaffBloqueos = { id: string; nombre: string; activo?: boolean }
@@ -58,6 +59,7 @@ export default function BloqueosPage() {
     e.preventDefault()
     if (!selStaff || !fecha) return toast.error('Completá los campos')
     if (!negocio) return toast.error('No se encontró el negocio')
+    if (!esRangoHorarioValido(hInicio, hFin)) return toast.error('La hora de fin debe ser posterior a la de inicio')
     const { error } = await supabase.from('bloqueo').insert({
       negocio_id: negocio.id, staff_id: selStaff, fecha, hora_inicio: hInicio + ':00', hora_fin: hFin + ':00'
     })
@@ -69,8 +71,12 @@ export default function BloqueosPage() {
   }
 
   const eliminarBloqueo = async (id: string) => {
-    await supabase.from('bloqueo').delete().eq('id', id)
-    setBloqueos(bloqueos.filter(b => b.id !== id))
+    const { error } = await supabase.from('bloqueo').delete().eq('id', id)
+    if (error) {
+      toast.error('Error al eliminar bloqueo')
+      return
+    }
+    setBloqueos(current => current.filter(b => b.id !== id))
     toast.success('Bloqueo eliminado')
   }
 
@@ -108,7 +114,7 @@ export default function BloqueosPage() {
               {bloqueos.length === 0 ? <p className="text-slate-600 text-xs font-black uppercase p-6">No hay bloqueos futuros</p> : bloqueos.map(b => (
                 <div key={b.id} className="bg-white/5 border border-white/10 p-6 rounded-3xl flex justify-between items-center">
                   <div>
-                    <p className="text-sm font-black uppercase italic">{Array.isArray(b.staff) ? b.staff[0]?.nombre : b.staff?.nombre}</p>
+                    <p className="text-sm font-black uppercase italic">{getStaffNombre(b.staff)}</p>
                     <p className="text-[10px] text-slate-500 font-bold uppercase">{b.fecha} · {b.hora_inicio.slice(0,5)} a {b.hora_fin.slice(0,5)}</p>
                   </div>
                   <button onClick={() => eliminarBloqueo(b.id)} className="text-rose-500 font-black text-[10px] uppercase bg-rose-500/10 px-4 py-2 rounded-xl">Quitar</button>

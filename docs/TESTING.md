@@ -164,3 +164,11 @@ No se hizo merge, despliegue, migración, cambio de RLS, escritura en la base ac
 - Se agregó `npm test` usando `node:test` sin dependencias nuevas y job separado `unit-tests` en `.github/workflows/ci.yml`.
 - Validación de esta corrección: pendiente del run CI posterior al commit `b3b92b14abc1e92ece7c0cbb8d3eb20233aa8e74` y del re-QA independiente. No declarar aprobados los tests hasta leer los logs.
 - No se ejecutaron escrituras en Supabase; RLS y aislamiento entre negocios siguen sin probarse.
+
+
+### Resultado de la suite unitaria y re-QA — 2026-10-28
+
+- Run [40684537949](https://github.com/Vale-G/turnos-saas/actions/runs/40684537949), head `2e10b20ab6efe8173d70a517fd9e7e08ba97793a`: instalación aprobada, build aprobado y **5/5 pruebas unitarias aprobadas**. El job ESLint falló con 27 errores/15 warnings; el baseline exacto de la base fue 37 errores/15 warnings. Auditoría: 20 vulnerabilidades (1 baja, 6 moderadas, 12 altas, 1 crítica).
+- La suite cubre helpers puros; no prueba el endpoint, la autorización ni la escritura real de bloqueos. El test de UI/DB sigue bloqueado por ausencia de Supabase aislado.
+- QA independiente fue invocado tras el cambio de validación horaria y manejo de errores; el informe de esa segunda ejecución todavía no estaba disponible al actualizar este registro.
+- No se modificó Supabase, RLS, datos, secretos ni producción. CI global sigue **NO APROBADA** por ESLint.

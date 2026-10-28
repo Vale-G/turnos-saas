@@ -59,3 +59,11 @@
 - Run [40683854423](https://github.com/Vale-G/turnos-saas/actions/runs/40683854423), sobre el head `0d09ffa964565486cf6d4ae991447bc508422ed1`: instalación y build aprobados; lint fallido con 27 errores/15 warnings; baseline exacto 37 errores/15 warnings.
 - La corrección de `app/bloqueos/page.tsx` redujo tres errores de lint. Auditoría reportó 20 vulnerabilidades (1 baja, 6 moderadas, 12 altas, 1 crítica).
 - QA independiente fue invocado y sigue sin informe final en la última consulta. No se ejecutaron pruebas funcionales ni se modificaron Supabase, secretos o producción.
+
+
+## 2026-10-28 — seguimiento QA de bloqueos y primera suite unitaria
+
+- QA detectó dos riesgos estáticos en `app/bloqueos/page.tsx`: ausencia de validación fin > inicio y éxito visual tras un posible error de eliminación. Se corrigieron en la rama `codex/ci-automatico-lint-build`.
+- Se agregaron `lib/bloqueos-helpers.mjs`, su declaración `.d.mts` y `tests/bloqueos-helpers.test.mjs` con pruebas de relación staff objeto/array y validación de rangos.
+- `package.json`: script `npm test` con `node:test`. `.github/workflows/ci.yml`: job independiente de pruebas unitarias.
+- Resultado CI/re-QA de estos cambios: pendiente de ejecución posterior al commit `b3b92b14abc1e92ece7c0cbb8d3eb20233aa8e74`. No se declara validado todavía.

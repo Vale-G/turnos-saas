@@ -135,3 +135,12 @@ No se hizo merge, despliegue, migración, cambio de RLS, escritura en la base ac
 - `npm ci`: aprobado; build: **APROBADO**; lint: **FALLIDO**, 30 errores y 15 warnings; baseline exacto: 37 errores y 15 warnings; auditoría informativa ejecutada.
 - El build ya pasa tras admitir relaciones Supabase como objeto o array. La CI global sigue fallando por lint; no se desactivaron reglas.
 - La revisión QA independiente fue solicitada de nuevo para este ciclo; su estado/resultado debe comprobarse por separado.
+
+
+### Fix incremental de tipos en bloqueos — 2026-10-28
+
+- Rama: `codex/ci-automatico-lint-build`; PR #11; commit de código `aaaf6e9be257ff546c10be42f8bd0804cf9f8bf6`.
+- Archivo: `app/bloqueos/page.tsx`. Se reemplazaron tres estados `any` por tipos locales para negocio, staff y bloqueos; se contempló la relación `staff` como objeto o array y se añadió un guard si no hay negocio antes de crear un bloqueo.
+- Intención: eliminar tres errores `no-explicit-any` sin cambiar consultas ni permisos. No es una corrección de RLS; las políticas de bloqueo siguen pendientes.
+- Validación posterior al commit: pendiente de la ejecución de GitHub Actions. No afirmar que lint/build pasan hasta leer el run más reciente.
+- No se ejecutaron pruebas funcionales ni escrituras en Supabase. No se modificó producción.

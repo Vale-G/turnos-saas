@@ -172,3 +172,20 @@ No se hizo merge, despliegue, migración, cambio de RLS, escritura en la base ac
 - La suite cubre helpers puros; no prueba el endpoint, la autorización ni la escritura real de bloqueos. El test de UI/DB sigue bloqueado por ausencia de Supabase aislado.
 - QA independiente fue invocado tras el cambio de validación horaria y manejo de errores; el informe de esa segunda ejecución todavía no estaba disponible al actualizar este registro.
 - No se modificó Supabase, RLS, datos, secretos ni producción. CI global sigue **NO APROBADA** por ESLint.
+
+
+### QA de respaldo — 2026-10-28 — head `e2641b68454676b17002481bcd40e278afdd64cb`
+
+- PR #11 continúa abierto, en borrador y sin fusionar. Base `codex/revisar-informes-de-turnos-cancelados` @ `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`; rama de trabajo `codex/ci-automatico-lint-build`.
+- El único cambio desde el head previamente probado es documental: `docs/SUPABASE_SANDBOX_REVIEW.md`. No hay nuevo cambio de runtime, por lo que no se repitió la batería funcional de la app.
+- CI del head actual: [run 40691251109](https://github.com/Vale-G/turnos-saas/actions/runs/40691251109).
+  - `npm ci`: aprobado.
+  - `npm test`: **5/5 aprobadas**, 0 fallos (helpers puros de bloqueos).
+  - `npm run build`: aprobado.
+  - `npm run lint`: **fallido, 27 errores y 15 warnings**.
+  - Baseline exacto de la base: **37 errores y 15 warnings**.
+  - `npm audit`: 20 vulnerabilidades (1 baja, 6 moderadas, 12 altas y 1 crítica).
+- La documentación del sandbox `Tunero 2` fue contrastada con el conector Supabase en modo de solo lectura. Proyecto `hwrlimcunbenxsvfbklr`, estado `ACTIVE_HEALTHY`, PostgreSQL 17. Se encontraron cuatro tablas públicas (`negocios`, `perfiles`, `turnos`, `lista_negra`), todas con RLS habilitado y cero filas. El listado de migraciones no devolvió registros.
+- El esquema no es compatible con el Turnly documentado (`negocio`, `turno`, `bloqueo`, `bloquehorario`, `servicio`, `staff`); no usar este proyecto para probar la app hasta reconciliar el esquema mediante una fuente de verdad revisada.
+- Metadatos de políticas del sandbox: `perfiles` tiene RLS sin políticas; las otras tres tablas tienen políticas `FOR ALL` aplicadas a `public` con predicados de propiedad. `WITH CHECK` figura como nulo, lo que por sí solo no demuestra bypass (PostgreSQL puede reutilizar `USING` como check); aun así, deben probarse INSERT/UPDATE con roles aislados. El advisor informa que las cuatro tablas son visibles a través del esquema GraphQL para `anon` y `authenticated`; la visibilidad no demuestra por sí sola acceso a filas. La función `public.rls_auto_enable()` es `SECURITY DEFINER` y ejecutable por `anon` y `authenticated`; no se ejecutó ni se inspeccionó su cuerpo.
+- Resultado: CI global **NO APROBADA** por lint. Seguridad funcional de Turnly y pruebas de reservas/RLS/pagos **BLOQUEADAS** hasta tener un sandbox compatible y revisar el acceso de la función privilegiada. No se hicieron escrituras, migraciones, cambios de RLS ni cambios de secretos.

@@ -45,3 +45,10 @@
 
 - [Run 40504440927](https://github.com/Vale-G/turnos-saas/actions/runs/40504440927): `npm ci` aprobado; build aprobado; lint fallido con 30 errores/15 warnings; baseline exacto 37 errores/15 warnings; auditoría informativa completada.
 - La corrección de `app/informes/page.tsx` ahora compila con relaciones Supabase que pueden llegar como arrays. La CI global sigue no aprobada por lint y faltan tests funcionales.
+
+
+## 2026-10-28 — tipado incremental de bloqueos
+
+- PR #11, rama `codex/ci-automatico-lint-build`, commit `aaaf6e9be257ff546c10be42f8bd0804cf9f8bf6`.
+- `app/bloqueos/page.tsx`: reemplazo de tres estados `any` por tipos locales y guard de negocio antes de insertar.
+- Pruebas: GitHub Actions pendiente de lectura posterior al commit; no se ejecutaron pruebas funcionales. Sin cambios de RLS/Supabase ni producción.

@@ -37,6 +37,26 @@ jobs:
       - name: Ejecutar ESLint
         run: npm run lint
 
+  unit-tests:
+    name: Pruebas unitarias
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Ejecutar pruebas unitarias
+        run: npm test
+
   build:
     name: Build Next.js
     runs-on: ubuntu-latest

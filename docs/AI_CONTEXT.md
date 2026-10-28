@@ -65,3 +65,11 @@ QA independiente: se solicitó una ejecución inmediata después del cambio; el 
 - Fix incremental en `app/bloqueos/page.tsx`, commit `aaaf6e9be257ff546c10be42f8bd0804cf9f8bf6`: tipos explícitos para negocio/staff/bloqueos, relación staff objeto/array y guard de negocio antes de insertar. CI posterior pendiente de comprobación.
 - PR #11 sigue draft y sin merge. Rama base `codex/revisar-informes-de-turnos-cancelados` (SHA `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`); producción verificada previamente en `bc234fb0b8c981935602168ca0b6982d24d0956f`.
 - El Día 3 de contención de lectura pública sigue bloqueado: no existe instancia Supabase de prueba confirmada. No tocar RLS ni producción. El P0 continúa abierto.
+
+
+### Estado confirmado — 2026-10-28
+
+- Run [40683854423](https://github.com/Vale-G/turnos-saas/actions/runs/40683854423): instalación aprobada, build aprobado, lint fallido con 27 errores/15 warnings; baseline exacto 37 errores/15 warnings. Fix de `app/bloqueos/page.tsx` redujo tres errores.
+- Auditoría de dependencias: 20 vulnerabilidades (1 baja, 6 moderadas, 12 altas, 1 crítica); actualización pendiente, sin cambios de lockfile.
+- QA independiente invocado; la última consulta seguía `in_progress`, sin resultado final todavía.
+- P0 de lectura pública/RLS continúa abierto por falta de instancia Supabase aislada. No modificar producción ni la base activa.

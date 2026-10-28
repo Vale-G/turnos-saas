@@ -67,3 +67,10 @@
 - Se agregaron `lib/bloqueos-helpers.mjs`, su declaración `.d.mts` y `tests/bloqueos-helpers.test.mjs` con pruebas de relación staff objeto/array y validación de rangos.
 - `package.json`: script `npm test` con `node:test`. `.github/workflows/ci.yml`: job independiente de pruebas unitarias.
 - Resultado CI/re-QA de estos cambios: pendiente de ejecución posterior al commit `b3b92b14abc1e92ece7c0cbb8d3eb20233aa8e74`. No se declara validado todavía.
+
+
+## 2026-10-28 — resultado de pruebas unitarias
+
+- Run [40684537949](https://github.com/Vale-G/turnos-saas/actions/runs/40684537949): build aprobado; pruebas unitarias 5/5 aprobadas; ESLint fallido con 27 errores/15 warnings; baseline 37 errores/15 warnings; auditoría 20 vulnerabilidades (1 crítica).
+- Los tests ejercitan helpers puros, no la persistencia ni permisos reales. QA independiente de la corrección posterior sigue pendiente de informe final.
+- Sin cambios en Supabase, secretos ni producción; PR #11 sigue en borrador.

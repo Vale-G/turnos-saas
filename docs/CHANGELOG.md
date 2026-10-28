@@ -52,3 +52,10 @@
 - PR #11, rama `codex/ci-automatico-lint-build`, commit `aaaf6e9be257ff546c10be42f8bd0804cf9f8bf6`.
 - `app/bloqueos/page.tsx`: reemplazo de tres estados `any` por tipos locales y guard de negocio antes de insertar.
 - Pruebas: GitHub Actions pendiente de lectura posterior al commit; no se ejecutaron pruebas funcionales. Sin cambios de RLS/Supabase ni producción.
+
+
+## 2026-10-28 — resultado CI del fix de bloqueos
+
+- Run [40683854423](https://github.com/Vale-G/turnos-saas/actions/runs/40683854423), sobre el head `0d09ffa964565486cf6d4ae991447bc508422ed1`: instalación y build aprobados; lint fallido con 27 errores/15 warnings; baseline exacto 37 errores/15 warnings.
+- La corrección de `app/bloqueos/page.tsx` redujo tres errores de lint. Auditoría reportó 20 vulnerabilidades (1 baja, 6 moderadas, 12 altas, 1 crítica).
+- QA independiente fue invocado y sigue sin informe final en la última consulta. No se ejecutaron pruebas funcionales ni se modificaron Supabase, secretos o producción.

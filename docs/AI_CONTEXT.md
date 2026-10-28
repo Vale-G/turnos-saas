@@ -81,3 +81,10 @@ QA independiente: se solicitó una ejecución inmediata después del cambio; el 
 - Se corrigió `app/bloqueos/page.tsx` para validar el rango y comprobar el resultado de eliminación. Se extrajeron helpers puros a `lib/bloqueos-helpers.mjs` con declaraciones TS y se agregaron pruebas Node nativas en `tests/bloqueos-helpers.test.mjs`.
 - `package.json` ahora define `npm test`; `.github/workflows/ci.yml` incorpora un job unitario separado. El resultado de CI y el re-QA de esta corrección aún deben comprobarse.
 - Los riesgos P0 de RLS/lectura pública y las 20 vulnerabilidades de dependencias siguen abiertos; no tocar producción ni la base activa.
+
+
+### Resultado final de CI conocido — 2026-10-28
+
+- Run [40684537949](https://github.com/Vale-G/turnos-saas/actions/runs/40684537949), head `2e10b20ab6efe8173d70a517fd9e7e08ba97793a`: build aprobado, 5/5 tests unitarios aprobados, lint fallido con 27 errores/15 warnings; baseline 37 errores/15 warnings; 20 vulnerabilidades (1 crítica).
+- La suite Node nativa cubre helpers de rango horario y forma de relación staff; no cubre integración con Supabase ni aislamiento RLS.
+- La segunda ejecución de QA fue solicitada; resultado final pendiente. P0 de lectura pública continúa abierto por falta de entorno aislado.

@@ -5,10 +5,22 @@ import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
 import { toast } from 'sonner'
 
+type NegocioBloqueos = { id: string; tema: string | null }
+type StaffBloqueos = { id: string; nombre: string; activo?: boolean }
+type BloqueoItem = {
+  id: string
+  negocio_id: string
+  staff_id: string
+  fecha: string
+  hora_inicio: string
+  hora_fin: string
+  staff?: { nombre: string } | { nombre: string }[] | null
+}
+
 export default function BloqueosPage() {
-  const [negocio, setNegocio] = useState<any>(null)
-  const [staff, setStaff] = useState<any[]>([])
-  const [bloqueos, setBloqueos] = useState<any[]>([])
+  const [negocio, setNegocio] = useState<NegocioBloqueos | null>(null)
+  const [staff, setStaff] = useState<StaffBloqueos[]>([])
+  const [bloqueos, setBloqueos] = useState<BloqueoItem[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
@@ -29,13 +41,13 @@ export default function BloqueosPage() {
       }
       if (nId) {
         const { data: neg } = await supabase.from('negocio').select('*').eq('id', nId).single()
-        setNegocio(neg)
+        setNegocio(neg as NegocioBloqueos | null)
         const [{ data: stf }, { data: blq }] = await Promise.all([
           supabase.from('staff').select('*').eq('negocio_id', nId).eq('activo', true),
           supabase.from('bloqueo').select('*, staff(nombre)').eq('negocio_id', nId).gte('fecha', new Date().toISOString().split('T')[0]).order('fecha', { ascending: true })
         ])
-        setStaff(stf || [])
-        setBloqueos(blq || [])
+        setStaff((stf || []) as StaffBloqueos[])
+        setBloqueos((blq || []) as BloqueoItem[])
       }
       setLoading(false)
     }
@@ -45,6 +57,7 @@ export default function BloqueosPage() {
   const crearBloqueo = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selStaff || !fecha) return toast.error('Completá los campos')
+    if (!negocio) return toast.error('No se encontró el negocio')
     const { error } = await supabase.from('bloqueo').insert({
       negocio_id: negocio.id, staff_id: selStaff, fecha, hora_inicio: hInicio + ':00', hora_fin: hFin + ':00'
     })
@@ -95,7 +108,7 @@ export default function BloqueosPage() {
               {bloqueos.length === 0 ? <p className="text-slate-600 text-xs font-black uppercase p-6">No hay bloqueos futuros</p> : bloqueos.map(b => (
                 <div key={b.id} className="bg-white/5 border border-white/10 p-6 rounded-3xl flex justify-between items-center">
                   <div>
-                    <p className="text-sm font-black uppercase italic">{b.staff?.nombre}</p>
+                    <p className="text-sm font-black uppercase italic">{Array.isArray(b.staff) ? b.staff[0]?.nombre : b.staff?.nombre}</p>
                     <p className="text-[10px] text-slate-500 font-bold uppercase">{b.fecha} · {b.hora_inicio.slice(0,5)} a {b.hora_fin.slice(0,5)}</p>
                   </div>
                   <button onClick={() => eliminarBloqueo(b.id)} className="text-rose-500 font-black text-[10px] uppercase bg-rose-500/10 px-4 py-2 rounded-xl">Quitar</button>

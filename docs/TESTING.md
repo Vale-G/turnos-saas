@@ -144,3 +144,13 @@ No se hizo merge, despliegue, migración, cambio de RLS, escritura en la base ac
 - Intención: eliminar tres errores `no-explicit-any` sin cambiar consultas ni permisos. No es una corrección de RLS; las políticas de bloqueo siguen pendientes.
 - Validación posterior al commit: pendiente de la ejecución de GitHub Actions. No afirmar que lint/build pasan hasta leer el run más reciente.
 - No se ejecutaron pruebas funcionales ni escrituras en Supabase. No se modificó producción.
+
+
+### Resultado CI — 2026-10-28 — run 40683854423
+
+- Commit comprobado: `0d09ffa964565486cf6d4ae991447bc508422ed1`; PR #11, rama `codex/ci-automatico-lint-build`.
+- `npm ci`: aprobado; `npm run build`: **APROBADO**; `npm run lint`: **FALLIDO**, 27 errores y 15 warnings.
+- Baseline de la rama base exacta `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`: 37 errores y 15 warnings. La corrección de `app/bloqueos/page.tsx` redujo tres errores; no se desactivaron reglas.
+- `npm audit`: 20 vulnerabilidades reportadas (1 baja, 6 moderadas, 12 altas, 1 crítica). No se actualizaron dependencias.
+- QA independiente se solicitó tras el cambio; la última consulta lo mantenía en curso. Resultado final de QA: pendiente.
+- No hay pruebas unitarias/integración/E2E configuradas/ejecutadas ni entorno Supabase aislado confirmado. Los riesgos P0 de RLS/lectura pública y P1 de pagos siguen sin mitigación.

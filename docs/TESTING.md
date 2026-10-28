@@ -154,3 +154,13 @@ No se hizo merge, despliegue, migración, cambio de RLS, escritura en la base ac
 - `npm audit`: 20 vulnerabilidades reportadas (1 baja, 6 moderadas, 12 altas, 1 crítica). No se actualizaron dependencias.
 - QA independiente se solicitó tras el cambio; la última consulta lo mantenía en curso. Resultado final de QA: pendiente.
 - No hay pruebas unitarias/integración/E2E configuradas/ejecutadas ni entorno Supabase aislado confirmado. Los riesgos P0 de RLS/lectura pública y P1 de pagos siguen sin mitigación.
+
+
+### Seguimiento QA y pruebas unitarias de bloqueos — 2026-10-28
+
+- QA independiente del head `0d09ffa964565486cf6d4ae991447bc508422ed1` concluyó **NO APROBADO**: build aprobado, lint 27 errores/15 warnings, sin pruebas funcionales. Hallazgos reproducibles estáticos: el formulario no validaba fin > inicio y la eliminación mostraba éxito sin comprobar el error de Supabase.
+- Corrección posterior en `app/bloqueos/page.tsx`: se valida el rango horario antes de insertar; la eliminación solo actualiza la UI y muestra éxito si Supabase no devuelve error; la relación staff se normaliza mediante helper puro.
+- Nuevos archivos: `lib/bloqueos-helpers.mjs`, `lib/bloqueos-helpers.d.mts`, `tests/bloqueos-helpers.test.mjs`. Cobertura: relación como objeto/array/vacía/nula y rango horario válido/invertido/igual/formato inválido.
+- Se agregó `npm test` usando `node:test` sin dependencias nuevas y job separado `unit-tests` en `.github/workflows/ci.yml`.
+- Validación de esta corrección: pendiente del run CI posterior al commit `b3b92b14abc1e92ece7c0cbb8d3eb20233aa8e74` y del re-QA independiente. No declarar aprobados los tests hasta leer los logs.
+- No se ejecutaron escrituras en Supabase; RLS y aislamiento entre negocios siguen sin probarse.

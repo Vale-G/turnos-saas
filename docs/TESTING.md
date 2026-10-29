@@ -9,7 +9,7 @@ En la raíz del repositorio:
 - `npm run build`: intenta compilar la aplicación Next.js para producción.
 - `npm audit --json`: inspecciona vulnerabilidades declaradas para el lockfile; no actualiza paquetes.
 
-Actualmente `package.json` no declara un script `test`. No hay una suite unitaria, de integración o E2E confirmada.
+Estado al 2026-10-29: `package.json` declara `npm test` con Node `node:test`; hay cinco pruebas unitarias de helpers puros. No hay suite de integración ni E2E, y las pruebas de RLS están bloqueadas por falta de un sandbox compatible.
 
 ## Automatización de CI
 
@@ -189,3 +189,12 @@ No se hizo merge, despliegue, migración, cambio de RLS, escritura en la base ac
 - El esquema no es compatible con el Turnly documentado (`negocio`, `turno`, `bloqueo`, `bloquehorario`, `servicio`, `staff`); no usar este proyecto para probar la app hasta reconciliar el esquema mediante una fuente de verdad revisada.
 - Metadatos de políticas del sandbox: `perfiles` tiene RLS sin políticas; las otras tres tablas tienen políticas `FOR ALL` aplicadas a `public` con predicados de propiedad. `WITH CHECK` figura como nulo, lo que por sí solo no demuestra bypass (PostgreSQL puede reutilizar `USING` como check); aun así, deben probarse INSERT/UPDATE con roles aislados. El advisor informa que las cuatro tablas son visibles a través del esquema GraphQL para `anon` y `authenticated`; la visibilidad no demuestra por sí sola acceso a filas. La función `public.rls_auto_enable()` es `SECURITY DEFINER` y ejecutable por `anon` y `authenticated`; no se ejecutó ni se inspeccionó su cuerpo.
 - Resultado: CI global **NO APROBADA** por lint. Seguridad funcional de Turnly y pruebas de reservas/RLS/pagos **BLOQUEADAS** hasta tener un sandbox compatible y revisar el acceso de la función privilegiada. No se hicieron escrituras, migraciones, cambios de RLS ni cambios de secretos.
+
+
+## Evidencia actualizada — 2026-10-29
+
+- Rama de trabajo: `codex/ci-automatico-lint-build`; head comprobado `88d146a80c7bcef89632bae2e00539ddea458a3b`; PR #11 abierto y en borrador.
+- Run [40779968499](https://github.com/Vale-G/turnos-saas/actions/runs/40779968499): `npm ci` aprobado; `npm test` aprobado con 5/5; `npm run build` aprobado; `npm run lint` fallido con 27 errores/15 warnings; baseline exacto de la rama base: 37 errores/15 warnings; auditoría informativa: 20 vulnerabilidades (1 baja, 6 moderadas, 12 altas, 1 crítica).
+- Interpretación: el trabajo previo redujo la deuda de lint frente a la base, pero la CI obligatoria sigue fallando. La compilación no valida permisos ni flujos funcionales.
+- Revisión de la página pública en la rama estable: `app/reservar/[slug]/page.tsx` realiza lecturas directas de negocio/turnos y una inserción directa de turno desde el navegador. La exposición P0 no está contenida.
+- Bloqueo de integración: `Tunero 2` está activo, pero su esquema no coincide con el de Turnly; no ejecutar migraciones ni pruebas de escritura hasta disponer de fuente de verdad y plan revisado.

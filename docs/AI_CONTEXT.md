@@ -6,9 +6,9 @@ Leer este archivo primero y después solo los documentos necesarios. No inferir 
 
 - Repositorio: [Vale-G/turnos-saas](https://github.com/Vale-G/turnos-saas).
 - Rama de referencia para cambios: `codex/revisar-informes-de-turnos-cancelados`; base observada en los PR activos: `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`.
-- Último deployment de Vercel marcado como producción observado el 2026-10-27: commit `bc234fb0b8c981935602168ca0b6982d24d0956f`, rama `codex/revisar-informes-de-turnos-cancelados`. Producción y punta de rama no coinciden exactamente.
+- Verificación Vercel del 2026-10-29: el deployment listado como producción más reciente en la rama estable está `READY` en commit `bc234fb0b8c981935602168ca0b6982d24d0956f`; la punta de la rama estable es `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`. No coinciden; no asumir que los tres commits posteriores estén desplegados.
 - PR #10 (borrador): plan de contención P0, rama `codex/auditoria-turnly-2026-10-26`. Solo documentación.
-- PR #11 (borrador): CI y documentación, rama `codex/ci-automatico-lint-build`; base `07bd2ee...`. Fix incremental en `20485a0fe924d71a292fcc9d8bf1e0cb160a096f`; último head documental conocido `163e652db789c1865ecefa0f01329ad6a732feaa`.
+- PR #11 (borrador, abierto y sin merge): rama `codex/ci-automatico-lint-build`, base `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`, head verificado `88d146a80c7bcef89632bae2e00539ddea458a3b`.
 - No fusionar, desplegar a producción ni modificar la rama estable sin aprobación explícita. Los deployments de preview no prueban flujos funcionales.
 
 ## Qué es el proyecto
@@ -33,7 +33,7 @@ Aplicación web Next.js con App Router, React, Supabase y rutas de API para rese
 - P1: la política de gestión de `bloqueo` no verifica propiedad del negocio.
 - Pagos: el webhook genérico de Mercado Pago no valida firma; faltan verificaciones estrictas de importe, moneda, referencia e idempotencia. El endpoint de señas apunta a `/api/webhooks/sena`, ruta que no se encontró en la rama auditada.
 - Run [40501240344](https://github.com/Vale-G/turnos-saas/actions/runs/40501240344): build aprobado; lint bajó de 37 a 35 errores y mantuvo 15 warnings; baseline de la base continúa en 37 errores y 15 warnings. La corrección incremental quitó dos errores JSX.
-- No hay script `test` ni entorno de Supabase de prueba confirmado. No ejecutar migraciones, cambios de RLS ni pruebas de escritura en la base activa.
+- `npm test` existe y cubre cinco casos unitarios de helpers puros; no hay integración/E2E. `Tunero 2` está activo pero su esquema no es compatible con Turnly y tiene permisos que requieren revisión; no usarlo aún para validar RLS. No ejecutar migraciones, cambios de RLS ni escrituras en la base activa.
 
 ## Reglas de evidencia
 
@@ -88,3 +88,13 @@ QA independiente: se solicitó una ejecución inmediata después del cambio; el 
 - Run [40684537949](https://github.com/Vale-G/turnos-saas/actions/runs/40684537949), head `2e10b20ab6efe8173d70a517fd9e7e08ba97793a`: build aprobado, 5/5 tests unitarios aprobados, lint fallido con 27 errores/15 warnings; baseline 37 errores/15 warnings; 20 vulnerabilidades (1 crítica).
 - La suite Node nativa cubre helpers de rango horario y forma de relación staff; no cubre integración con Supabase ni aislamiento RLS.
 - La segunda ejecución de QA fue solicitada; resultado final pendiente. P0 de lectura pública continúa abierto por falta de entorno aislado.
+
+
+## Seguimiento — 2026-10-29 — Día 4, puerta P0 todavía bloqueada
+
+- Rama estable GitHub: `codex/revisar-informes-de-turnos-cancelados` @ `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`. Producción Vercel observada: deployment `READY` en `bc234fb0b8c981935602168ca0b6982d24d0956f`; no hacer merge/deploy ni alterar la rama estable.
+- PR #11 sigue en borrador. Head `88d146a80c7bcef89632bae2e00539ddea458a3b`; CI run [40779968499](https://github.com/Vale-G/turnos-saas/actions/runs/40779968499): `npm ci` aprobado, `npm test` 5/5 aprobado, `npm run build` aprobado, lint fallido con 27 errores/15 warnings frente a baseline de 37/15; auditoría informativa reporta 20 vulnerabilidades (1 crítica). CI global no aprobada.
+- Revisión estática de `app/reservar/[slug]/page.tsx` en la rama estable confirma que el navegador usa `negocio.select('*')`, consulta `turno.select('hora')` para disponibilidad e inserta directamente en `turno`. El riesgo P0 no está contenido.
+- `Tunero 2` está `ACTIVE_HEALTHY`, pero sus tablas (`negocios`, `perfiles`, `turnos`, `lista_negra`) no corresponden al esquema que usa Turnly (`negocio`, `turno`, `servicio`, `staff`, `bloqueo`, `bloquehorario`). La herramienta no devolvió migraciones registradas. Además, `public.rls_auto_enable()` es `SECURITY DEFINER` y puede ejecutarse por `anon` y `authenticated`; no se ejecutó ni se modificó.
+- Decisión técnica: no implementar una migración o cambio RLS hasta localizar una fuente de verdad verificable del esquema y preparar una estrategia de pruebas aislada. No hay código de runtime modificado en esta jornada.
+- Próximo paso: obtener/confirmar esquema SQL versionado compatible; diseñar el endpoint de perfil público con allowlist y la creación de reserva server-side; después preparar migración revisable, pruebas anon/propietario A/propietario B y concurrencia. QA de la documentación de hoy se solicita al equipo independiente.

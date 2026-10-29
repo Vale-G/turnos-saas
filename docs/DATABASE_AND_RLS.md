@@ -24,3 +24,15 @@ No ejecutar migraciones ni cambiar RLS sobre la base activa para experimentar. N
 5. Preparar migración revisable, rollback y evidencia antes de solicitar aprobación de despliegue.
 
 Ver también [Seguridad](SECURITY.md) y el [plan P0 del PR #10](https://github.com/Vale-G/turnos-saas/pull/10).
+
+
+## Sandbox Tunero 2 — verificación separada del proyecto activo (2026-10-29)
+
+Este apartado corresponde únicamente al proyecto de prueba `Tunero 2` (`hwrlimcunbenxsvfbklr`), no al esquema de producción de Turnly.
+
+- Estado Supabase: `ACTIVE_HEALTHY`; PostgreSQL 17.
+- Tablas públicas: `negocios`, `perfiles`, `turnos`, `lista_negra`; la inspección informó cero filas y RLS habilitado.
+- La herramienta de listado no devolvió migraciones registradas. Esto no prueba que el esquema carezca de cambios manuales.
+- `perfiles` no tiene políticas; las tablas `negocios`, `turnos` y `lista_negra` tienen policies `FOR ALL` para `public`, con `WITH CHECK` nulo en las policies consultadas. Requiere análisis por operación.
+- `public.rls_auto_enable()` es `SECURITY DEFINER` y `anon`/ `authenticated` pueden ejecutarla. No se ejecutó ni se inspeccionó su cuerpo.
+- No coincide con el esquema esperado por Turnly (`negocio`, `turno`, `servicio`, `staff`, `bloqueo`, `bloquehorario`). No usar todavía como sandbox funcional, no cargar fixtures ni aplicar migraciones hasta validar la fuente de verdad.

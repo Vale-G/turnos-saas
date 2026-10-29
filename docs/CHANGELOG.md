@@ -74,3 +74,13 @@
 - Run [40684537949](https://github.com/Vale-G/turnos-saas/actions/runs/40684537949): build aprobado; pruebas unitarias 5/5 aprobadas; ESLint fallido con 27 errores/15 warnings; baseline 37 errores/15 warnings; auditoría 20 vulnerabilidades (1 crítica).
 - Los tests ejercitan helpers puros, no la persistencia ni permisos reales. QA independiente de la corrección posterior sigue pendiente de informe final.
 - Sin cambios en Supabase, secretos ni producción; PR #11 sigue en borrador.
+
+
+## 2026-10-29 — verificación de puerta P0 y CI
+
+- Rama: `codex/ci-automatico-lint-build`; head examinado antes de esta actualización: `88d146a80c7bcef89632bae2e00539ddea458a3b`; PR #11 sigue en borrador y sin fusionar.
+- Verificación Vercel: deployment de producción `READY` en `bc234fb0b8c981935602168ca0b6982d24d0956f`; punta de rama estable `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`. Sin despliegue nuevo.
+- Run [40779968499](https://github.com/Vale-G/turnos-saas/actions/runs/40779968499): build aprobado; tests 5/5 aprobados; lint fallido (27 errores/15 warnings, baseline 37/15); auditoría reporta 20 vulnerabilidades.
+- Inspección estática confirma lecturas de `negocio` y `turno` e inserción de reservas desde `app/reservar/[slug]/page.tsx`.
+- `Tunero 2` está activo pero no es compatible con el esquema esperado; función `rls_auto_enable()` ejecutable por roles públicos. No se ejecutó la función ni se hicieron cambios de base.
+- Cambios de esta jornada: solo documentación/evidencia; no se modificó runtime, base de datos, políticas, secretos ni producción. No equivale a QA aprobado.

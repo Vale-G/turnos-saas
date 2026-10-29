@@ -205,3 +205,11 @@ No se hizo merge, despliegue, migración, cambio de RLS, escritura en la base ac
 - Run [40862792874](https://github.com/Vale-G/turnos-saas/actions/runs/40862792874): instalación de dependencias aprobada; `npm test` 5/5; build aprobado; lint fallido con 27 errores/15 warnings.
 - Los jobs de baseline y auditoría se omitieron en el evento `push`. Para baseline y vulnerabilidades usar el run de PR [40779968499](https://github.com/Vale-G/turnos-saas/actions/runs/40779968499): base 37 errores/15 warnings; auditoría 20 vulnerabilidades (1 crítica).
 - El commit probado contiene documentación únicamente. No valida la seguridad funcional de reservas ni RLS.
+
+
+## 2026-10-29 — pruebas de generación de horarios de reserva
+
+- Cambio en `app/reservar/[slug]/page.tsx`: se extrajo el cálculo de franjas a `lib/reserva-disponibilidad.mjs` (declaraciones `.d.mts`) y se añadieron `tests/reserva-disponibilidad.test.mjs`.
+- Los ocho casos nuevos verifican cierre de jornada, duración inválida, bloqueos parciales, horas ocupadas dentro de una franja, límite para hoy y formatos inválidos. `npm test` ejecuta también los cinco casos previos de bloqueos.
+- **Validación:** pendiente de leer los jobs del workflow sobre el commit de código `a1d4a70b8f3e42074d3e001e6b6bda8137d82cae` o un descendiente que lo incluya. No atribuir a este cambio resultados de CI anteriores.
+- **Límite de seguridad:** este cálculo solo filtra opciones en el navegador. La consulta de turnos existente no incluye duración del servicio previo, por lo que no puede detectar todos los solapamientos; tampoco resuelve concurrencia, autorización, RLS, ni validación server-side. No tratarlo como mitigación del P0.

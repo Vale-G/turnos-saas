@@ -107,3 +107,11 @@ QA independiente: se solicitó una ejecución inmediata después del cambio; el 
 - ESLint: fallido, 27 errores y 15 warnings.
 - Baseline 37 errores/15 warnings y auditoría de 20 vulnerabilidades proceden del run PR [40779968499](https://github.com/Vale-G/turnos-saas/actions/runs/40779968499); en el run de push los jobs informativos se omitieron.
 - No hay cambios de runtime ni pruebas funcionales nuevas. El P0 permanece abierto.
+
+
+## Seguimiento — 2026-10-29 — trabajo técnico en reservas
+
+- La rama estable sigue en `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`; producción Vercel permanece en `bc234fb0b8c981935602168ca0b6982d24d0956f`. PR #11 continúa como borrador.
+- Se implementó en rama de trabajo el helper `lib/reserva-disponibilidad.mjs` y su declaración `.d.mts`, ocho tests en `tests/reserva-disponibilidad.test.mjs` y la integración en `app/reservar/[slug]/page.tsx`. Commit de integración `a1d4a70b8f3e42074d3e001e6b6bda8137d82cae`.
+- Evita mostrar intervalos incompletos, solapamientos con bloqueos parciales y bucles con duración no positiva. No es protección server-side: la app sigue consultando turnos y creando reservas desde el navegador, y no conoce la duración de turnos existentes.
+- Consultar `docs/TESTING.md` para pruebas y evidencia de CI; `docs/CHANGELOG.md` para cambios. No fusionar ni desplegar hasta revisión y aprobación. P0 de lectura pública/RLS sigue abierto.

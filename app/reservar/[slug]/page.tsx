@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase, getOAuthRedirectUrl } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
+import { generarHorariosDisponibles } from '@/lib/reserva-disponibilidad.mjs'
 import { toast } from 'sonner'
 
 const BA_TZ = 'America/Argentina/Buenos_Aires'
@@ -68,35 +69,15 @@ export default function ReservaPage() {
 
   const horas = useMemo(() => {
     if (!negocio || !sel.servicio || !sel.fecha) return []
-    const list: string[] = []
-    let curr = negocio.hora_apertura || '09:00:00'
-    const cierre = negocio.hora_cierre || '18:00:00'
     const esHoy = sel.fecha === toBaDateStr(new Date())
-    const minLimite = esHoy ? getBaMinutes() + 15 : 0
-
-    while (curr < cierre) {
-      const hF = curr.slice(0, 5)
-      const [hh, mm] = hF.split(':').map(Number)
-      const minActual = hh * 60 + mm
-      
-      const estaOcupado = ocupados.includes(hF)
-      const estaBloqueado = bloqueos.some(b => {
-        const [hStart, mStart] = b.hora_inicio.split(':').map(Number)
-        const [hEnd, mEnd] = b.hora_fin.split(':').map(Number)
-        const mS = hStart * 60 + mStart
-        const mE = hEnd * 60 + mEnd
-        return minActual >= mS && minActual < mE
-      })
-
-      if (!estaOcupado && !estaBloqueado && (!esHoy || minActual >= minLimite)) {
-        list.push(hF)
-      }
-      
-      let [h, m] = curr.split(':').map(Number); m += sel.servicio.duracion
-      if (m >= 60) { h += Math.floor(m / 60); m %= 60 }
-      curr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`
-    }
-    return list
+    return generarHorariosDisponibles({
+      apertura: negocio.hora_apertura || '09:00:00',
+      cierre: negocio.hora_cierre || '18:00:00',
+      duracion: Number(sel.servicio.duracion),
+      ocupados,
+      bloqueos,
+      minLimite: esHoy ? getBaMinutes() + 15 : 0,
+    })
   }, [negocio, sel.servicio, sel.fecha, ocupados, bloqueos])
 
   // EL CEREBRO DE LAS SEÑAS FLEXIBLES

@@ -91,3 +91,12 @@
 - Run [40862792874](https://github.com/Vale-G/turnos-saas/actions/runs/40862792874): build aprobado; tests unitarios 5/5; lint fallido con 27 errores/15 warnings.
 - Los jobs informativos de baseline y audit se omitieron porque el evento fue `push`. Evidencia previa de PR [40779968499](https://github.com/Vale-G/turnos-saas/actions/runs/40779968499): baseline 37 errores/15 warnings y 20 vulnerabilidades (1 crítica).
 - Este run cubre el commit documental `d9f32322e14a4b3412d3e8f4df166fc653c08993`, no agrega pruebas funcionales y no cambia el veredicto de seguridad.
+
+
+## 2026-10-29 — corrección incremental de franjas de reserva (sin deploy)
+
+- Rama `codex/ci-automatico-lint-build`, PR #11 en borrador; commit de código `a1d4a70b8f3e42074d3e001e6b6bda8137d82cae`. Base estable `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`, sin cambios.
+- Se reemplazó el generador de horarios de `app/reservar/[slug]/page.tsx` por un helper puro, con declaración de tipos y ocho pruebas unitarias nuevas. Evita ofrecer una franja que termine después del cierre, atraviese un bloqueo parcial o tenga duración inválida.
+- No se cambiaron consultas Supabase, políticas, migraciones, pagos, credenciales ni datos reales.
+- Validación de GitHub Actions: pendiente del run correspondiente al head con este cambio. El último head previo `e031ea4` tenía build y cinco pruebas aprobados, pero lint fallido con 27 errores/15 warnings; no reutilizarlo como prueba de esta corrección.
+- P0 continúa abierto: consultas públicas directas, ausencia de validación transaccional, duración de turnos existentes desconocida y RLS sin prueba aislada. QA independiente pendiente.

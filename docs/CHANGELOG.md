@@ -84,3 +84,10 @@
 - Inspección estática confirma lecturas de `negocio` y `turno` e inserción de reservas desde `app/reservar/[slug]/page.tsx`.
 - `Tunero 2` está activo pero no es compatible con el esquema esperado; función `rls_auto_enable()` ejecutable por roles públicos. No se ejecutó la función ni se hicieron cambios de base.
 - Cambios de esta jornada: solo documentación/evidencia; no se modificó runtime, base de datos, políticas, secretos ni producción. No equivale a QA aprobado.
+
+
+## 2026-10-29 — resultado CI del commit d9f3232
+
+- Run [40862792874](https://github.com/Vale-G/turnos-saas/actions/runs/40862792874): build aprobado; tests unitarios 5/5; lint fallido con 27 errores/15 warnings.
+- Los jobs informativos de baseline y audit se omitieron porque el evento fue `push`. Evidencia previa de PR [40779968499](https://github.com/Vale-G/turnos-saas/actions/runs/40779968499): baseline 37 errores/15 warnings y 20 vulnerabilidades (1 crítica).
+- Este run cubre el commit documental `d9f32322e14a4b3412d3e8f4df166fc653c08993`, no agrega pruebas funcionales y no cambia el veredicto de seguridad.

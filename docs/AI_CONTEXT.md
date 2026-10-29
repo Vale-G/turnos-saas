@@ -98,3 +98,12 @@ QA independiente: se solicitó una ejecución inmediata después del cambio; el 
 - `Tunero 2` está `ACTIVE_HEALTHY`, pero sus tablas (`negocios`, `perfiles`, `turnos`, `lista_negra`) no corresponden al esquema que usa Turnly (`negocio`, `turno`, `servicio`, `staff`, `bloqueo`, `bloquehorario`). La herramienta no devolvió migraciones registradas. Además, `public.rls_auto_enable()` es `SECURITY DEFINER` y puede ejecutarse por `anon` y `authenticated`; no se ejecutó ni se modificó.
 - Decisión técnica: no implementar una migración o cambio RLS hasta localizar una fuente de verdad verificable del esquema y preparar una estrategia de pruebas aislada. No hay código de runtime modificado en esta jornada.
 - Próximo paso: obtener/confirmar esquema SQL versionado compatible; diseñar el endpoint de perfil público con allowlist y la creación de reserva server-side; después preparar migración revisable, pruebas anon/propietario A/propietario B y concurrencia. QA de la documentación de hoy se solicita al equipo independiente.
+
+
+### Resultado final del run documental 40862792874
+
+- Build: aprobado.
+- Pruebas unitarias: 5/5 aprobadas.
+- ESLint: fallido, 27 errores y 15 warnings.
+- Baseline 37 errores/15 warnings y auditoría de 20 vulnerabilidades proceden del run PR [40779968499](https://github.com/Vale-G/turnos-saas/actions/runs/40779968499); en el run de push los jobs informativos se omitieron.
+- No hay cambios de runtime ni pruebas funcionales nuevas. El P0 permanece abierto.

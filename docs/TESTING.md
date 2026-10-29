@@ -198,3 +198,10 @@ No se hizo merge, despliegue, migración, cambio de RLS, escritura en la base ac
 - Interpretación: el trabajo previo redujo la deuda de lint frente a la base, pero la CI obligatoria sigue fallando. La compilación no valida permisos ni flujos funcionales.
 - Revisión de la página pública en la rama estable: `app/reservar/[slug]/page.tsx` realiza lecturas directas de negocio/turnos y una inserción directa de turno desde el navegador. La exposición P0 no está contenida.
 - Bloqueo de integración: `Tunero 2` está activo, pero su esquema no coincide con el de Turnly; no ejecutar migraciones ni pruebas de escritura hasta disponer de fuente de verdad y plan revisado.
+
+
+### Run confirmado — 2026-10-29 — commit documental d9f3232
+
+- Run [40862792874](https://github.com/Vale-G/turnos-saas/actions/runs/40862792874): instalación de dependencias aprobada; `npm test` 5/5; build aprobado; lint fallido con 27 errores/15 warnings.
+- Los jobs de baseline y auditoría se omitieron en el evento `push`. Para baseline y vulnerabilidades usar el run de PR [40779968499](https://github.com/Vale-G/turnos-saas/actions/runs/40779968499): base 37 errores/15 warnings; auditoría 20 vulnerabilidades (1 crítica).
+- El commit probado contiene documentación únicamente. No valida la seguridad funcional de reservas ni RLS.

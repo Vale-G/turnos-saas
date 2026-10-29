@@ -41,3 +41,11 @@ No considerar el riesgo contenido hasta demostrar, con evidencia reproducible, q
 - Trabajo seguro realizado: inspección estática, comparación de esquemas, comprobación de CI y actualización de evidencia; sin cambios de runtime, migraciones ni escrituras.
 - Requisito para desbloquear: una fuente de verdad verificable del esquema de Turnly (migraciones SQL versionadas o exportación revisada, sin secretos) y un entorno aislado compatible.
 - No se considera contenida la exposición pública de reservas/tokens ni aprobado el sprint.
+
+
+### CI del commit documental — 2026-10-29
+
+- Commit examinado: `d9f32322e14a4b3412d3e8f4df166fc653c08993`; run [40862792874](https://github.com/Vale-G/turnos-saas/actions/runs/40862792874).
+- Build aprobado; tests 5/5 aprobados; lint fallido con 27 errores/15 warnings.
+- Los jobs informativos de baseline y auditoría se omitieron por ser un evento push. El último baseline/audit de PR es run [40779968499](https://github.com/Vale-G/turnos-saas/actions/runs/40779968499): base 37 errores/15 warnings; 20 vulnerabilidades.
+- No se cierra la puerta P0 ni se declara QA aprobado.

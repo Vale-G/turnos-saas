@@ -59,7 +59,7 @@ test('no ofrece franjas si un turno carece de duración o formato válido', () =
 test('respeta duraciones mixtas de servicios existentes', () => {
   assert.deepEqual(generarHorariosDisponibles({ ...base,
     duracion: 30,
-    ocupados: [{ hora: '09:15', duracion: 90 }, { hora: '11:15', duracion: 30 }],
+    ocupados: [{ hora: '09:15', duracion: 90 }, { hora: '11:30', duracion: 30 }],
   }), ['11:00'])
 })
 

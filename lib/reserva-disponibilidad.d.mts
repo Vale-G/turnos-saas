@@ -3,11 +3,16 @@ export type BloqueoHorario = {
   hora_fin: string
 }
 
+export type TurnoOcupado = {
+  hora: string
+  duracion: number
+}
+
 export type OpcionesHorarios = {
   apertura: string
   cierre: string
   duracion: number
-  ocupados?: string[]
+  ocupados?: TurnoOcupado[]
   bloqueos?: BloqueoHorario[]
   minLimite?: number
 }

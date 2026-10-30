@@ -26,7 +26,9 @@ export default function ReservaPage() {
   const [negocio, setNegocio] = useState<any>(null)
   const [servicios, setServicios] = useState<any[]>([])
   const [staffList, setStaffList] = useState<any[]>([])
-  const [ocupados, setOcupados] = useState<string[]>([])
+  const [ocupados, setOcupados] = useState<Array<{ hora: string; duracion: number }>>([])
+  const [horariosCargando, setHorariosCargando] = useState(false)
+  const [horariosError, setHorariosError] = useState(false)
   const [bloqueos, setBloqueos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [paso, setPaso] = useState(1)
@@ -56,19 +58,44 @@ export default function ReservaPage() {
 
   useEffect(() => {
     if (!sel.barbero || !sel.fecha) return
+    let vigente = true
+    setHorariosCargando(true)
+    setHorariosError(false)
+    setOcupados([])
+    setBloqueos([])
     async function check() {
-      const [{ data: t }, { data: b }] = await Promise.all([
-        supabase.from('turno').select('hora').eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha).not('estado', 'eq', 'cancelado'),
-        supabase.from('bloqueo').select('hora_inicio, hora_fin').eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha)
-      ])
-      setOcupados((t ?? []).map((i: any) => i.hora.slice(0, 5)))
-      setBloqueos(b ?? [])
+      try {
+        const [{ data: t, error: errorTurnos }, { data: b, error: errorBloqueos }] = await Promise.all([
+          supabase.from('turno').select('hora, servicio(duracion)').eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha).not('estado', 'eq', 'cancelado'),
+          supabase.from('bloqueo').select('hora_inicio, hora_fin').eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha)
+        ])
+        if (!vigente) return
+        if (errorTurnos || errorBloqueos || !Array.isArray(t) || !Array.isArray(b)) {
+          setHorariosError(true)
+          return
+        }
+        const registros = t.map((item) => {
+          const servicio = Array.isArray(item.servicio) ? item.servicio[0] : item.servicio
+          return { hora: item.hora, duracion: Number(servicio?.duracion) }
+        })
+        if (registros.some((item) => typeof item.hora !== 'string' || !Number.isInteger(item.duracion) || item.duracion <= 0)) {
+          setHorariosError(true)
+          return
+        }
+        setOcupados(registros)
+        setBloqueos(b)
+      } catch {
+        if (vigente) setHorariosError(true)
+      } finally {
+        if (vigente) setHorariosCargando(false)
+      }
     }
-    check()
+    void check()
+    return () => { vigente = false }
   }, [sel.barbero, sel.fecha])
 
   const horas = useMemo(() => {
-    if (!negocio || !sel.servicio || !sel.fecha) return []
+    if (!negocio || !sel.servicio || !sel.fecha || horariosCargando || horariosError) return []
     const esHoy = sel.fecha === toBaDateStr(new Date())
     return generarHorariosDisponibles({
       apertura: negocio.hora_apertura || '09:00:00',
@@ -78,7 +105,7 @@ export default function ReservaPage() {
       bloqueos,
       minLimite: esHoy ? getBaMinutes() + 15 : 0,
     })
-  }, [negocio, sel.servicio, sel.fecha, ocupados, bloqueos])
+  }, [negocio, sel.servicio, sel.fecha, ocupados, bloqueos, horariosCargando, horariosError])
 
   // EL CEREBRO DE LAS SEÑAS FLEXIBLES
   const montoSenaCalculado = useMemo(() => {
@@ -200,7 +227,7 @@ export default function ReservaPage() {
             {sel.fecha && (
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-6">Horarios Libres</p>
-                {horas.length === 0 ? <div className="text-center py-10 bg-white/4 rounded-[3rem] border border-dashed border-white/10"><p className="text-slate-500 text-[10px] font-black uppercase">Sin Cupos</p></div> : (
+                {horariosCargando ? <div className="text-center py-10 text-slate-400 text-xs">Verificando disponibilidad...</div> : horariosError ? <div role="alert" className="text-center py-10 text-amber-300 text-xs">No se pudieron verificar los horarios. Volvé a elegir la fecha para reintentar.</div> : horas.length === 0 ? <div className="text-center py-10 bg-white/4 rounded-[3rem] border border-dashed border-white/10"><p className="text-slate-500 text-[10px] font-black uppercase">Sin Cupos</p></div> : (
                   <div className="grid grid-cols-4 gap-3">
                     {horas.map(h => <div key={h} onClick={() => setSel({ ...sel, hora: h })} className={`py-5 rounded-2xl text-[11px] font-black text-center cursor-pointer border ${sel.hora === h ? 'border-transparent shadow-lg' : 'bg-white/4 border-white/5'}`} style={sel.hora === h ? { backgroundColor: colorP, color: 'black' } : {}}>{h}</div>)}
                   </div>

@@ -115,3 +115,11 @@ QA independiente: se solicitó una ejecución inmediata después del cambio; el 
 - Se implementó en rama de trabajo el helper `lib/reserva-disponibilidad.mjs` y su declaración `.d.mts`, ocho tests en `tests/reserva-disponibilidad.test.mjs` y la integración en `app/reservar/[slug]/page.tsx`. Commit de integración `a1d4a70b8f3e42074d3e001e6b6bda8137d82cae`.
 - Evita mostrar intervalos incompletos, solapamientos con bloqueos parciales y bucles con duración no positiva. No es protección server-side: la app sigue consultando turnos y creando reservas desde el navegador, y no conoce la duración de turnos existentes.
 - Consultar `docs/TESTING.md` para pruebas y evidencia de CI; `docs/CHANGELOG.md` para cambios. No fusionar ni desplegar hasta revisión y aprobación. P0 de lectura pública/RLS sigue abierto.
+
+
+## Seguimiento — 2026-10-30 — auditoría Día 5 y respuesta a QA
+
+- Producción: rama estable `codex/revisar-informes-de-turnos-cancelados` @ `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`; Vercel producción READY @ `bc234fb0b8c981935602168ca0b6982d24d0956f`. No tocar.
+- Trabajo en PR #11 draft, rama `codex/ci-automatico-lint-build`: corrección de duración real de turnos en helper de disponibilidad y fallo cerrado ante datos inválidos/errores de consulta. Ver `docs/TESTING.md` y `docs/CHANGELOG.md`.
+- Auditoría de producción (solo metadatos) en `docs/SECURITY.md`: P0 de SELECT/INSERT público persiste; tres funciones SECURITY DEFINER ejecutables por anon/auth; grants amplios. No hubo cambios RLS ni SQL de escritura.
+- El cálculo UI **no** garantiza validación transaccional, no evita reservas concurrentes y no resuelve exposición pública de datos. No desplegar ni fusionar. Verificar CI y solicitar re-QA independiente.

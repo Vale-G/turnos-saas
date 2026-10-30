@@ -213,3 +213,12 @@ No se hizo merge, despliegue, migración, cambio de RLS, escritura en la base ac
 - Los ocho casos nuevos verifican cierre de jornada, duración inválida, bloqueos parciales, horas ocupadas dentro de una franja, límite para hoy y formatos inválidos. `npm test` ejecuta también los cinco casos previos de bloqueos.
 - **Validación:** pendiente de leer los jobs del workflow sobre el commit de código `a1d4a70b8f3e42074d3e001e6b6bda8137d82cae` o un descendiente que lo incluya. No atribuir a este cambio resultados de CI anteriores.
 - **Límite de seguridad:** este cálculo solo filtra opciones en el navegador. La consulta de turnos existente no incluye duración del servicio previo, por lo que no puede detectar todos los solapamientos; tampoco resuelve concurrencia, autorización, RLS, ni validación server-side. No tratarlo como mitigación del P0.
+
+
+## 2026-10-30 — corrección de hallazgos QA de disponibilidad (pendiente de CI)
+
+- PR #11, rama `codex/ci-automatico-lint-build`. El QA anterior reportó [solapamiento por duración desconocida y bloqueos inválidos](https://github.com/Vale-G/turnos-saas/pull/11#issuecomment-6504934143).
+- El helper ahora requiere ocupaciones con `hora` y `duracion`, compara intervalos por intersección y no ofrece horarios si hay registros o bloqueos inválidos. La página pública consulta `servicio(duracion)` para los turnos existentes y no ofrece horarios ante error de consulta.
+- Tests agregados: duración mixta, turno que empezó antes del slot, registros sin duración, bloques inválidos, intervalos adyacentes y listas inválidas. No son pruebas de base ni de concurrencia.
+- **Resultados de CI para este cambio: pendientes de comprobar.** No afirmar que `npm test`, build o lint pasaron hasta leer el run correspondiente al nuevo commit.
+- P0 de lectura pública y reserva directa desde navegador **sin corregir**. La consulta anidada requiere acceso de lectura a `servicio` y no reemplaza el endpoint seguro pendiente.

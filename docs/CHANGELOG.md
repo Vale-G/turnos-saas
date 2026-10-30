@@ -100,3 +100,11 @@
 - No se cambiaron consultas Supabase, políticas, migraciones, pagos, credenciales ni datos reales.
 - Validación de GitHub Actions: pendiente del run correspondiente al head con este cambio. El último head previo `e031ea4` tenía build y cinco pruebas aprobados, pero lint fallido con 27 errores/15 warnings; no reutilizarlo como prueba de esta corrección.
 - P0 continúa abierto: consultas públicas directas, ausencia de validación transaccional, duración de turnos existentes desconocida y RLS sin prueba aislada. QA independiente pendiente.
+
+
+## 2026-10-30 — intervalos ocupados y fallos cerrados (PR #11)
+
+- En `app/reservar/[slug]/page.tsx`, consulta de turnos con duración del servicio relacionado; ante error de consulta, no se muestran horarios. En `lib/reserva-disponibilidad.mjs` y su declaración TS, comparación de intervalos completos y rechazo conservador de bloqueos/ocupaciones inválidos. Se amplió `tests/reserva-disponibilidad.test.mjs` con regresiones de QA.
+- `docs/SECURITY.md`: auditoría de metadatos RLS, grants y funciones privilegiadas del Día 5, sin leer datos ni cambiar políticas.
+- Rama: `codex/ci-automatico-lint-build`; base `codex/revisar-informes-de-turnos-cancelados` @ `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`; PR #11 draft. Commit y checks: consultar el historial del PR y `docs/TESTING.md` al completarse CI.
+- Sin cambios en producción, SQL, migraciones, secrets ni pagos. QA independiente y pruebas funcionales pendientes.

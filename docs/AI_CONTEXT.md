@@ -123,3 +123,9 @@ QA independiente: se solicitó una ejecución inmediata después del cambio; el 
 - Trabajo en PR #11 draft, rama `codex/ci-automatico-lint-build`: corrección de duración real de turnos en helper de disponibilidad y fallo cerrado ante datos inválidos/errores de consulta. Ver `docs/TESTING.md` y `docs/CHANGELOG.md`.
 - Auditoría de producción (solo metadatos) en `docs/SECURITY.md`: P0 de SELECT/INSERT público persiste; tres funciones SECURITY DEFINER ejecutables por anon/auth; grants amplios. No hubo cambios RLS ni SQL de escritura.
 - El cálculo UI **no** garantiza validación transaccional, no evita reservas concurrentes y no resuelve exposición pública de datos. No desplegar ni fusionar. Verificar CI y solicitar re-QA independiente.
+
+
+### Evidencia CI — 2026-10-30
+
+- Código de reservas probado en `97fb8b96804b8788e225a36ddc66c80bb6acfd90`: [run 41048104243](https://github.com/Vale-G/turnos-saas/actions/runs/41048104243), build aprobado, tests 17/17 aprobados, lint **fallido** 26 errores/15 warnings; auditoría 20 vulnerabilidades. No significa seguridad aprobada.
+- Ver `docs/SECURITY.md` para la auditoría de metadatos del Día 5 y `docs/TESTING.md` para limitaciones. Pendiente re-QA y P0 de acceso público/RLS; PR #11 draft, producción intacta.

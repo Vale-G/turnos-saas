@@ -222,3 +222,11 @@ No se hizo merge, despliegue, migración, cambio de RLS, escritura en la base ac
 - Tests agregados: duración mixta, turno que empezó antes del slot, registros sin duración, bloques inválidos, intervalos adyacentes y listas inválidas. No son pruebas de base ni de concurrencia.
 - **Resultados de CI para este cambio: pendientes de comprobar.** No afirmar que `npm test`, build o lint pasaron hasta leer el run correspondiente al nuevo commit.
 - P0 de lectura pública y reserva directa desde navegador **sin corregir**. La consulta anidada requiere acceso de lectura a `servicio` y no reemplaza el endpoint seguro pendiente.
+
+
+### CI confirmada del fix de intervalos — 2026-10-30
+
+- Head de código probado: `97fb8b96804b8788e225a36ddc66c80bb6acfd90` (incluye commits `84abdf7` y `2a51690`), PR #11 draft.
+- [GitHub Actions run 41048104243](https://github.com/Vale-G/turnos-saas/actions/runs/41048104243): `npm ci` aprobado; `npm test` **17/17 aprobado**; `npm run build` **aprobado**; `npm run lint` **fallido con 26 errores y 15 warnings**. El baseline previo del PR era 37/15; el head previo 27/15.
+- Auditoría informativa mantiene **20 vulnerabilidades (1 baja, 6 moderadas, 12 altas, 1 crítica)**; no se actualizaron dependencias.
+- Las pruebas unitarias validan intervalos, no RLS, disponibilidad server-side, concurrencia, pagos ni aislamiento multiempresa. QA independiente pendiente de veredicto. Sin merge ni despliegue.

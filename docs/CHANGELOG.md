@@ -108,3 +108,9 @@
 - `docs/SECURITY.md`: auditoría de metadatos RLS, grants y funciones privilegiadas del Día 5, sin leer datos ni cambiar políticas.
 - Rama: `codex/ci-automatico-lint-build`; base `codex/revisar-informes-de-turnos-cancelados` @ `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`; PR #11 draft. Commit y checks: consultar el historial del PR y `docs/TESTING.md` al completarse CI.
 - Sin cambios en producción, SQL, migraciones, secrets ni pagos. QA independiente y pruebas funcionales pendientes.
+
+
+### Validación y ajuste de reintento — 2026-10-30
+
+- Commits: `84abdf7fff0ed4a2ac6e078e4b57b6a601dd113a` (helper, tests, UI y auditoría), `2a51690e46296b08a9809f9976ed95384712ac4c` (fixture de duraciones mixtas), `97fb8b96804b8788e225a36ddc66c80bb6acfd90` (carga inmediata y reintento de consulta al seleccionar fecha).
+- Evidencia: [CI 41048104243](https://github.com/Vale-G/turnos-saas/actions/runs/41048104243), 17/17 tests y build aprobados; lint fallido 26 errores/15 warnings; 20 vulnerabilidades. QA y pruebas funcionales pendientes.

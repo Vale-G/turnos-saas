@@ -1,6 +1,6 @@
 'use client'
 
-import Footer from '@/components/Footer'
+import { Footer } from '@/components/Footer'
 import Features, { type LandingFeature } from '@/components/landing/Features'
 import Hero from '@/components/landing/Hero'
 import Mockup from '@/components/landing/Mockup'

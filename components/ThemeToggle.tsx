@@ -6,11 +6,11 @@ import { useEffect, useState } from 'react'
 export default function ThemeToggle() {
   const [isDark, setIsDark] = useState(false)
 
-  if (brandConfig.themeMode !== 'with-toggle') return null
-
   useEffect(() => {
     setIsDark(document.documentElement.classList.contains('dark'))
   }, [])
+
+  if (brandConfig.themeMode !== 'with-toggle') return null
 
   const toggleTheme = () => {
     const next = !isDark

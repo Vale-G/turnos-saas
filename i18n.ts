@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { getRequestConfig } from 'next-intl';
+import { getRequestConfig } from 'next-intl/server';
 
 // Centralized i18n configuration
 export const i18n = {

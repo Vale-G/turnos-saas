@@ -31,7 +31,7 @@ export function SelectorFecha(props: FechaProps) {
 
     const diasDeshabilitados = useMemo(() => {
         const dias = [0, 1, 2, 3, 4, 5, 6].filter(d => !negocio.dias_laborales.includes(d));
-        return dias.map(d => ({ dayOfWeek: d }));
+        return { dayOfWeek: dias };
     }, [negocio.dias_laborales]);
 
     const horarios = useMemo(() => {

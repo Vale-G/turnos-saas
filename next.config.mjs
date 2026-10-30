@@ -1,6 +1,6 @@
 
 import createNextIntlPlugin from 'next-intl/plugin';
-import type { NextConfig } from 'next';
+
 
 // Generate a strict Content Security Policy
 // https://nextjs.org/docs/app/building-your-application/configuring/content-security-policy
@@ -22,7 +22,7 @@ const cspHeader = `
 
 const withNextIntl = createNextIntlPlugin();
 
-const nextConfig: NextConfig = {
+const nextConfig = {
   // Asynchronously configure headers
   async headers() {
     return [

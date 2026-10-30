@@ -1,3 +1,8 @@
+import { clsx, type ClassValue } from "clsx"
+import { twMerge } from "tailwind-merge"
+
+export function cn(...inputs: ClassValue[]) { return twMerge(clsx(inputs)) }
+
 const currencyLocaleFallback: Record<string, string> = {
   ARS: 'es-AR',
   USD: 'es-US',

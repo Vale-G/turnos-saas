@@ -5,12 +5,8 @@ import { supabase } from '@/lib/supabase';
 import crypto from 'crypto';
 import { Payment } from 'mercadopago';
 
-// Es crucial deshabilitar el bodyParser de Next.js para poder leer el body como texto
-export const config = {
-    api: {
-        bodyParser: false,
-    },
-};
+// App Router exposes the raw request body without bodyParser configuration.
+export const runtime = 'nodejs';
 
 async function getMercadoPagoPayment(paymentId: string) {
     const client = new Payment(mercadoPagoClient);

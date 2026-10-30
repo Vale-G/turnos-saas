@@ -1,0 +1,193 @@
+name: CI - Lint y build
+
+on:
+  pull_request:
+    branches:
+      - codex/revisar-informes-de-turnos-cancelados
+  push:
+    branches:
+      - "codex/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: ESLint (PR)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Ejecutar ESLint
+        run: npm run lint
+
+  unit-tests:
+    name: Pruebas unitarias
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Ejecutar pruebas unitarias
+        run: npm test
+
+  build:
+    name: Build Next.js
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Valores ficticios solo para prerender de CI; no conectan a un proyecto real ni se despliegan.
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-not-a-real-key
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Compilar aplicación
+        run: npm run build
+
+  baseline-lint:
+    name: ESLint en base (informativo)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Descargar commit base del PR
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Ejecutar ESLint en la base
+        id: baseline
+        continue-on-error: true
+        run: npm run lint
+
+      - name: Resumir baseline
+        if: always()
+        env:
+          BASELINE_OUTCOME: ${{ steps.baseline.outcome }}
+        run: |
+          if [ "$BASELINE_OUTCOME" = "success" ]; then
+            echo "ESLint en el commit base: aprobado." >> "$GITHUB_STEP_SUMMARY"
+          elif [ "$BASELINE_OUTCOME" = "failure" ]; then
+            echo "ESLint en el commit base: falló. Revisar el log de este paso para medir deuda preexistente; el job ESLint del PR sigue siendo el control obligatorio." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ESLint en el commit base: no ejecutado o bloqueado; revisar los pasos previos." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  dependency-audit:
+    name: Auditoría de dependencias (informativa)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Descargar código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Ejecutar npm audit sin ocultar fallos
+        id: audit
+        continue-on-error: true
+        run: npm audit --json > npm-audit.json
+
+      - name: Resumir vulnerabilidades
+        if: always()
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs')
+          const summaryPath = process.env.GITHUB_STEP_SUMMARY
+          if (!fs.existsSync('npm-audit.json')) {
+            const message = 'No se generó npm-audit.json; revisar si falló la instalación o el acceso al registry.'
+            console.log(message)
+            fs.appendFileSync(summaryPath, message + '\n')
+            process.exit(0)
+          }
+          let report
+          try {
+            report = JSON.parse(fs.readFileSync('npm-audit.json', 'utf8'))
+          } catch (error) {
+            const message = 'El reporte de npm audit no es JSON válido; revisar el log de la ejecución.'
+            console.log(message)
+            fs.appendFileSync(summaryPath, message + '\n')
+            process.exit(0)
+          }
+          const totals = report.metadata?.vulnerabilities ?? {}
+          const packages = Object.entries(report.vulnerabilities ?? {}).map(([name, item]) => ({
+            name,
+            severity: item.severity,
+            direct: item.isDirect,
+            range: item.range,
+            fixAvailable: item.fixAvailable,
+            advisories: (item.via ?? []).map((entry) =>
+              typeof entry === 'string'
+                ? { dependency: entry }
+                : { title: entry.title, url: entry.url, severity: entry.severity, range: entry.range }
+            ),
+          }))
+          console.log(JSON.stringify({ totals, packages }, null, 2))
+          const lines = [
+            '## Auditoría de dependencias (informativa)',
+            '',
+            '| Severidad | Cantidad |',
+            '|---|---:|',
+            `| Critical | ${totals.critical ?? 0} |`,
+            `| High | ${totals.high ?? 0} |`,
+            `| Moderate | ${totals.moderate ?? 0} |`,
+            `| Low | ${totals.low ?? 0} |`,
+            '',
+            'Consultar los logs del job para los paquetes, rangos y avisos. No se ejecutan actualizaciones automáticas.',
+          ]
+          fs.appendFileSync(summaryPath, lines.join('\n') + '\n')
+          NODE

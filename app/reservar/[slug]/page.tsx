@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase, getOAuthRedirectUrl } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
+import { generarHorariosDisponibles } from '@/lib/reserva-disponibilidad.mjs'
 import { toast } from 'sonner'
 
 const BA_TZ = 'America/Argentina/Buenos_Aires'
@@ -25,7 +26,10 @@ export default function ReservaPage() {
   const [negocio, setNegocio] = useState<any>(null)
   const [servicios, setServicios] = useState<any[]>([])
   const [staffList, setStaffList] = useState<any[]>([])
-  const [ocupados, setOcupados] = useState<string[]>([])
+  const [ocupados, setOcupados] = useState<Array<{ hora: string; duracion: number }>>([])
+  const [horariosCargando, setHorariosCargando] = useState(false)
+  const [horariosError, setHorariosError] = useState(false)
+  const [horariosReintento, setHorariosReintento] = useState(0)
   const [bloqueos, setBloqueos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [paso, setPaso] = useState(1)
@@ -55,49 +59,54 @@ export default function ReservaPage() {
 
   useEffect(() => {
     if (!sel.barbero || !sel.fecha) return
+    let vigente = true
+    setHorariosCargando(true)
+    setHorariosError(false)
+    setOcupados([])
+    setBloqueos([])
     async function check() {
-      const [{ data: t }, { data: b }] = await Promise.all([
-        supabase.from('turno').select('hora').eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha).not('estado', 'eq', 'cancelado'),
-        supabase.from('bloqueo').select('hora_inicio, hora_fin').eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha)
-      ])
-      setOcupados((t ?? []).map((i: any) => i.hora.slice(0, 5)))
-      setBloqueos(b ?? [])
+      try {
+        const [{ data: t, error: errorTurnos }, { data: b, error: errorBloqueos }] = await Promise.all([
+          supabase.from('turno').select('hora, servicio(duracion)').eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha).not('estado', 'eq', 'cancelado'),
+          supabase.from('bloqueo').select('hora_inicio, hora_fin').eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha)
+        ])
+        if (!vigente) return
+        if (errorTurnos || errorBloqueos || !Array.isArray(t) || !Array.isArray(b)) {
+          setHorariosError(true)
+          return
+        }
+        const registros = t.map((item) => {
+          const servicio = Array.isArray(item.servicio) ? item.servicio[0] : item.servicio
+          return { hora: item.hora, duracion: Number(servicio?.duracion) }
+        })
+        if (registros.some((item) => typeof item.hora !== 'string' || !Number.isInteger(item.duracion) || item.duracion <= 0)) {
+          setHorariosError(true)
+          return
+        }
+        setOcupados(registros)
+        setBloqueos(b)
+      } catch {
+        if (vigente) setHorariosError(true)
+      } finally {
+        if (vigente) setHorariosCargando(false)
+      }
     }
-    check()
-  }, [sel.barbero, sel.fecha])
+    void check()
+    return () => { vigente = false }
+  }, [sel.barbero, sel.fecha, horariosReintento])
 
   const horas = useMemo(() => {
-    if (!negocio || !sel.servicio || !sel.fecha) return []
-    const list: string[] = []
-    let curr = negocio.hora_apertura || '09:00:00'
-    const cierre = negocio.hora_cierre || '18:00:00'
+    if (!negocio || !sel.servicio || !sel.fecha || horariosCargando || horariosError) return []
     const esHoy = sel.fecha === toBaDateStr(new Date())
-    const minLimite = esHoy ? getBaMinutes() + 15 : 0
-
-    while (curr < cierre) {
-      const hF = curr.slice(0, 5)
-      const [hh, mm] = hF.split(':').map(Number)
-      const minActual = hh * 60 + mm
-      
-      const estaOcupado = ocupados.includes(hF)
-      const estaBloqueado = bloqueos.some(b => {
-        const [hStart, mStart] = b.hora_inicio.split(':').map(Number)
-        const [hEnd, mEnd] = b.hora_fin.split(':').map(Number)
-        const mS = hStart * 60 + mStart
-        const mE = hEnd * 60 + mEnd
-        return minActual >= mS && minActual < mE
-      })
-
-      if (!estaOcupado && !estaBloqueado && (!esHoy || minActual >= minLimite)) {
-        list.push(hF)
-      }
-      
-      let [h, m] = curr.split(':').map(Number); m += sel.servicio.duracion
-      if (m >= 60) { h += Math.floor(m / 60); m %= 60 }
-      curr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`
-    }
-    return list
-  }, [negocio, sel.servicio, sel.fecha, ocupados, bloqueos])
+    return generarHorariosDisponibles({
+      apertura: negocio.hora_apertura || '09:00:00',
+      cierre: negocio.hora_cierre || '18:00:00',
+      duracion: Number(sel.servicio.duracion),
+      ocupados,
+      bloqueos,
+      minLimite: esHoy ? getBaMinutes() + 15 : 0,
+    })
+  }, [negocio, sel.servicio, sel.fecha, ocupados, bloqueos, horariosCargando, horariosError])
 
   // EL CEREBRO DE LAS SEÑAS FLEXIBLES
   const montoSenaCalculado = useMemo(() => {
@@ -211,7 +220,7 @@ export default function ReservaPage() {
                   {dias.map(({ iso, weekday, day }) => {
                     const esLaboral = diasLaborales.includes(getDayOfWeek(iso))
                     const activo = sel.fecha === iso
-                    return <div key={iso} onClick={() => esLaboral && setSel({ ...sel, fecha: iso, hora: '' })} className={`flex-shrink-0 w-16 h-24 rounded-[2rem] border flex flex-col items-center justify-center ${!esLaboral ? 'opacity-20' : activo ? 'border-transparent' : 'bg-white/4 border-white/5'}`} style={activo && esLaboral ? { backgroundColor: colorP } : {}}><p className={`text-[9px] font-black uppercase mb-2 ${activo?'text-black':'text-slate-500'}`}>{weekday}</p><p className={`text-2xl font-black ${activo?'text-black':''}`}>{day}</p></div>
+                    return <div key={iso} onClick={() => { if (!esLaboral) return; setHorariosCargando(true); setHorariosError(false); setHorariosReintento((n) => n + 1); setSel({ ...sel, fecha: iso, hora: '' }) }} className={`flex-shrink-0 w-16 h-24 rounded-[2rem] border flex flex-col items-center justify-center ${!esLaboral ? 'opacity-20' : activo ? 'border-transparent' : 'bg-white/4 border-white/5'}`} style={activo && esLaboral ? { backgroundColor: colorP } : {}}><p className={`text-[9px] font-black uppercase mb-2 ${activo?'text-black':'text-slate-500'}`}>{weekday}</p><p className={`text-2xl font-black ${activo?'text-black':''}`}>{day}</p></div>
                   })}
                 </div>
               </div>
@@ -219,7 +228,7 @@ export default function ReservaPage() {
             {sel.fecha && (
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-6">Horarios Libres</p>
-                {horas.length === 0 ? <div className="text-center py-10 bg-white/4 rounded-[3rem] border border-dashed border-white/10"><p className="text-slate-500 text-[10px] font-black uppercase">Sin Cupos</p></div> : (
+                {horariosCargando ? <div className="text-center py-10 text-slate-400 text-xs">Verificando disponibilidad...</div> : horariosError ? <div role="alert" className="text-center py-10 text-amber-300 text-xs">No se pudieron verificar los horarios. Volvé a elegir la fecha para reintentar.</div> : horas.length === 0 ? <div className="text-center py-10 bg-white/4 rounded-[3rem] border border-dashed border-white/10"><p className="text-slate-500 text-[10px] font-black uppercase">Sin Cupos</p></div> : (
                   <div className="grid grid-cols-4 gap-3">
                     {horas.map(h => <div key={h} onClick={() => setSel({ ...sel, hora: h })} className={`py-5 rounded-2xl text-[11px] font-black text-center cursor-pointer border ${sel.hora === h ? 'border-transparent shadow-lg' : 'bg-white/4 border-white/5'}`} style={sel.hora === h ? { backgroundColor: colorP, color: 'black' } : {}}>{h}</div>)}
                   </div>

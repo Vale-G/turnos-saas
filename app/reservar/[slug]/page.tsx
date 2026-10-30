@@ -29,6 +29,7 @@ export default function ReservaPage() {
   const [ocupados, setOcupados] = useState<Array<{ hora: string; duracion: number }>>([])
   const [horariosCargando, setHorariosCargando] = useState(false)
   const [horariosError, setHorariosError] = useState(false)
+  const [horariosReintento, setHorariosReintento] = useState(0)
   const [bloqueos, setBloqueos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [paso, setPaso] = useState(1)
@@ -92,7 +93,7 @@ export default function ReservaPage() {
     }
     void check()
     return () => { vigente = false }
-  }, [sel.barbero, sel.fecha])
+  }, [sel.barbero, sel.fecha, horariosReintento])
 
   const horas = useMemo(() => {
     if (!negocio || !sel.servicio || !sel.fecha || horariosCargando || horariosError) return []
@@ -219,7 +220,7 @@ export default function ReservaPage() {
                   {dias.map(({ iso, weekday, day }) => {
                     const esLaboral = diasLaborales.includes(getDayOfWeek(iso))
                     const activo = sel.fecha === iso
-                    return <div key={iso} onClick={() => esLaboral && setSel({ ...sel, fecha: iso, hora: '' })} className={`flex-shrink-0 w-16 h-24 rounded-[2rem] border flex flex-col items-center justify-center ${!esLaboral ? 'opacity-20' : activo ? 'border-transparent' : 'bg-white/4 border-white/5'}`} style={activo && esLaboral ? { backgroundColor: colorP } : {}}><p className={`text-[9px] font-black uppercase mb-2 ${activo?'text-black':'text-slate-500'}`}>{weekday}</p><p className={`text-2xl font-black ${activo?'text-black':''}`}>{day}</p></div>
+                    return <div key={iso} onClick={() => { if (!esLaboral) return; setHorariosCargando(true); setHorariosError(false); setHorariosReintento((n) => n + 1); setSel({ ...sel, fecha: iso, hora: '' }) }} className={`flex-shrink-0 w-16 h-24 rounded-[2rem] border flex flex-col items-center justify-center ${!esLaboral ? 'opacity-20' : activo ? 'border-transparent' : 'bg-white/4 border-white/5'}`} style={activo && esLaboral ? { backgroundColor: colorP } : {}}><p className={`text-[9px] font-black uppercase mb-2 ${activo?'text-black':'text-slate-500'}`}>{weekday}</p><p className={`text-2xl font-black ${activo?'text-black':''}`}>{day}</p></div>
                   })}
                 </div>
               </div>

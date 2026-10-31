@@ -45,25 +45,18 @@ export default function RegistroNegocio() {
 
     setSlugStatus('checking')
 
-    const { data, error } = await supabase
-      .from('negocio')
-      .select('id')
-      .eq('slug', slugToCheck)
-      .maybeSingle()
-
-    if (error) {
-      console.error('[Turnly] Error verificando slug:', error)
+    const response = await fetch(`/api/public/slugs/${encodeURIComponent(slugToCheck)}`, { cache: 'no-store' })
+    if (!response.ok) {
       setSlugStatus('idle')
       return
     }
-
-    setSlugStatus(data ? 'taken' : 'available')
+    const data = await response.json()
+    setSlugStatus(data.available ? 'available' : 'taken')
   }, [])
 
   // Debounce de 500ms para no saturar la DB
   useEffect(() => {
     if (!slug) {
-      setSlugStatus('idle')
       return
     }
 
@@ -76,12 +69,18 @@ export default function RegistroNegocio() {
 
   const handleNombreChange = (value: string) => {
     setNombreNegocio(value)
-    if (!slugManual) setSlug(slugify(value))
+    if (!slugManual) {
+      const nextSlug = slugify(value)
+      setSlug(nextSlug)
+      setSlugStatus(nextSlug.length < 3 ? 'invalid' : 'idle')
+    }
   }
 
   const handleSlugChange = (value: string) => {
     setSlugManual(true)
-    setSlug(slugify(value))
+    const nextSlug = slugify(value)
+    setSlug(nextSlug)
+    setSlugStatus(nextSlug.length < 3 ? 'invalid' : 'idle')
   }
 
   const handleRegistro = async (e: React.FormEvent) => {
@@ -112,15 +111,6 @@ export default function RegistroNegocio() {
     setPasswordError(null)
     setLoading(true)
 
-    // Leer dias_trial desde config (con fallback a 30)
-    let diasTrial = 30
-    const { data: config } = await supabase
-      .from('config')
-      .select('valor')
-      .eq('clave', 'dias_trial')
-      .maybeSingle()
-    if (config?.valor) diasTrial = Number(config.valor)
-
     const { data: authData, error: authError } = await supabase.auth.signUp({ email, password })
 
     if (authError) {
@@ -129,43 +119,22 @@ export default function RegistroNegocio() {
       return
     }
 
-    if (authData.user) {
-      const slugFinal = slug || slugify(nombreNegocio)
-
-      // Validación final server-side (por las dudas)
-      const { data: slugExiste } = await supabase
-        .from('negocio')
-        .select('id')
-        .eq('slug', slugFinal)
-        .maybeSingle()
-
-      if (slugExiste) {
-        toast.error('Ese nombre de URL ya está en uso. Elegí otro.')
-        setLoading(false)
-        return
-      }
-
-      const trialHasta = new Date()
-      trialHasta.setDate(trialHasta.getDate() + diasTrial)
-
-      const { error: dbError } = await supabase
-        .from('negocio')
-        .insert([{
-          owner_id: authData.user.id,
-          nombre: nombreNegocio,
-          slug: slugFinal,
-          suscripcion_tipo: 'trial',
-          trial_hasta: trialHasta.toISOString(),
-          activo: true,
-          onboarding_completo: false,
-        }])
-
-      if (dbError) {
-        toast.error('Error al guardar negocio: ' + dbError.message)
+    if (authData.session) {
+      const response = await fetch('/api/onboarding', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre: nombreNegocio, slug, whatsapp: '', tema: 'emerald', apertura: '09:00', cierre: '18:00' }),
+      })
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        toast.error(payload.error ?? 'La cuenta se creó, pero falta configurar el negocio')
+        router.push('/onboarding')
       } else {
-        toast.success('¡Cuenta creada! Redirigiendo al panel...')
-        setTimeout(() => router.push('/onboarding'), 1200)
+        toast.success('¡Cuenta y negocio creados!')
+        router.push('/dashboard')
       }
+    } else if (authData.user) {
+      toast.success('Revisá tu correo para confirmar la cuenta y continuar')
+      router.push('/login')
     }
     setLoading(false)
   }

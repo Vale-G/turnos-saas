@@ -4,13 +4,13 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getThemeColor, TEMAS } from '@/lib/theme'
 import { toast } from 'sonner'
+import type { User } from '@supabase/supabase-js'
 
 export default function OnboardingElite() {
   const [paso, setPaso] = useState(1)
   const [loading, setLoading] = useState(true)
   const [guardando, setGuardando] = useState(false)
-  const [user, setUser] = useState<any>(null)
-  const [diasTrial, setDiasTrial] = useState(14)
+  const [user, setUser] = useState<User | null>(null)
   
   const [nombre, setNombre] = useState('')
   const [slug, setSlug] = useState('')
@@ -35,40 +35,31 @@ export default function OnboardingElite() {
         return router.push('/dashboard')
       }
       
-      const { data: cfg } = await supabase.from('config').select('valor').eq('clave', 'dias_trial').maybeSingle()
-      if (cfg) setDiasTrial(Number(cfg.valor))
-
       setLoading(false)
     }
     check()
   }, [router])
 
-  useEffect(() => {
-    if (paso === 1 && nombre) {
-      setSlug(nombre.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-'))
-    }
-  }, [nombre, paso])
+  const cambiarNombre = (value: string) => {
+    setNombre(value)
+    setSlug(value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-'))
+  }
 
   const crearNegocio = async (e: React.FormEvent) => {
     e.preventDefault()
     setGuardando(true)
 
-    const trialHasta = new Date()
-    trialHasta.setDate(trialHasta.getDate() + diasTrial)
-
-    const { data, error } = await supabase.from('negocio').insert({
-      owner_id: user.id, nombre, slug, whatsapp, tema,
-      hora_apertura: apertura + ':00', hora_cierre: cierre + ':00',
-      suscripcion_tipo: 'trial', trial_hasta: trialHasta.toISOString().split('T')[0]
-    }).select('id').single()
-
-    if (error) {
-      toast.error('Error al crear tu negocio: ' + error.message)
+    if (!user) return
+    const response = await fetch('/api/onboarding', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nombre, slug, whatsapp, tema, apertura, cierre }),
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      toast.error(data.error ?? 'No se pudo crear el negocio')
       setGuardando(false)
       return
     }
-
-    await supabase.from('adminrol').insert({ user_id: user.id, role: 'owner', negocio_id: data.id })
 
     toast.success('¡Negocio creado con éxito! Bienvenido a Turnly 🚀')
     router.push('/dashboard')
@@ -101,7 +92,7 @@ export default function OnboardingElite() {
               <h2 className="text-2xl font-black uppercase italic tracking-tighter mb-8">Tu Marca</h2>
               <div>
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block">Nombre de tu Negocio</label>
-                <input autoFocus value={nombre} onChange={e => setNombre(e.target.value)} placeholder="EJ: ESTÉTICA GLAM" required className="w-full bg-black/50 border border-white/10 p-6 rounded-2xl text-sm font-black uppercase outline-none focus:border-white/30 transition-all placeholder:text-slate-800" />
+                <input autoFocus value={nombre} onChange={e => cambiarNombre(e.target.value)} placeholder="EJ: ESTÉTICA GLAM" required className="w-full bg-black/50 border border-white/10 p-6 rounded-2xl text-sm font-black uppercase outline-none focus:border-white/30 transition-all placeholder:text-slate-800" />
               </div>
               <div className="pt-2">
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block">Link Único de Reservas</label>
@@ -142,7 +133,7 @@ export default function OnboardingElite() {
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4 block text-center">Elegí el color de tu marca</label>
                 <div className="flex flex-wrap justify-center gap-4">
                   {Object.entries(TEMAS).map(([key, obj]) => {
-                    const colorHex = (obj as any).color
+                    const colorHex = obj.color
                     return (
                       <button type="button" key={key} onClick={() => setTema(key)} 
                         className={`w-16 h-16 rounded-full border-4 transition-all duration-300 ${tema === key ? 'scale-110 shadow-2xl' : 'border-transparent hover:scale-105 opacity-50 hover:opacity-100'}`} 

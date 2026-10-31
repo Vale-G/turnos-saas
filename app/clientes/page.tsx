@@ -5,15 +5,20 @@ import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
 import { toast } from 'sonner'
 
+type TurnoCliente = { cliente_nombre: string | null; fecha: string; hora: string; estado: string; servicio: { nombre: string } | Array<{ nombre: string }> | null }
+type NotaCliente = { texto: string; fecha: string }
+type ClienteAgrupado = { idString: string; nombre: string; telefono: string; turnosTotal: number; historial: TurnoCliente[] }
+type NegocioCliente = { id: string; tema: string | null }
+
 export default function ClientesCRM() {
-  const [turnos, setTurnos] = useState<any[]>([])
-  const [negocio, setNegocio] = useState<any>(null)
+  const [turnos, setTurnos] = useState<TurnoCliente[]>([])
+  const [negocio, setNegocio] = useState<NegocioCliente | null>(null)
   const [loading, setLoading] = useState(true)
   const [busqueda, setBusqueda] = useState('')
   const [clienteSeleccionado, setClienteSeleccionado] = useState<string | null>(null)
   
   // Nuevos estados para Notas y Lista Negra
-  const [notas, setNotas] = useState<any[]>([])
+  const [notas, setNotas] = useState<NotaCliente[]>([])
   const [nuevaNota, setNuevaNota] = useState('')
   const [guardandoNota, setGuardandoNota] = useState(false)
   const [listaNegra, setListaNegra] = useState<string[]>([])
@@ -26,7 +31,7 @@ export default function ClientesCRM() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return router.push('/login')
       
-      const { data: adm } = await supabase.from('adminrol').select('*').eq('user_id', user.id).maybeSingle()
+      const { data: adm } = await supabase.from('adminrol').select('negocio_id,role').eq('user_id', user.id).maybeSingle()
       let nId = adm?.negocio_id
       if (!nId) {
         const { data: n } = await supabase.from('negocio').select('id').eq('owner_id', user.id).maybeSingle()
@@ -34,14 +39,17 @@ export default function ClientesCRM() {
       }
       
       if (nId) {
-        const { data: neg } = await supabase.from('negocio').select('*').eq('id', nId).single()
+        const { data: neg } = await supabase.from('negocio').select('id,tema').eq('id', nId).single()
         setNegocio(neg)
         const { data: t } = await supabase.from('turno').select('cliente_nombre, fecha, hora, estado, servicio(nombre)').eq('negocio_id', nId).order('fecha', { ascending: false })
-        setTurnos(t || [])
+        setTurnos((t ?? []) as TurnoCliente[])
 
         // Cargar Lista Negra global del negocio
-        const { data: bl } = await supabase.from('config').select('valor').eq('clave', `blacklist_${nId}`).maybeSingle()
-        if (bl?.valor) setListaNegra(JSON.parse(bl.valor))
+        const response = await fetch('/api/clientes/config?kind=blacklist', { cache: 'no-store' })
+        if (response.ok) {
+          const payload = await response.json()
+          setListaNegra(Array.isArray(payload.value) ? payload.value : [])
+        }
       }
       setLoading(false)
     }
@@ -49,7 +57,7 @@ export default function ClientesCRM() {
   }, [router])
 
   const clientes = useMemo(() => {
-    const mapa = new Map()
+    const mapa = new Map<string, ClienteAgrupado>()
     turnos.forEach(t => {
       if (!t.cliente_nombre) return
       const key = t.cliente_nombre.trim()
@@ -63,7 +71,7 @@ export default function ClientesCRM() {
           historial: [] 
         })
       }
-      const cli = mapa.get(key)
+      const cli = mapa.get(key)!
       cli.turnosTotal += 1
       cli.historial.push(t)
     })
@@ -72,22 +80,26 @@ export default function ClientesCRM() {
 
   const cargarNotas = async (cid: string) => {
     setNotas([])
-    const { data } = await supabase.from('config').select('valor').eq('clave', `nota_${negocio?.id}_${cid}`).maybeSingle()
-    if (data?.valor) setNotas(JSON.parse(data.valor))
+    const response = await fetch(`/api/clientes/config?kind=notes&client=${encodeURIComponent(cid)}`, { cache: 'no-store' })
+    if (response.ok) {
+      const payload = await response.json()
+      setNotas(Array.isArray(payload.value) ? payload.value : [])
+    }
   }
 
   const agregarNota = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!nuevaNota.trim() || !clienteSeleccionado) return
+    if (!nuevaNota.trim() || !clienteSeleccionado || !negocio) return
     setGuardandoNota(true)
     
     const nuevaLista = [{ texto: nuevaNota, fecha: new Date().toLocaleDateString('es-AR') }, ...notas]
-    const clave = `nota_${negocio.id}_${clienteSeleccionado}`
-    
-    const { error } = await supabase.from('config').upsert({ clave, valor: JSON.stringify(nuevaLista) }, { onConflict: 'clave' })
+    const response = await fetch('/api/clientes/config', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: 'notes', client: clienteSeleccionado, value: nuevaLista }),
+    })
     
     setGuardandoNota(false)
-    if (error) return toast.error('Error al guardar la nota')
+    if (!response.ok) return toast.error('Error al guardar la nota')
     
     setNotas(nuevaLista)
     setNuevaNota('')
@@ -96,6 +108,7 @@ export default function ClientesCRM() {
 
   const toggleBloqueo = async (telefono: string) => {
     if (!telefono) return toast.error('Este cliente no tiene teléfono registrado.')
+    if (!negocio) return toast.error('No se encontró el negocio')
     setGuardandoBloqueo(true)
     
     let nuevaListaNegra = [...listaNegra]
@@ -107,10 +120,13 @@ export default function ClientesCRM() {
       nuevaListaNegra.push(telefono)
     }
 
-    const { error } = await supabase.from('config').upsert({ clave: `blacklist_${negocio.id}`, valor: JSON.stringify(nuevaListaNegra) }, { onConflict: 'clave' })
+    const response = await fetch('/api/clientes/config', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind: 'blacklist', value: nuevaListaNegra }),
+    })
     
     setGuardandoBloqueo(false)
-    if (error) return toast.error('Error al actualizar lista negra')
+    if (!response.ok) return toast.error('Error al actualizar lista negra')
     
     setListaNegra(nuevaListaNegra)
     toast.success(estaBloqueado ? 'Cliente desbloqueado' : 'Cliente bloqueado (Lista Negra)')
@@ -199,17 +215,20 @@ export default function ClientesCRM() {
                    <div>
                      <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-6 flex items-center gap-2">📅 Historial ({clienteData.turnosTotal})</p>
                      <div className="space-y-3">
-                       {clienteData.historial.map((t: any, i: number) => (
+                       {clienteData.historial.map((t, i) => {
+                         const servicio = Array.isArray(t.servicio) ? t.servicio[0] : t.servicio
+                         return (
                          <div key={i} className="bg-white/5 border border-white/5 p-4 rounded-2xl flex justify-between items-center hover:bg-white/10 transition-colors">
                            <div>
-                             <p className="text-xs font-black uppercase">{t.servicio?.nombre || 'Servicio'}</p>
+                             <p className="text-xs font-black uppercase">{servicio?.nombre || 'Servicio'}</p>
                              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mt-1">{t.fecha} - {t.hora.slice(0,5)}</p>
                            </div>
                            <span className={`text-[9px] font-black uppercase px-2 py-1 rounded-md ${t.estado === 'completado' ? 'bg-emerald-500/20 text-emerald-400' : t.estado === 'cancelado' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>
                              {t.estado}
                            </span>
                          </div>
-                       ))}
+                         )
+                       })}
                      </div>
                    </div>
                 </div>

@@ -58,12 +58,16 @@ export async function POST(req: NextRequest) {
 
     const { data: turno, error: turnoError } = await supabase
       .from('turno')
-      .select('id, negocio_id, servicio_id')
+      .select('id, negocio_id, servicio_id, cliente_id')
       .eq('id', turnoId)
       .single()
 
     if (turnoError || !turno) {
       return NextResponse.json({ error: 'Turno inexistente' }, { status: 404 })
+    }
+
+    if (turno.cliente_id !== user.id) {
+      return NextResponse.json({ error: 'No autorizado para pagar este turno' }, { status: 403 })
     }
 
     if (turno.servicio_id !== servicioId) {
@@ -107,7 +111,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'El precio enviado no coincide con el valor real del servicio' }, { status: 400 })
     }
 
-    const origin = req.headers.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
+    const origin = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? req.nextUrl.origin).origin
 
     const preferencia = await crearPreferenciaMercadoPago({
       titulo: servicio.nombre,

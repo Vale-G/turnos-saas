@@ -55,8 +55,6 @@ export default function AgendaTurnos() {
   const [busqueda, setBusqueda] = useState('')
   const [turnoEditando, setTurnoEditando] = useState<string | null>(null)
   const [turnoEditar, setTurnoEditar] = useState<TurnoItem | null>(null)
-  const [_staffList, _setStaffList] = useState<{ id: string; nombre: string }[]>([])
-  const [_serviciosList, _setServiciosList] = useState<{ id: string; nombre: string; precio: number; duracion: number }[]>([])
   const router = useRouter()
 
   const totalCobrado = useMemo(
@@ -111,12 +109,6 @@ export default function AgendaTurnos() {
       setNegocioId(nId)
       setColorPrincipal(getThemeColor(negData?.tema))
 
-      const [{ data: stf }, { data: svcs }] = await Promise.all([
-        supabase.from('staff').select('id, nombre').eq('negocio_id', nId).eq('activo', true),
-        supabase.from('servicio').select('id, nombre, precio, duracion').eq('negocio_id', nId),
-      ])
-      _setStaffList(stf ?? [])
-      _setServiciosList(svcs ?? [])
     }
     init()
   }, [router])

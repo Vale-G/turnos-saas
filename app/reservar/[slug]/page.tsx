@@ -1,17 +1,25 @@
 'use client'
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase, getOAuthRedirectUrl } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
-import { generarHorariosDisponibles } from '@/lib/reserva-disponibilidad.mjs'
 import { toast } from 'sonner'
+import type { User } from '@supabase/supabase-js'
+import Image from 'next/image'
+
+type NegocioPublico = {
+  id: string; nombre: string; descripcion: string | null; logo_url: string | null
+  tema: string | null; dias_laborales: number[] | null
+}
+type ServicioPublico = {
+  id: string; nombre: string; descripcion: string | null; precio: number
+  duracion: number; seña_tipo: 'ninguno' | 'fijo' | 'porcentaje' | null; seña_valor: number | null
+}
+type ProfesionalPublico = { id: string; nombre: string; avatar_url: string | null }
+type Seleccion = { servicio: ServicioPublico | null; barbero: ProfesionalPublico | null; fecha: string; hora: string }
 
 const BA_TZ = 'America/Argentina/Buenos_Aires'
 function toBaDateStr(date: Date): string { return new Intl.DateTimeFormat('en-CA', { timeZone: BA_TZ }).format(date) }
-function getBaMinutes(): number {
-  const parts = new Intl.DateTimeFormat('en-US', { timeZone: BA_TZ, hour: 'numeric', minute: 'numeric', hour12: false }).formatToParts(new Date())
-  return parseInt(parts.find(p => p.type === 'hour')?.value ?? '0') * 60 + parseInt(parts.find(p => p.type === 'minute')?.value ?? '0')
-}
 function getDayOfWeek(dateStr: string): number { return new Date(`${dateStr}T12:00:00-03:00`).getDay() }
 function generateDias() {
   const now = new Date()
@@ -22,21 +30,21 @@ function generateDias() {
 }
 
 export default function ReservaPage() {
-  const { slug } = useParams()
-  const [negocio, setNegocio] = useState<any>(null)
-  const [servicios, setServicios] = useState<any[]>([])
-  const [staffList, setStaffList] = useState<any[]>([])
-  const [ocupados, setOcupados] = useState<Array<{ hora: string; duracion: number }>>([])
+  const { slug } = useParams<{ slug: string }>()
+  const [negocio, setNegocio] = useState<NegocioPublico | null>(null)
+  const [servicios, setServicios] = useState<ServicioPublico[]>([])
+  const [staffList, setStaffList] = useState<ProfesionalPublico[]>([])
+  const [horas, setHoras] = useState<string[]>([])
   const [horariosCargando, setHorariosCargando] = useState(false)
   const [horariosError, setHorariosError] = useState(false)
   const [horariosReintento, setHorariosReintento] = useState(0)
-  const [bloqueos, setBloqueos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [paso, setPaso] = useState(1)
-  const [sel, setSel] = useState<any>({ servicio: null, barbero: null, fecha: '', hora: '' })
+  const [sel, setSel] = useState<Seleccion>({ servicio: null, barbero: null, fecha: '', hora: '' })
   const [confirmando, setConfirmando] = useState(false)
   const [exito, setExito] = useState(false)
-  const [user, setUser] = useState<any>(null)
+  const [gestionUrl, setGestionUrl] = useState('')
+  const [user, setUser] = useState<User | null>(null)
 
   const colorP = getThemeColor(negocio?.tema)
   const dias = useMemo(() => generateDias(), [])
@@ -44,47 +52,45 @@ export default function ReservaPage() {
 
   useEffect(() => {
     async function init() {
-      const { data: neg } = await supabase.from('negocio').select('*').eq('slug', slug).single()
-      if (!neg) return setLoading(false)
-      setNegocio(neg)
-      const [{ data: svcs }, { data: stf }] = await Promise.all([
-        supabase.from('servicio').select('*').eq('negocio_id', neg.id),
-        supabase.from('staff').select('*').eq('negocio_id', neg.id).eq('activo', true)
-      ])
-      setServicios(svcs ?? []); setStaffList(stf ?? []); setLoading(false)
+      const response = await fetch(`/api/public/negocios/${encodeURIComponent(String(slug))}`, { cache: 'no-store' })
+      if (!response.ok) return setLoading(false)
+      const data = await response.json()
+      setNegocio(data.negocio)
+      setServicios(data.servicios ?? [])
+      setStaffList(data.staff ?? [])
+      setLoading(false)
     }
-    init()
-    supabase.auth.getSession().then(({ data: { session } }) => setUser(session?.user || null))
+    void init()
+    supabase.auth.getUser().then(({ data: { user: currentUser } }) => setUser(currentUser))
   }, [slug])
 
   useEffect(() => {
-    if (!sel.barbero || !sel.fecha) return
+    if (!negocio || !sel.servicio || !sel.barbero || !sel.fecha) return
+    const negocioId = negocio.id
+    const servicioId = sel.servicio.id
+    const staffId = sel.barbero.id
+    const fecha = sel.fecha
     let vigente = true
-    setHorariosCargando(true)
-    setHorariosError(false)
-    setOcupados([])
-    setBloqueos([])
     async function check() {
       try {
-        const [{ data: t, error: errorTurnos }, { data: b, error: errorBloqueos }] = await Promise.all([
-          supabase.from('turno').select('hora, servicio(duracion)').eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha).not('estado', 'eq', 'cancelado'),
-          supabase.from('bloqueo').select('hora_inicio, hora_fin').eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha)
-        ])
-        if (!vigente) return
-        if (errorTurnos || errorBloqueos || !Array.isArray(t) || !Array.isArray(b)) {
-          setHorariosError(true)
-          return
-        }
-        const registros = t.map((item) => {
-          const servicio = Array.isArray(item.servicio) ? item.servicio[0] : item.servicio
-          return { hora: item.hora, duracion: Number(servicio?.duracion) }
+        const query = new URLSearchParams({
+          negocioId,
+          servicioId,
+          staffId,
+          fecha,
         })
-        if (registros.some((item) => typeof item.hora !== 'string' || !Number.isInteger(item.duracion) || item.duracion <= 0)) {
+        const response = await fetch(`/api/public/disponibilidad?${query}`, { cache: 'no-store' })
+        if (!vigente) return
+        if (!response.ok) {
           setHorariosError(true)
           return
         }
-        setOcupados(registros)
-        setBloqueos(b)
+        const data = await response.json()
+        if (!Array.isArray(data.horarios) || data.horarios.some((hora: unknown) => typeof hora !== 'string')) {
+          setHorariosError(true)
+          return
+        }
+        setHoras(data.horarios)
       } catch {
         if (vigente) setHorariosError(true)
       } finally {
@@ -93,20 +99,7 @@ export default function ReservaPage() {
     }
     void check()
     return () => { vigente = false }
-  }, [sel.barbero, sel.fecha, horariosReintento])
-
-  const horas = useMemo(() => {
-    if (!negocio || !sel.servicio || !sel.fecha || horariosCargando || horariosError) return []
-    const esHoy = sel.fecha === toBaDateStr(new Date())
-    return generarHorariosDisponibles({
-      apertura: negocio.hora_apertura || '09:00:00',
-      cierre: negocio.hora_cierre || '18:00:00',
-      duracion: Number(sel.servicio.duracion),
-      ocupados,
-      bloqueos,
-      minLimite: esHoy ? getBaMinutes() + 15 : 0,
-    })
-  }, [negocio, sel.servicio, sel.fecha, ocupados, bloqueos, horariosCargando, horariosError])
+  }, [negocio, sel.servicio, sel.barbero, sel.fecha, horariosReintento])
 
   // EL CEREBRO DE LAS SEÑAS FLEXIBLES
   const montoSenaCalculado = useMemo(() => {
@@ -119,46 +112,52 @@ export default function ReservaPage() {
   }, [sel.servicio])
 
   const handleFinal = async (nombre: string, tel: string, pagarSena: boolean, correoInvitado: string) => {
-    setConfirmando(true)
-    const cliNombre = user ? (user.user_metadata?.full_name || user.email) : `${nombre} · ${tel}`
-    const correoFinal = user ? user.email : correoInvitado
-    
-    // 1. Validar Lista Negra
-    const { data: blacklistData } = await supabase.from('config').select('valor').eq('clave', `blacklist_${negocio.id}`).maybeSingle()
-    if (blacklistData?.valor) {
-      const listaNegra = JSON.parse(blacklistData.valor)
-      const telefonoLimpio = tel.replace(/[^0-9]/g, '')
-      if (listaNegra.some((t: string) => t.replace(/[^0-9]/g, '') === telefonoLimpio)) {
-        setConfirmando(false)
-        return toast.error('Este servicio no está disponible para tu número. Contactá al local.', { duration: 5000 })
-      }
+    if (!negocio || !sel.servicio || !sel.barbero || !sel.fecha || !sel.hora || !horas.includes(sel.hora)) {
+      toast.error('Volvé a verificar el horario elegido')
+      setPaso(2)
+      return
     }
-    
-    // 2. Insertar Turno
-    const { data: turno, error } = await supabase.from('turno').insert({
-      negocio_id: negocio.id, servicio_id: sel.servicio.id, staff_id: sel.barbero.id,
-      fecha: sel.fecha, hora: sel.hora + ':00', cliente_id: user?.id || null,
-      cliente_nombre: cliNombre, estado: 'pendiente'
-    }).select('id').single()
-
-    if (error) { toast.error('Error al reservar'); setConfirmando(false); return }
-
-    // Notificar
-    fetch('/api/notificar', {
+    const negocioId = negocio.id
+    const servicioId = sel.servicio.id
+    const staffId = sel.barbero.id
+    setConfirmando(true)
+    const response = await fetch('/api/public/reservas', {
       method: 'POST',
-      body: JSON.stringify({ clienteNombre: cliNombre, clienteEmail: correoFinal, negocioNombre: negocio.nombre, fecha: sel.fecha, hora: sel.hora, servicio: sel.servicio.nombre, emailNegocio: negocio.email_contacto })
-    }).catch(console.error)
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        negocioId,
+        servicioId,
+        staffId,
+        fecha: sel.fecha,
+        hora: sel.hora,
+        nombre,
+        telefono: tel,
+        email: correoInvitado,
+      }),
+    })
+    const booking = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      toast.error(booking.error ?? 'No se pudo reservar')
+      setConfirmando(false)
+      if (response.status === 409) setHorariosReintento((n) => n + 1)
+      return
+    }
+    void fetch('/api/notificar', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+      body: JSON.stringify({ turnoId: booking.id, manageToken: booking.manageToken }),
+    })
 
     // 3. Pagar Seña Exacta a MercadoPago
     if (pagarSena && montoSenaCalculado > 0) {
       const res = await fetch('/api/sena', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ turno_id: turno.id, monto_sena: montoSenaCalculado, servicio_nombre: sel.servicio.nombre, negocio_nombre: negocio.nombre, cliente_email: correoFinal })
+        body: JSON.stringify({ turno_id: booking.id, manage_token: booking.manageToken })
       })
       const resData = await res.json()
       if (resData.url) { window.location.href = resData.url; return } 
     }
 
+    setGestionUrl(`/cancelar/${booking.id}?token=${booking.manageToken}`)
     setExito(true)
     setConfirmando(false)
   }
@@ -171,7 +170,7 @@ export default function ReservaPage() {
       <div className="max-w-md mx-auto px-6">
         <header className="py-8 flex items-center justify-between border-b border-white/5 mb-8">
           <div className="flex items-center gap-4">
-            {negocio.logo_url ? <img src={negocio.logo_url} className="w-14 h-14 rounded-2xl object-cover border border-white/10" /> : <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl border border-white/10" style={{ background: colorP + '20', color: colorP }}>{negocio.nombre[0]}</div>}
+            {negocio.logo_url ? <Image src={negocio.logo_url} alt={`Logo de ${negocio.nombre}`} width={56} height={56} unoptimized className="w-14 h-14 rounded-2xl object-cover border border-white/10" /> : <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl border border-white/10" style={{ background: colorP + '20', color: colorP }}>{negocio.nombre[0]}</div>}
             <div><h1 className="text-2xl font-black uppercase italic tracking-tighter" style={{ color: colorP }}>{negocio.nombre}</h1><p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] mt-1">Reserva online</p></div>
           </div>
         </header>
@@ -181,6 +180,7 @@ export default function ReservaPage() {
             <div className="w-28 h-28 rounded-full border-4 mx-auto mb-8 flex items-center justify-center text-5xl" style={{ borderColor: colorP, color: colorP, boxShadow: `0 0 80px ${colorP}30` }}>✓</div>
             <h2 className="text-5xl font-black uppercase italic tracking-tighter mb-4">¡Turno Listo!</h2>
             <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.3em] mb-12">{sel.fecha} A LAS {sel.hora} HS</p>
+            {gestionUrl && <a href={gestionUrl} className="block text-sm font-bold underline underline-offset-4 mb-8" style={{ color: colorP }}>Guardar enlace para gestionar o cancelar</a>}
             <button onClick={() => window.location.reload()} className="font-black uppercase italic text-lg px-12 py-5 rounded-[2rem] text-black shadow-xl" style={{ backgroundColor: colorP }}>Genial</button>
           </div>
         ) : paso === 1 ? (
@@ -188,7 +188,7 @@ export default function ReservaPage() {
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-8">Elegí un servicio</p>
             <div className="space-y-4">
               {servicios.map(s => (
-                <div key={s.id} onClick={() => { setSel({ ...sel, servicio: s }); setPaso(2) }} className="bg-white/4 border border-white/5 hover:border-white/20 p-8 rounded-[3rem] flex justify-between items-center cursor-pointer transition-all active:scale-[0.98]">
+                <div key={s.id} onClick={() => { setSel({ servicio: s, barbero: null, fecha: '', hora: '' }); setHoras([]); setPaso(2) }} className="bg-white/4 border border-white/5 hover:border-white/20 p-8 rounded-[3rem] flex justify-between items-center cursor-pointer transition-all active:scale-[0.98]">
                   <div><p className="font-black italic uppercase text-2xl mb-1 tracking-tighter" style={{ color: colorP }}>{s.nombre}</p><p className="text-[10px] text-slate-500 font-black uppercase">{s.duracion} MINUTOS</p></div>
                   <p className="text-3xl font-black italic">${s.precio}</p>
                 </div>
@@ -235,7 +235,7 @@ export default function ReservaPage() {
                 )}
               </div>
             )}
-            {sel.hora && <button onClick={() => setPaso(3)} className="w-full py-6 rounded-[3rem] font-black uppercase italic text-xl text-black shadow-2xl mt-4" style={{ backgroundColor: colorP }}>Continuar</button>}
+            {sel.hora && horas.includes(sel.hora) && <button onClick={() => setPaso(3)} className="w-full py-6 rounded-[3rem] font-black uppercase italic text-xl text-black shadow-2xl mt-4" style={{ backgroundColor: colorP }}>Continuar</button>}
           </div>
         ) : (
           <div className="space-y-8 animate-in zoom-in-95">
@@ -248,7 +248,7 @@ export default function ReservaPage() {
                 <p className="text-4xl font-black pt-4">${sel.servicio?.precio}</p>
                 {montoSenaCalculado > 0 && <p className="text-[10px] font-black uppercase text-emerald-400 pt-2 tracking-widest">Requiere Seña: ${montoSenaCalculado}</p>}
               </div>
-              <AuthSelector user={user} colorP={colorP} loading={confirmando} onConfirm={handleFinal} slug={slug} montoSena={montoSenaCalculado} />
+              <AuthSelector key={user?.id ?? 'guest'} user={user} colorP={colorP} loading={confirmando} onConfirm={handleFinal} slug={slug} montoSena={montoSenaCalculado} />
             </div>
           </div>
         )}
@@ -257,9 +257,20 @@ export default function ReservaPage() {
   )
 }
 
-function AuthSelector({ user, colorP, loading, onConfirm, slug, montoSena }: any) {
+type AuthSelectorProps = {
+  user: User | null
+  colorP: string
+  loading: boolean
+  onConfirm: (nombre: string, telefono: string, pagarSena: boolean, email: string) => Promise<void>
+  slug: string
+  montoSena: number
+}
+
+function AuthSelector({ user, colorP, loading, onConfirm, slug, montoSena }: AuthSelectorProps) {
   const [modo, setModo] = useState('invitado')
-  const [nombre, setNombre] = useState(''); const [tel, setTel] = useState(''); const [correo, setCorreo] = useState('')
+  const [nombre, setNombre] = useState(user?.user_metadata?.full_name ?? '')
+  const [tel, setTel] = useState('')
+  const [correo, setCorreo] = useState(user?.email ?? '')
   const login = () => supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: getOAuthRedirectUrl('/auth/callback?next=/reservar/' + slug) } })
 
   const renderBotones = (accion: (sena: boolean) => void) => (
@@ -278,14 +289,13 @@ function AuthSelector({ user, colorP, loading, onConfirm, slug, montoSena }: any
     </div>
   )
 
-  if (user) return renderBotones((s) => onConfirm('', '', s, ''))
   return (
     <div className="space-y-6">
-      <div className="flex bg-black/50 p-1.5 rounded-2xl border border-white/5">
+      {!user && <div className="flex bg-black/50 p-1.5 rounded-2xl border border-white/5">
         <button onClick={() => setModo('invitado')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase ${modo === 'invitado' ? 'bg-white/10 text-white' : 'text-slate-600'}`}>Invitado</button>
         <button onClick={() => setModo('google')} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase ${modo === 'google' ? 'bg-white/10 text-white' : 'text-slate-600'}`}>Google</button>
-      </div>
-      {modo === 'google' ? <button onClick={login} className="w-full py-5 bg-white text-black font-black uppercase italic rounded-[2rem] hover:scale-105 transition-all">Ingresar con Google</button> : (
+      </div>}
+      {!user && modo === 'google' ? <button onClick={login} className="w-full py-5 bg-white text-black font-black uppercase italic rounded-[2rem] hover:scale-105 transition-all">Ingresar con Google</button> : (
         <div className="space-y-4">
           <input type="text" placeholder="TU NOMBRE (EJ: JUAN PEREZ)" value={nombre} onChange={e => setNombre(e.target.value)} required className="w-full bg-black/50 border border-white/10 rounded-[1.5rem] p-5 text-[11px] font-black uppercase outline-none focus:border-white/30" />
           <input type="tel" placeholder="WHATSAPP (EJ: 1123456789)" value={tel} onChange={e => setTel(e.target.value)} required className="w-full bg-black/50 border border-white/10 rounded-[1.5rem] p-5 text-[11px] font-black uppercase outline-none focus:border-white/30" />

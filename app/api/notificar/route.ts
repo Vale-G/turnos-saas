@@ -1,51 +1,51 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
+import { createAdminClient } from '@/lib/server/supabase'
+import { validUuid } from '@/lib/server/public-booking'
+import { rateLimitByIp } from '@/lib/rate-limit'
 
-export async function POST(req: Request) {
-  try {
-    // FIX: Inicializamos Resend ADENTRO de la función y con un fallback por las dudas,
-    // así el build de Vercel no explota analizando el archivo estáticamente.
-    const apiKey = process.env.RESEND_API_KEY || 're_dummy_key_para_build'
-    const resend = new Resend(apiKey)
+function escapeHtml(value: string) {
+  return value.replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[char]!)
+}
 
-    const body = await req.json()
-    const { clienteNombre, clienteEmail, negocioNombre, fecha, hora, servicio, emailNegocio } = body
-
-    // 1. Mandar ticket al Cliente
-    if (clienteEmail && clienteEmail.includes('@') && apiKey !== 're_dummy_key_para_build') {
-      await resend.emails.send({
-        from: 'Turnly <onboarding@resend.dev>',
-        to: clienteEmail,
-        subject: `✨ Turno Confirmado en ${negocioNombre}`,
-        html: `
-          <div style="font-family: sans-serif; background-color: #020617; color: #ffffff; padding: 40px 20px; text-align: center;">
-            <h1 style="color: #10b981; font-style: italic; text-transform: uppercase; letter-spacing: -1px;">¡Turno Confirmado!</h1>
-            <p style="font-size: 16px; color: #94a3b8;">Hola <strong>${clienteNombre.split('·')[0]}</strong>, tu reserva está lista.</p>
-            <div style="background-color: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 30px; border-radius: 24px; display: inline-block; text-align: left; margin: 30px 0; max-width: 400px; width: 100%;">
-              <p style="margin: 10px 0; font-size: 14px; text-transform: uppercase; color: #cbd5e1;"><strong style="color: #10b981;">🏢 Local:</strong> ${negocioNombre}</p>
-              <p style="margin: 10px 0; font-size: 14px; text-transform: uppercase; color: #cbd5e1;"><strong style="color: #10b981;">✂️ Servicio:</strong> ${servicio}</p>
-              <p style="margin: 10px 0; font-size: 14px; text-transform: uppercase; color: #cbd5e1;"><strong style="color: #10b981;">📅 Fecha:</strong> ${fecha}</p>
-              <p style="margin: 10px 0; font-size: 14px; text-transform: uppercase; color: #cbd5e1;"><strong style="color: #10b981;">⏰ Hora:</strong> ${hora} HS</p>
-            </div>
-            <p style="font-size: 12px; color: #64748b; margin-top: 20px; text-transform: uppercase; letter-spacing: 2px;">Powered by Turnly</p>
-          </div>
-        `
-      })
-    }
-
-    // 2. Avisarle al Dueño del Local
-    if (emailNegocio && emailNegocio.includes('@') && apiKey !== 're_dummy_key_para_build') {
-       await resend.emails.send({
-         from: 'Turnly Avisos <onboarding@resend.dev>',
-         to: emailNegocio,
-         subject: `🚀 Nuevo Turno: ${clienteNombre.split('·')[0]}`,
-         html: `<div style="font-family: sans-serif;"><h2>¡Nuevo cliente agendado!</h2><p><strong>${clienteNombre.split('·')[0]}</strong> reservó <strong>${servicio}</strong> para el <strong>${fecha}</strong> a las <strong>${hora}</strong>.</p><p>Revisá tu panel de Turnly para más detalles.</p></div>`
-       })
-    }
-
-    return NextResponse.json({ success: true })
-  } catch (error) {
-    console.error('[Resend Error]', error)
-    return NextResponse.json({ error: 'Error enviando correo' }, { status: 500 })
+export async function POST(request: NextRequest) {
+  const rate = rateLimitByIp(request, { limit: 4, windowMs: 60_000 }, 'notifications')
+  if (!rate.success) return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429 })
+  const body = await request.json().catch(() => ({}))
+  const turnoId = body.turnoId
+  const token = body.manageToken
+  if (!validUuid(turnoId) || typeof token !== 'string' || !/^[0-9a-f]{64}$/.test(token)) {
+    return NextResponse.json({ error: 'Reserva inválida' }, { status: 400 })
   }
+  const admin = createAdminClient()
+  const { data: authorized } = await admin.rpc('turnly_verify_manage_token', { p_turno_id: turnoId, p_token: token })
+  if (authorized !== true) return NextResponse.json({ error: 'Reserva inexistente' }, { status: 404 })
+  const { data: turno } = await admin.from('turno').select('cliente_nombre,cliente_email,fecha,hora,negocio_id,servicio_id').eq('id', turnoId).maybeSingle()
+  if (!turno) return NextResponse.json({ error: 'Reserva inexistente' }, { status: 404 })
+  const [{ data: negocio }, { data: servicio }] = await Promise.all([
+    admin.from('negocio').select('nombre,email_contacto').eq('id', turno.negocio_id).maybeSingle(),
+    admin.from('servicio').select('nombre').eq('id', turno.servicio_id).maybeSingle(),
+  ])
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey || !negocio || !servicio) return NextResponse.json({ queued: false })
+
+  const resend = new Resend(apiKey)
+  const clientName = escapeHtml(turno.cliente_nombre ?? 'Cliente')
+  const businessName = escapeHtml(negocio.nombre)
+  const serviceName = escapeHtml(servicio.nombre)
+  const date = escapeHtml(turno.fecha)
+  const hour = escapeHtml(turno.hora.slice(0, 5))
+  const sends = []
+  if (turno.cliente_email?.includes('@')) sends.push(resend.emails.send({
+    from: 'Turnly <onboarding@resend.dev>', to: turno.cliente_email,
+    subject: `Turno confirmado en ${negocio.nombre}`,
+    html: `<div style="font-family:sans-serif"><h1>Turno confirmado</h1><p>Hola ${clientName}.</p><p>${businessName} · ${serviceName}</p><p>${date} a las ${hour}</p></div>`,
+  }))
+  if (negocio.email_contacto?.includes('@')) sends.push(resend.emails.send({
+    from: 'Turnly Avisos <onboarding@resend.dev>', to: negocio.email_contacto,
+    subject: 'Nueva reserva en Turnly',
+    html: `<div style="font-family:sans-serif"><h2>Nueva reserva</h2><p>${clientName} reservó ${serviceName} para ${date} a las ${hour}.</p></div>`,
+  }))
+  await Promise.all(sends)
+  return NextResponse.json({ queued: sends.length > 0 })
 }

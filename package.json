@@ -7,27 +7,52 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test tests/*.test.mjs",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@supabase/ssr": "^0.8.0",
-    "@supabase/supabase-js": "^2.95.3",
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.118.0",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
-    "next": "16.1.6",
+    "next": "16.4.3",
     "react": "19.2.3",
     "react-dom": "19.2.3",
-    "resend": "^6.10.0",
-    "sonner": "^2.0.7"
+    "resend": "6.37.0",
+    "sonner": "2.0.8"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4",
+    "@electric-sql/pglite": "0.5.14",
+    "@tailwindcss/postcss": "4.3.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.1.6",
-    "tailwindcss": "^4",
+    "eslint-config-next": "16.4.3",
+    "source-map-js": "1.2.2",
+    "tailwindcss": "4.3.3",
     "typescript": "^5"
+  },
+  "overrides": {
+    "brace-expansion@1.1.12": "1.1.21",
+    "eslint": {
+      "@humanfs/node": "0.17.0",
+      "ajv": "6.15.0",
+      "minimatch": "3.1.5"
+    },
+    "@eslint/eslintrc": {
+      "ajv": "6.15.0",
+      "js-yaml": "4.3.2",
+      "minimatch": "3.1.5"
+    },
+    "flat-cache": {
+      "flatted": "3.4.4"
+    },
+    "tinyglobby": {
+      "picomatch": "4.0.7"
+    },
+    "@typescript-eslint/typescript-estree": {
+      "minimatch": "11.0.3"
+    }
   }
 }

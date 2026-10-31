@@ -1,63 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import {
-  obtenerPagoMercadoPago,
-  procesarPagoSuscripcion,
-  verificarFirmaMercadoPago,
-  type MercadoPagoWebhookPayload,
-} from '@/lib/webhooks/mercadopago-handler'
+import { createAdminClient } from '@/lib/server/supabase'
+import { validUuid } from '@/lib/server/public-booking'
+import { obtenerPagoMercadoPago, verificarFirmaMercadoPago, type MercadoPagoWebhookPayload } from '@/lib/webhooks/mercadopago-handler'
 
-export async function POST(req: NextRequest) {
-  try {
-    const supabaseAdmin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    )
-
-    const bodyText = await req.text()
-
-    if (!verificarFirmaMercadoPago(req.headers)) {
-      return NextResponse.json({ ok: false }, { status: 401 })
-    }
-
-    const body = JSON.parse(bodyText) as MercadoPagoWebhookPayload
-
-    if (body.type !== 'payment') {
-      return NextResponse.json({ ok: true })
-    }
-
-    const paymentId = body.data?.id
-    if (!paymentId) {
-      return NextResponse.json({ ok: true })
-    }
-
-    const pago = await obtenerPagoMercadoPago(paymentId)
-    if (!pago) {
-      return NextResponse.json({ ok: false }, { status: 500 })
-    }
-
-    const externalReference = pago.external_reference
-    const status = pago.status
-
-    if (!externalReference || !status) {
-      return NextResponse.json({ ok: true })
-    }
-
-    const [negocioId, tipoPlan = 'pro'] = externalReference.split('|')
-
-    if (!negocioId) {
-      return NextResponse.json({ ok: true })
-    }
-
-    await procesarPagoSuscripcion(supabaseAdmin, paymentId, status, negocioId, tipoPlan)
-
-    return NextResponse.json({ ok: true })
-  } catch (err) {
-    console.error('[Turnly] Webhook error:', err)
-    return NextResponse.json({ ok: false }, { status: 500 })
+export async function POST(request: NextRequest) {
+  let body: MercadoPagoWebhookPayload
+  try { body = await request.json() } catch { return NextResponse.json({ ok: false }, { status: 400 }) }
+  const dataId = String(request.nextUrl.searchParams.get('data.id') ?? body.data?.id ?? '')
+  if (!verificarFirmaMercadoPago(request.headers, dataId)) return NextResponse.json({ ok: false }, { status: 401 })
+  if (body.type && body.type !== 'payment') return NextResponse.json({ ok: true })
+  const payment = await obtenerPagoMercadoPago(dataId)
+  const [negocioId, plan] = payment?.external_reference?.split('|') ?? []
+  if (!payment || !validUuid(negocioId) || (plan !== 'basico' && plan !== 'pro') || !payment.status
+      || !Number.isFinite(payment.transaction_amount) || !payment.currency_id) {
+    return NextResponse.json({ ok: false }, { status: 422 })
   }
+  const admin = createAdminClient()
+  const { data: applied, error } = await admin.rpc('turnly_apply_subscription_payment', {
+    p_event_key: `subscription:${dataId}:${payment.status}`,
+    p_payment_id: String(payment.id ?? dataId), p_negocio_id: negocioId, p_plan: plan,
+    p_status: payment.status, p_amount: payment.transaction_amount, p_currency: payment.currency_id,
+  })
+  if (error || applied !== true) return NextResponse.json({ ok: false }, { status: 422 })
+  return NextResponse.json({ ok: true })
 }
 
-export async function GET() {
-  return NextResponse.json({ status: 'Turnly webhook activo' })
-}
+export async function GET() { return NextResponse.json({ status: 'Turnly suscripciones webhook activo' }) }

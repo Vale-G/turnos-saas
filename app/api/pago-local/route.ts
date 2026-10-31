@@ -1,95 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { createAdminClient, createUserServerClient } from '@/lib/server/supabase'
+import { validUuid } from '@/lib/server/public-booking'
+import { rateLimitByIp } from '@/lib/rate-limit'
 
-export async function POST(req: NextRequest) {
-  try {
-    const { turno_id, monto, concepto } = await req.json()
+export async function POST(request: NextRequest) {
+  const rate = rateLimitByIp(request, { limit: 5, windowMs: 60_000 }, 'local-payment')
+  if (!rate.success) return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429 })
+  const body = await request.json().catch(() => ({}))
+  if (!validUuid(body.turno_id)) return NextResponse.json({ error: 'Turno inválido' }, { status: 400 })
 
-    if (!turno_id || !monto) {
-      return NextResponse.json({ error: 'Faltan datos' }, { status: 400 })
-    }
+  const userClient = await createUserServerClient()
+  const { data: { user } } = await userClient.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+  const admin = createAdminClient()
+  const { data: turno } = await admin.from('turno').select('id,negocio_id,servicio_id').eq('id', body.turno_id).maybeSingle()
+  if (!turno) return NextResponse.json({ error: 'Turno inexistente' }, { status: 404 })
+  const [{ data: negocio }, { data: servicio }] = await Promise.all([
+    admin.from('negocio').select('id,owner_id,nombre,moneda,mp_access_token').eq('id', turno.negocio_id).maybeSingle(),
+    admin.from('servicio').select('nombre,precio').eq('id', turno.servicio_id).maybeSingle(),
+  ])
+  if (!negocio || negocio.owner_id !== user.id) return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+  if (!negocio.mp_access_token || !servicio) return NextResponse.json({ error: 'Mercado Pago no está configurado' }, { status: 409 })
+  const amount = Number(servicio.precio)
+  if (!Number.isFinite(amount) || amount <= 0) return NextResponse.json({ error: 'Precio inválido' }, { status: 409 })
 
-    const cookieStore = await cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: () => {},
-        },
-      },
-    )
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-
-    if (!user) {
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-    }
-
-    const { data: turnoData, error: turnoError } = await supabase
-      .from('turno')
-      .select('id, negocio_id')
-      .eq('id', turno_id)
-      .single()
-
-    if (turnoError || !turnoData) {
-      return NextResponse.json({ error: 'Turno no encontrado' }, { status: 404 })
-    }
-
-    const { data: negocioData, error: negocioError } = await supabase
-      .from('negocio')
-      .select('id, owner_id, mp_access_token')
-      .eq('id', turnoData.negocio_id)
-      .single()
-
-    if (negocioError || !negocioData) {
-      return NextResponse.json({ error: 'Negocio no encontrado' }, { status: 404 })
-    }
-
-    if (negocioData.owner_id !== user.id) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-    }
-
-    if (!negocioData.mp_access_token) {
-      return NextResponse.json({ error: 'El negocio no tiene MercadoPago configurado' }, { status: 400 })
-    }
-
-    const mpBody = {
-      items: [
-        {
-          title: concepto || 'Cobro en Local',
-          quantity: 1,
-          unit_price: Number(monto),
-          currency_id: 'ARS',
-        },
-      ],
-      external_reference: turno_id + '|local',
-      auto_return: 'approved',
-      statement_descriptor: 'TURNLY LOCAL',
-    }
-
-    const mpRes = await fetch('https://api.mercadopago.com/checkout/preferences', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + negocioData.mp_access_token,
-      },
-      body: JSON.stringify(mpBody),
-    })
-
-    if (!mpRes.ok) {
-      throw new Error('Error MP')
-    }
-
-    const preferencia = await mpRes.json()
-
-    return NextResponse.json({ url: preferencia.init_point })
-  } catch (err) {
-    console.error(err)
-    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
-  }
+  const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${negocio.mp_access_token}` },
+    body: JSON.stringify({
+      items: [{ title: servicio.nombre, quantity: 1, unit_price: amount, currency_id: negocio.moneda }],
+      external_reference: `${turno.id}|local`, statement_descriptor: 'TURNLY LOCAL',
+    }),
+  })
+  if (!response.ok) return NextResponse.json({ error: 'No se pudo iniciar el cobro' }, { status: 502 })
+  const preference = await response.json()
+  if (typeof preference.init_point !== 'string') return NextResponse.json({ error: 'Respuesta de pago inválida' }, { status: 502 })
+  return NextResponse.json({ url: preference.init_point })
 }

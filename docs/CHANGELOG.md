@@ -1,5 +1,14 @@
 # Changelog técnico
 
+## 2026-11-02 — Límite temporal de reserva: fallo seguro
+
+- Rama: `codex/ci-automatico-lint-build`; PR #11 en borrador; base estable `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf` (no modificada).
+- Código: `lib/reserva-disponibilidad.mjs` devuelve cero horarios si `minLimite` es inválido, no finito, negativo o mayor a 1440, en vez de asumir 0 y potencialmente ofrecer horarios pasados. Commit `2b2368faa34cc5905c91d4b15eaf750b4f100a9b`.
+- Tests: `tests/reserva-disponibilidad.test.mjs` agrega regresión para `NaN`, `Infinity`, negativos, fuera de rango, `null` y string. Commit `acfe5163341b37aa17b5ca62f5d1256d453c310d`.
+- Validación: pendiente de inspeccionar el nuevo run de GitHub Actions; no afirmar checks aprobados hasta comprobarlos. Esta es solo una protección de interfaz, no una validación transaccional.
+- P0 abierto: lectura pública de reservas/tokens, RLS, reserva server-side y concurrencia. No se tocó Supabase, pagos, producción ni credenciales.
+
+
 ## 2026-10-27 — CI independiente, baseline, lint incremental y auditoría de dependencias
 
 - Rama de trabajo: `codex/ci-automatico-lint-build`.

@@ -73,3 +73,10 @@ test('rechaza entradas de listas no válidas', () => {
   assert.deepEqual(generarHorariosDisponibles({ ...base, ocupados: null }), [])
   assert.deepEqual(generarHorariosDisponibles({ ...base, bloqueos: 'error' }), [])
 })
+
+
+test('falla cerrado si el límite temporal del día es inválido', () => {
+  for (const minLimite of [NaN, Infinity, -1, 1441, null, '10:00']) {
+    assert.deepEqual(generarHorariosDisponibles({ ...base, minLimite }), [])
+  }
+})

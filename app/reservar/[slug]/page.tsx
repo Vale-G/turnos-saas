@@ -119,6 +119,11 @@ export default function ReservaPage() {
   }, [sel.servicio])
 
   const handleFinal = async (nombre: string, tel: string, pagarSena: boolean, correoInvitado: string) => {
+    // Protección de UI; el servidor todavía debe validar disponibilidad atómicamente.
+    if (horariosCargando || horariosError || !sel.servicio || !sel.barbero || !sel.fecha || !sel.hora || !horas.includes(sel.hora)) {
+      toast.error('El horario ya no está disponible. Elegí otro turno.')
+      return
+    }
     setConfirmando(true)
     const cliNombre = user ? (user.user_metadata?.full_name || user.email) : `${nombre} · ${tel}`
     const correoFinal = user ? user.email : correoInvitado

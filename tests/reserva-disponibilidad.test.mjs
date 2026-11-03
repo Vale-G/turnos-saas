@@ -91,5 +91,5 @@ test('rechaza segundos no nulos en bloqueos y turnos para evitar solapamientos i
   }), [])
   assert.deepEqual(generarHorariosDisponibles({ ...base,
     bloqueos: [{ hora_inicio: '09:30:00', hora_fin: '10:00:00' }],
-  }), ['11:00'])
+  }), ['10:00', '11:00'])
 })

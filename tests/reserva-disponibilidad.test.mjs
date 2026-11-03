@@ -80,3 +80,16 @@ test('falla cerrado si el límite temporal del día es inválido', () => {
     assert.deepEqual(generarHorariosDisponibles({ ...base, minLimite }), [])
   }
 })
+
+
+test('rechaza segundos no nulos en bloqueos y turnos para evitar solapamientos invisibles', () => {
+  assert.deepEqual(generarHorariosDisponibles({ ...base,
+    bloqueos: [{ hora_inicio: '09:30:00', hora_fin: '10:00:59' }],
+  }), [])
+  assert.deepEqual(generarHorariosDisponibles({ ...base,
+    ocupados: [{ hora: '09:00:30', duracion: 60 }],
+  }), [])
+  assert.deepEqual(generarHorariosDisponibles({ ...base,
+    bloqueos: [{ hora_inicio: '09:30:00', hora_fin: '10:00:00' }],
+  }), ['11:00'])
+})

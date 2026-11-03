@@ -188,7 +188,7 @@ export default function ReservaPage() {
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-8">Elegí un servicio</p>
             <div className="space-y-4">
               {servicios.map(s => (
-                <div key={s.id} onClick={() => { setSel({ ...sel, servicio: s }); setPaso(2) }} className="bg-white/4 border border-white/5 hover:border-white/20 p-8 rounded-[3rem] flex justify-between items-center cursor-pointer transition-all active:scale-[0.98]">
+                <div key={s.id} onClick={() => { setSel({ servicio: s, barbero: null, fecha: '', hora: '' }); setPaso(2) }} className="bg-white/4 border border-white/5 hover:border-white/20 p-8 rounded-[3rem] flex justify-between items-center cursor-pointer transition-all active:scale-[0.98]">
                   <div><p className="font-black italic uppercase text-2xl mb-1 tracking-tighter" style={{ color: colorP }}>{s.nombre}</p><p className="text-[10px] text-slate-500 font-black uppercase">{s.duracion} MINUTOS</p></div>
                   <p className="text-3xl font-black italic">${s.precio}</p>
                 </div>
@@ -235,7 +235,7 @@ export default function ReservaPage() {
                 )}
               </div>
             )}
-            {sel.hora && <button onClick={() => setPaso(3)} className="w-full py-6 rounded-[3rem] font-black uppercase italic text-xl text-black shadow-2xl mt-4" style={{ backgroundColor: colorP }}>Continuar</button>}
+            {!horariosCargando && !horariosError && sel.hora && horas.includes(sel.hora) && <button onClick={() => setPaso(3)} className="w-full py-6 rounded-[3rem] font-black uppercase italic text-xl text-black shadow-2xl mt-4" style={{ backgroundColor: colorP }}>Continuar</button>}
           </div>
         ) : (
           <div className="space-y-8 animate-in zoom-in-95">

@@ -1,3 +1,12 @@
+## 2026-11-03 — Correcciones puntuales de hallazgos QA en reservas
+
+- Base estable: `codex/revisar-informes-de-turnos-cancelados` @ `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf` (sin cambios). Rama: `codex/ci-automatico-lint-build`; PR #11 borrador.
+- QA 30/10 detectó segundos ignorados en bloqueos y selección de horario obsoleta al cambiar de servicio (comentario #6521584332 del PR).
+- `lib/reserva-disponibilidad.mjs`: rechaza horarios con segundos distintos de cero, porque el filtro de UI opera a resolución de minutos; decisión conservadora fail-closed. Commit `3ba7a50e516719b7ee0b71d518dc3eee6dbba205`.
+- `tests/reserva-disponibilidad.test.mjs`: regresión de bloqueos/turnos con segundos y compatibilidad con segundos cero. Commit `7bc331b875da7dc55049736b30ae386a2480ce45`.
+- `app/reservar/[slug]/page.tsx`: al cambiar servicio limpia profesional/fecha/hora; botón Continuar y confirmación exigen horario perteneciente a las opciones vigentes de UI. Commits `ac158dba2cf94f67fbf75c3796e21164fedbc974` y `a132d1fe80f8c46c58b40e8a236c3ab29fef1c41`.
+- Pruebas: CI de GitHub Actions pendiente de verificar sobre el último commit; no afirmar aprobación. Los cambios de UI no mitigan P0: RLS pública, creación transaccional y concurrencia siguen abiertos. No hay integración/E2E ni sandbox compatible. Sin merge, deploy, migraciones, secretos o escrituras en producción.
+
 # Changelog técnico
 
 ## 2026-11-02 — Límite temporal de reserva: fallo seguro

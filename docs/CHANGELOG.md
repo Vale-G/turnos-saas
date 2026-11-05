@@ -132,3 +132,11 @@
 
 - Commits: `84abdf7fff0ed4a2ac6e078e4b57b6a601dd113a` (helper, tests, UI y auditoría), `2a51690e46296b08a9809f9976ed95384712ac4c` (fixture de duraciones mixtas), `97fb8b96804b8788e225a36ddc66c80bb6acfd90` (carga inmediata y reintento de consulta al seleccionar fecha).
 - Evidencia: [CI 41048104243](https://github.com/Vale-G/turnos-saas/actions/runs/41048104243), 17/17 tests y build aprobados; lint fallido 26 errores/15 warnings; 20 vulnerabilidades. QA y pruebas funcionales pendientes.
+
+
+## 2026-11-05 — manejo defensivo de lista negra (PR #11)
+
+- Rama: `codex/ci-automatico-lint-build`; base estable `codex/revisar-informes-de-turnos-cancelados` @ `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`. Commit de código: `5791338d349c7f89231ea9d7ec453d42f6801f07`.
+- Archivo: `app/reservar/[slug]/page.tsx`. Se captura JSON inválido de la configuración de lista negra y se valida que sea un array de cadenas; si no es válido, se rechaza la operación con mensaje controlado y se restablece `confirmando`. No se omite la lista negra ante error.
+- Evidencia anterior: [CI 41627028889](https://github.com/Vale-G/turnos-saas/actions/runs/41627028889) falló globalmente por lint; 19 tests unitarios y build aprobados según revisión previa. **No atribuir esa evidencia al cambio actual**. Revisar CI del nuevo commit antes de afirmar resultados.
+- Límites: no hay prueba de integración de configuración inválida ni validación server-side; la consulta de `config` sigue en el navegador. P0 de privacidad y concurrencia sigue abierto. No se tocó producción, base de datos, pagos ni permisos.

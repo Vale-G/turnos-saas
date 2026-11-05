@@ -129,7 +129,12 @@ export default function ReservaPage() {
     const correoFinal = user ? user.email : correoInvitado
     
     // 1. Validar Lista Negra
-    const { data: blacklistData } = await supabase.from('config').select('valor').eq('clave', `blacklist_${negocio.id}`).maybeSingle()
+    const { data: blacklistData, error: blacklistError } = await supabase.from('config').select('valor').eq('clave', `blacklist_${negocio.id}`).maybeSingle()
+    if (blacklistError) {
+      toast.error('No se pudo validar la reserva. Intentá nuevamente.')
+      setConfirmando(false)
+      return
+    }
     if (blacklistData?.valor) {
       let listaNegra: unknown
       try {

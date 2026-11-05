@@ -112,8 +112,9 @@ export default function ReservaPage() {
   }, [sel.servicio])
 
   const handleFinal = async (nombre: string, tel: string, pagarSena: boolean, correoInvitado: string) => {
-    if (!negocio || !sel.servicio || !sel.barbero || !sel.fecha || !sel.hora || !horas.includes(sel.hora)) {
-      toast.error('Volvé a verificar el horario elegido')
+    // Protección de UI; el servidor todavía debe validar disponibilidad atómicamente.
+    if (horariosCargando || horariosError || !negocio || !sel.servicio || !sel.barbero || !sel.fecha || !sel.hora || !horas.includes(sel.hora)) {
+      toast.error('El horario ya no está disponible. Elegí otro turno.')
       setPaso(2)
       return
     }
@@ -235,7 +236,7 @@ export default function ReservaPage() {
                 )}
               </div>
             )}
-            {sel.hora && horas.includes(sel.hora) && <button onClick={() => setPaso(3)} className="w-full py-6 rounded-[3rem] font-black uppercase italic text-xl text-black shadow-2xl mt-4" style={{ backgroundColor: colorP }}>Continuar</button>}
+            {!horariosCargando && !horariosError && sel.hora && horas.includes(sel.hora) && <button onClick={() => setPaso(3)} className="w-full py-6 rounded-[3rem] font-black uppercase italic text-xl text-black shadow-2xl mt-4" style={{ backgroundColor: colorP }}>Continuar</button>}
           </div>
         ) : (
           <div className="space-y-8 animate-in zoom-in-95">

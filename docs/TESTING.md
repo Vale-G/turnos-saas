@@ -230,3 +230,11 @@ No se hizo merge, despliegue, migración, cambio de RLS, escritura en la base ac
 - [GitHub Actions run 41048104243](https://github.com/Vale-G/turnos-saas/actions/runs/41048104243): `npm ci` aprobado; `npm test` **17/17 aprobado**; `npm run build` **aprobado**; `npm run lint` **fallido con 26 errores y 15 warnings**. El baseline previo del PR era 37/15; el head previo 27/15.
 - Auditoría informativa mantiene **20 vulnerabilidades (1 baja, 6 moderadas, 12 altas, 1 crítica)**; no se actualizaron dependencias.
 - Las pruebas unitarias validan intervalos, no RLS, disponibilidad server-side, concurrencia, pagos ni aislamiento multiempresa. QA independiente pendiente de veredicto. Sin merge ni despliegue.
+
+
+## 2026-11-03 — QA inmediato y revalidación de límites de intervalo
+
+- Head inicial de desarrollo `56e8b32be7a1e02f7e183652a83bfb3164ef6917`, PR #11. [Run 41626909728](https://github.com/Vale-G/turnos-saas/actions/runs/41626909728): `npm ci` completó; 18/19 pruebas unitarias pasaron, una falló. La falla corresponde a una expectativa incorrecta del test nuevo: el bloqueo 09:30:00–10:00:00 no se solapa con un turno que empieza exactamente a las 10:00. El resultado real `['10:00', '11:00']` es correcto para intervalos semiabiertos.
+- Corrección del test: `tests/reserva-disponibilidad.test.mjs`, commit `d0b4a4e87d38f4c78e19b3c367e5c281813d0ebf`; no se cambió lógica productiva para satisfacer una expectativa incorrecta. Revalidación de CI posterior pendiente.
+- QA: la corrección de segundos no cero falla cerrado; la selección obsoleta se limpia al cambiar servicio y se vuelve a comprobar en el cliente antes de confirmar. No se ejecutó E2E; no afirmar protección contra peticiones manipuladas o carreras.
+- P0 de lectura pública/RLS, transacciones de reserva y pagos sigue sin aprobar. No se modificaron producción, migraciones, permisos ni secretos.

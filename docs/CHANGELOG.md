@@ -1,4 +1,22 @@
+## 2026-11-03 — Correcciones puntuales de hallazgos QA en reservas
+
+- Base estable: `codex/revisar-informes-de-turnos-cancelados` @ `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf` (sin cambios). Rama: `codex/ci-automatico-lint-build`; PR #11 borrador.
+- QA 30/10 detectó segundos ignorados en bloqueos y selección de horario obsoleta al cambiar de servicio (comentario #6521584332 del PR).
+- `lib/reserva-disponibilidad.mjs`: rechaza horarios con segundos distintos de cero, porque el filtro de UI opera a resolución de minutos; decisión conservadora fail-closed. Commit `3ba7a50e516719b7ee0b71d518dc3eee6dbba205`.
+- `tests/reserva-disponibilidad.test.mjs`: regresión de bloqueos/turnos con segundos y compatibilidad con segundos cero. Commit `7bc331b875da7dc55049736b30ae386a2480ce45`.
+- `app/reservar/[slug]/page.tsx`: al cambiar servicio limpia profesional/fecha/hora; botón Continuar y confirmación exigen horario perteneciente a las opciones vigentes de UI. Commits `ac158dba2cf94f67fbf75c3796e21164fedbc974` y `a132d1fe80f8c46c58b40e8a236c3ab29fef1c41`.
+- Pruebas: CI de GitHub Actions pendiente de verificar sobre el último commit; no afirmar aprobación. Los cambios de UI no mitigan P0: RLS pública, creación transaccional y concurrencia siguen abiertos. No hay integración/E2E ni sandbox compatible. Sin merge, deploy, migraciones, secretos o escrituras en producción.
+
 # Changelog técnico
+
+## 2026-11-02 — Límite temporal de reserva: fallo seguro
+
+- Rama: `codex/ci-automatico-lint-build`; PR #11 en borrador; base estable `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf` (no modificada).
+- Código: `lib/reserva-disponibilidad.mjs` devuelve cero horarios si `minLimite` es inválido, no finito, negativo o mayor a 1440, en vez de asumir 0 y potencialmente ofrecer horarios pasados. Commit `2b2368faa34cc5905c91d4b15eaf750b4f100a9b`.
+- Tests: `tests/reserva-disponibilidad.test.mjs` agrega regresión para `NaN`, `Infinity`, negativos, fuera de rango, `null` y string. Commit `acfe5163341b37aa17b5ca62f5d1256d453c310d`.
+- Validación: pendiente de inspeccionar el nuevo run de GitHub Actions; no afirmar checks aprobados hasta comprobarlos. Esta es solo una protección de interfaz, no una validación transaccional.
+- P0 abierto: lectura pública de reservas/tokens, RLS, reserva server-side y concurrencia. No se tocó Supabase, pagos, producción ni credenciales.
+
 
 ## 2026-10-27 — CI independiente, baseline, lint incremental y auditoría de dependencias
 
@@ -114,3 +132,13 @@
 
 - Commits: `84abdf7fff0ed4a2ac6e078e4b57b6a601dd113a` (helper, tests, UI y auditoría), `2a51690e46296b08a9809f9976ed95384712ac4c` (fixture de duraciones mixtas), `97fb8b96804b8788e225a36ddc66c80bb6acfd90` (carga inmediata y reintento de consulta al seleccionar fecha).
 - Evidencia: [CI 41048104243](https://github.com/Vale-G/turnos-saas/actions/runs/41048104243), 17/17 tests y build aprobados; lint fallido 26 errores/15 warnings; 20 vulnerabilidades. QA y pruebas funcionales pendientes.
+
+
+## 2026-11-05 — manejo defensivo de lista negra (PR #11)
+
+- Rama: `codex/ci-automatico-lint-build`; base estable `codex/revisar-informes-de-turnos-cancelados` @ `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`. Commit de código: `5791338d349c7f89231ea9d7ec453d42f6801f07`.
+- Archivo: `app/reservar/[slug]/page.tsx`. Se captura JSON inválido de la configuración de lista negra y se valida que sea un array de cadenas; si no es válido, se rechaza la operación con mensaje controlado y se restablece `confirmando`. No se omite la lista negra ante error.
+- Evidencia anterior: [CI 41627028889](https://github.com/Vale-G/turnos-saas/actions/runs/41627028889) falló globalmente por lint; 19 tests unitarios y build aprobados según revisión previa. **No atribuir esa evidencia al cambio actual**. Revisar CI del nuevo commit antes de afirmar resultados.
+- Límites: no hay prueba de integración de configuración inválida ni validación server-side; la consulta de `config` sigue en el navegador. P0 de privacidad y concurrencia sigue abierto. No se tocó producción, base de datos, pagos ni permisos.
+
+- Corrección adicional de QA (2026-11-05): commit `c4948d7b4c0e9a8e8d403f05e4939bb228b93841` en `app/reservar/[slug]/page.tsx`; si Supabase devuelve error consultando la lista negra, la reserva se rechaza y se restablece el estado de confirmación. Falta manejar posibles excepciones de red fuera del objeto `error`, pruebas automatizadas de integración y re-QA del commit. Sin deploy.

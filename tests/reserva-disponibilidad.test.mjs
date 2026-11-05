@@ -74,10 +74,21 @@ test('rechaza entradas de listas no válidas', () => {
   assert.deepEqual(generarHorariosDisponibles({ ...base, bloqueos: 'error' }), [])
 })
 
-test('bloqueo con segundos no deja ofrecer 10:00 antes de 10:00:59', () => {
-  assert.deepEqual(generarHorariosDisponibles({...base,bloqueos:[{hora_inicio:'09:30:00',hora_fin:'10:00:59'}]}),['11:00'])
+test('falla cerrado si el límite temporal del día es inválido', () => {
+  for (const minLimite of [NaN, Infinity, -1, 1441, null, '10:00']) {
+    assert.deepEqual(generarHorariosDisponibles({ ...base, minLimite }), [])
+  }
 })
 
-test('antelación inválida no habilita horarios por defecto', () => {
-  for(const minLimite of [NaN,Infinity,-1]) assert.deepEqual(generarHorariosDisponibles({...base,minLimite}),[])
+
+test('rechaza segundos no nulos en bloqueos y turnos para evitar solapamientos invisibles', () => {
+  assert.deepEqual(generarHorariosDisponibles({ ...base,
+    bloqueos: [{ hora_inicio: '09:30:00', hora_fin: '10:00:59' }],
+  }), [])
+  assert.deepEqual(generarHorariosDisponibles({ ...base,
+    ocupados: [{ hora: '09:00:30', duracion: 60 }],
+  }), [])
+  assert.deepEqual(generarHorariosDisponibles({ ...base,
+    bloqueos: [{ hora_inicio: '09:30:00', hora_fin: '10:00:00' }],
+  }), ['10:00', '11:00'])
 })

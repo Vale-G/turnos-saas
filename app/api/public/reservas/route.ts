@@ -34,6 +34,29 @@ export async function POST(request: NextRequest) {
   const userClient = await createUserServerClient()
   const { data: { user } } = await userClient.auth.getUser()
   const admin = createAdminClient()
+  const { data: blacklistData, error: blacklistError } = await admin
+    .from('config')
+    .select('valor')
+    .eq('clave', `blacklist_${negocioId}`)
+    .maybeSingle()
+  if (blacklistError) {
+    return NextResponse.json({ error: 'No se pudo validar la reserva. Intentá nuevamente.' }, { status: 503 })
+  }
+  if (blacklistData?.valor) {
+    let blacklist: unknown
+    try {
+      blacklist = JSON.parse(blacklistData.valor)
+    } catch {
+      return NextResponse.json({ error: 'No se pudo validar la reserva. Contactá al local.' }, { status: 503 })
+    }
+    if (!Array.isArray(blacklist) || !blacklist.every((item: unknown) => typeof item === 'string')) {
+      return NextResponse.json({ error: 'No se pudo validar la reserva. Contactá al local.' }, { status: 503 })
+    }
+    const normalizedPhone = telefono.replace(/[^0-9]/g, '')
+    if (blacklist.some((item: string) => item.replace(/[^0-9]/g, '') === normalizedPhone)) {
+      return NextResponse.json({ error: 'Este servicio no está disponible para tu número. Contactá al local.' }, { status: 403 })
+    }
+  }
   const { data, error } = await admin.rpc('turnly_create_public_booking', {
     p_negocio_id: negocioId,
     p_servicio_id: servicioId,

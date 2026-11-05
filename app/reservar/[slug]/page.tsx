@@ -131,7 +131,19 @@ export default function ReservaPage() {
     // 1. Validar Lista Negra
     const { data: blacklistData } = await supabase.from('config').select('valor').eq('clave', `blacklist_${negocio.id}`).maybeSingle()
     if (blacklistData?.valor) {
-      const listaNegra = JSON.parse(blacklistData.valor)
+      let listaNegra: unknown
+      try {
+        listaNegra = JSON.parse(blacklistData.valor)
+      } catch {
+        toast.error('No se pudo validar la reserva. Contactá al local.')
+        setConfirmando(false)
+        return
+      }
+      if (!Array.isArray(listaNegra) || !listaNegra.every((t: unknown) => typeof t === 'string')) {
+        toast.error('No se pudo validar la reserva. Contactá al local.')
+        setConfirmando(false)
+        return
+      }
       const telefonoLimpio = tel.replace(/[^0-9]/g, '')
       if (listaNegra.some((t: string) => t.replace(/[^0-9]/g, '') === telefonoLimpio)) {
         setConfirmando(false)

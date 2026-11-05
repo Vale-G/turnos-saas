@@ -89,6 +89,12 @@ profesional y horario. Debe persistir exactamente una reserva y rechazarse la ot
 
 ## Límites y validación pendiente
 
+- QA independiente reprodujo tres bypasses P1 posteriores al primer E2E: un
+  intervalo legado sin snapshot, edición directa de columnas derivadas y
+  recálculo de una duración histórica al cambiar estado. La migración incremental
+  `20261105211500_booking_interval_hardening.sql` corrige los tres casos y cuenta
+  con regresiones locales (27/27). Su aplicación en Supabase QA está pendiente
+  porque la confirmación del conector expiró; no se ejecutó parcialmente.
 - El flujo externo completo de Mercado Pago necesita credenciales sandbox y un
   webhook accesible; las reglas de importe e idempotencia sí tienen prueba de base.
 - El `npm audit` completo informa alertas moderadas únicamente en herramientas de

@@ -6,6 +6,7 @@ import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto'
 
 const fixture = new URL('./fixtures/schema.sql', import.meta.url)
 const migration = new URL('../supabase/migrations/20261031015309_booking_security_and_intervals.sql', import.meta.url)
+const hardeningMigration = new URL('../supabase/migrations/20261105211500_booking_interval_hardening.sql', import.meta.url)
 
 async function database() {
   const db = new PGlite({ extensions: { pgcrypto } })
@@ -22,6 +23,7 @@ async function database() {
   `)
   await db.exec(await readFile(fixture, 'utf8'))
   await db.exec(await readFile(migration, 'utf8'))
+  await db.exec(await readFile(hardeningMigration, 'utf8'))
   return db
 }
 
@@ -133,4 +135,45 @@ test('los webhooks aplican importes reales una sola vez', async (t) => {
   assert.deepEqual(rows.rows[0], { estado: 'confirmado', pago_estado: 'approved', pago_id: 'qa-payment' })
   const events = await db.query("select count(*)::int as count from public.webhook_event where event_key='payment:qa:approved'")
   assert.equal(events.rows[0].count, 1)
+})
+
+test('un turno legado sin snapshot usa la duración del servicio y bloquea solapamientos', async (t) => {
+  const db = await database()
+  t.after(() => db.close())
+  const ids = await seed(db)
+  await db.exec('drop trigger turno_interval_guard on public.turno')
+  await db.query(`insert into public.turno(negocio_id,servicio_id,staff_id,fecha,hora,estado,duracion_minutos,hora_fin)
+    values ($1,$2,$3,$4,'10:00','pendiente',null,null)`, [ids.negocio, ids.servicio, ids.staff, tomorrow()])
+  await db.exec(`create trigger turno_interval_guard
+    before insert or update of negocio_id,staff_id,servicio_id,fecha,hora,estado,duracion_minutos,hora_fin
+    on public.turno for each row execute function turnly_private.enforce_turno_interval()`)
+  await assert.rejects(() => book(db, ids, '10:30'), /horario ya no está disponible/i)
+})
+
+test('authenticated no puede alterar las columnas derivadas del intervalo', async (t) => {
+  const db = await database()
+  t.after(() => db.close())
+  const ids = await seed(db)
+  const created = await book(db, ids, '12:00')
+  const turnoId = created.rows[0].turno_id
+
+  await db.exec(`set role authenticated; set request.jwt.claim.sub = '${ids.owner}'`)
+  await assert.rejects(
+    () => db.query(`update public.turno set duracion_minutos=1,hora_fin='12:01' where id=$1`, [turnoId]),
+    /permission denied/i,
+  )
+  await db.exec('reset role')
+  await assert.rejects(() => book(db, ids, '12:30'), /horario ya no está disponible/i)
+})
+
+test('un cambio de estado conserva el snapshot histórico de duración', async (t) => {
+  const db = await database()
+  t.after(() => db.close())
+  const ids = await seed(db)
+  const created = await book(db, ids, '15:00')
+  const turnoId = created.rows[0].turno_id
+  await db.query('update public.servicio set duracion=30 where id=$1', [ids.servicio])
+  await db.query("update public.turno set estado='confirmado' where id=$1", [turnoId])
+  const stored = await db.query('select duracion_minutos,hora_fin from public.turno where id=$1', [turnoId])
+  assert.deepEqual(stored.rows[0], { duracion_minutos: 60, hora_fin: '16:00:00' })
 })

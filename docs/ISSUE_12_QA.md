@@ -1,6 +1,6 @@
 # Issue #12 — seguridad, disponibilidad y reservas concurrentes
 
-Fecha de verificación local: 2026-10-31.
+Última verificación: 2026-11-05.
 
 ## Alcance implementado
 
@@ -44,6 +44,11 @@ npm audit --omit=dev --audit-level=high
 Resultado observado: 24 pruebas aprobadas, TypeScript aprobado, ESLint sin errores,
 build aprobado y cero vulnerabilidades conocidas en dependencias de producción.
 
+CI remoto verificado:
+
+- Run `42102331893`: todos los jobs aprobados.
+- PostgreSQL 17 ejecutó dos conexiones concurrentes y persistió una sola reserva.
+
 El workflow de CI levanta PostgreSQL 17 y además ejecuta:
 
 ```bash
@@ -53,10 +58,23 @@ bash tests/native-concurrency.sh
 La prueba abre dos conexiones independientes que intentan reservar el mismo
 profesional y horario. Debe persistir exactamente una reserva y rechazarse la otra.
 
+## Supabase QA aislado
+
+- Proyecto: `hwrlimcunbenxsvfbklr` (no producción).
+- Migración `booking_security_and_intervals` aplicada el 2026-11-05.
+- `tests/supabase-qa-transaction.sql` se ejecutó sin errores y terminó en
+  `ROLLBACK`: reserva válida, superposición rechazada, turno adyacente aceptado,
+  token opaco, funciones privadas para `anon` y aislamiento RLS por negocio.
+- Verificación posterior: cero filas en `public.negocio` y `public.turno`.
+- Los avisos del asesor sobre tablas plurales (`negocios`, `turnos`, `perfiles`,
+  `lista_negra`) y `public.rls_auto_enable()` pertenecen al esquema preexistente
+  del sandbox y no fueron alterados por esta migración.
+
 ## Límites y validación pendiente
 
-- La migración todavía no está aplicada en el Supabase aislado de QA: las
-  confirmaciones del conector expiraron y no se modificó producción.
+- Falta conectar el Preview de la rama exclusivamente a este Supabase QA y hacer
+  E2E por HTTP/navegador. No se probará mientras no se pueda verificar que sus
+  variables no apuntan a producción.
 - El flujo externo completo de Mercado Pago necesita credenciales sandbox y un
   webhook accesible; las reglas de importe e idempotencia sí tienen prueba de base.
 - El `npm audit` completo informa alertas moderadas únicamente en herramientas de

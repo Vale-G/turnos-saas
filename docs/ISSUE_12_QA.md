@@ -70,11 +70,25 @@ profesional y horario. Debe persistir exactamente una reserva y rechazarse la ot
   `lista_negra`) y `public.rls_auto_enable()` pertenecen al esquema preexistente
   del sandbox y no fueron alterados por esta migración.
 
+## Preview E2E verificado
+
+- Deployment: `dpl_47nvUtny3tXwQpBCgXLdqDe3Btew`, commit
+  `a4ef608e5357818dc03d2e2c490a08c985cc6178`, estado `READY`.
+- La rama `codex/turnly-issue-12` usa URL, clave pública y clave secreta exclusivas
+  del Supabase QA. No se usaron variables productivas.
+- Lectura de negocio, servicios, profesionales y disponibilidad: HTTP 200.
+- Primera reserva: HTTP 201. Segundo intento sobre el mismo horario: HTTP 409.
+- Seguimiento con token opaco: HTTP 200 sin exponer email, teléfono ni datos
+  internos. Cancelación autenticada por token: HTTP 200.
+- La cancelación liberó nuevamente el horario en disponibilidad.
+- Número en lista negra: HTTP 403. Configuración de lista negra inválida: HTTP 503
+  (fail-closed, no creó una reserva).
+- Persistencia comprobada antes del cleanup: estado `cancelado`, duración 60 minutos
+  y `hora_fin` 11:00 para una reserva iniciada a las 10:00.
+- Cleanup comprobado: cero negocios, turnos, servicios y profesionales ficticios.
+
 ## Límites y validación pendiente
 
-- Falta conectar el Preview de la rama exclusivamente a este Supabase QA y hacer
-  E2E por HTTP/navegador. No se probará mientras no se pueda verificar que sus
-  variables no apuntan a producción.
 - El flujo externo completo de Mercado Pago necesita credenciales sandbox y un
   webhook accesible; las reglas de importe e idempotencia sí tienen prueba de base.
 - El `npm audit` completo informa alertas moderadas únicamente en herramientas de

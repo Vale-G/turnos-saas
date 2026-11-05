@@ -62,10 +62,19 @@ profesional y horario. Debe persistir exactamente una reserva y rechazarse la ot
 
 - Proyecto: `hwrlimcunbenxsvfbklr` (no producción).
 - Migración `booking_security_and_intervals` aplicada el 2026-11-05.
+- Migración incremental `booking_interval_hardening` aplicada el 2026-11-05
+  mediante el editor SQL del proyecto QA, después de que el conector agotara su
+  ventana de confirmación. El editor devolvió `Success. No rows returned`.
 - `tests/supabase-qa-transaction.sql` se ejecutó sin errores y terminó en
   `ROLLBACK`: reserva válida, superposición rechazada, turno adyacente aceptado,
   token opaco, funciones privadas para `anon` y aislamiento RLS por negocio.
 - Verificación posterior: cero filas en `public.negocio` y `public.turno`.
+- La validación transaccional posterior reprodujo los tres bypasses P1: rechazó
+  el solapamiento contra una fila legada sin snapshot, denegó a `authenticated`
+  la edición de `duracion_minutos`/`hora_fin` y conservó 60 minutos/16:00 al
+  cambiar sólo el estado después de modificar el servicio a 30 minutos.
+- La consulta de evidencia devolvió `true` para los tres casos y terminó en
+  `ROLLBACK`. El control posterior confirmó cero turnos, negocios y usuarios QA.
 - Los avisos del asesor sobre tablas plurales (`negocios`, `turnos`, `perfiles`,
   `lista_negra`) y `public.rls_auto_enable()` pertenecen al esquema preexistente
   del sandbox y no fueron alterados por esta migración.
@@ -92,9 +101,9 @@ profesional y horario. Debe persistir exactamente una reserva y rechazarse la ot
 - QA independiente reprodujo tres bypasses P1 posteriores al primer E2E: un
   intervalo legado sin snapshot, edición directa de columnas derivadas y
   recálculo de una duración histórica al cambiar estado. La migración incremental
-  `20261105211500_booking_interval_hardening.sql` corrige los tres casos y cuenta
-  con regresiones locales (27/27). Su aplicación en Supabase QA está pendiente
-  porque la confirmación del conector expiró; no se ejecutó parcialmente.
+  `20261105211500_booking_interval_hardening.sql` corrige los tres casos, cuenta
+  con regresiones locales (27/27) y fue validada sobre PostgreSQL QA real. Falta
+  la nueva revisión independiente del PR sobre esta corrección.
 - El flujo externo completo de Mercado Pago necesita credenciales sandbox y un
   webhook accesible; las reglas de importe e idempotencia sí tienen prueba de base.
 - El `npm audit` completo informa alertas moderadas únicamente en herramientas de

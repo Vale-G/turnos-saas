@@ -1,6 +1,7 @@
 'use client'
 import React from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 
 const FEATURES = [
   { icon: '📅', titulo: 'Reservas 24/7', desc: 'Tus clientes reservan desde el celular a cualquier hora, sin llamarte.' },
@@ -36,7 +37,7 @@ export default function Landing() {
       <nav className="flex items-center justify-between px-6 py-5 max-w-5xl mx-auto">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center bg-[#0F172A] border border-white/10">
-            <img src="/fvtech-logo.jpg" alt="F&V Tech" className="w-full h-full object-cover" />
+            <Image src="/fvtech-logo.jpg" alt="F&V Tech" width={48} height={48} className="w-full h-full object-cover" />
           </div>
           <div className="flex flex-col items-start">
           <span className="text-xl font-black italic tracking-tighter">
@@ -231,7 +232,7 @@ export default function Landing() {
       <footer className="border-t border-white/5 px-6 py-8 text-center">
         <div className="flex items-center justify-center gap-3 mb-3">
           <div className="w-10 h-10 rounded-xl overflow-hidden border border-white/10">
-            <img src="/fvtech-logo.jpg" alt="F&V Tech" className="w-full h-full object-cover" />
+            <Image src="/fvtech-logo.jpg" alt="F&V Tech" width={48} height={48} className="w-full h-full object-cover" />
           </div>
           <div className="text-left">
             <span className="font-black italic block">turn<span className="text-[#6366F1]">ly</span></span>

@@ -6,8 +6,13 @@ import { diasTrialRestantes } from '@/lib/planes'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 
+type NegocioAdmin = {
+  id: string; nombre: string; slug: string; suscripcion_tipo: string
+  trial_hasta: string | null; created_at: string; activo: boolean
+}
+
 export default function SuperAdminElite() {
-  const [negocios, setNegocios] = useState<any[]>([])
+  const [negocios, setNegocios] = useState<NegocioAdmin[]>([])
   const [configEdit, setConfigEdit] = useState({ precio_basico: 5000, precio_pro: 25000, dias_trial: 14 })
   const [loading, setLoading] = useState(true)
   const [guardandoConfig, setGuardandoConfig] = useState(false)
@@ -17,12 +22,12 @@ export default function SuperAdminElite() {
   const router = useRouter()
 
   const cargarDatos = useCallback(async () => {
-    const { data: negs } = await supabase.from('negocio').select('*').order('created_at', { ascending: false })
-    setNegocios(negs || [])
+    const { data: negs } = await supabase.from('negocio').select('id,nombre,slug,suscripcion_tipo,trial_hasta,created_at,activo').order('created_at', { ascending: false })
+    setNegocios((negs ?? []) as NegocioAdmin[])
 
     const { data: cfg } = await supabase.from('config').select('*')
     if (cfg) {
-      const configMap: any = {}
+      const configMap: Record<string, number> = {}
       cfg.forEach((r) => {
         configMap[r.clave] = Number(r.valor)
       })
@@ -95,16 +100,17 @@ export default function SuperAdminElite() {
   }
 
   const extenderTrial = async (id: string, dias: number) => {
-    const nuevo = new Date()
-    nuevo.setDate(nuevo.getDate() + dias)
-    await supabase.from('negocio').update({ trial_hasta: nuevo.toISOString() }).eq('id', id)
-    setNegocios(negocios.map((n) => (n.id === id ? { ...n, trial_hasta: nuevo.toISOString() } : n)))
+    const response = await fetch('/api/superadmin/plan', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ negocioId: id, dias }) })
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok) return toast.error(payload.error ?? 'No se pudo extender el trial')
+    setNegocios(negocios.map((n) => (n.id === id ? { ...n, ...payload.negocio } : n)))
     toast.success('Trial extendido')
   }
 
   const eliminarNegocio = async (id: string, nombre: string) => {
     if (prompt(`Escribí BORRAR para fulminar a ${nombre}`) !== 'BORRAR') return
-    await supabase.from('negocio').delete().eq('id', id)
+    const response = await fetch(`/api/superadmin/plan?negocioId=${encodeURIComponent(id)}`, { method: 'DELETE' })
+    if (!response.ok) return toast.error('No se pudo eliminar el negocio')
     setNegocios(negocios.filter((n) => n.id !== id))
     toast.success('Negocio fulminado')
   }

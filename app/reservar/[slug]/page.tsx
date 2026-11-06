@@ -3,6 +3,8 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase, getOAuthRedirectUrl } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
+import { generarHorariosDisponibles } from '@/lib/reserva-disponibilidad.mjs'
+import { parsearListaNegra, telefonoBloqueado } from '@/lib/reserva-lista-negra.mjs'
 import { toast } from 'sonner'
 
 const BA_TZ = 'America/Argentina/Buenos_Aires'
@@ -25,7 +27,10 @@ export default function ReservaPage() {
   const [negocio, setNegocio] = useState<any>(null)
   const [servicios, setServicios] = useState<any[]>([])
   const [staffList, setStaffList] = useState<any[]>([])
-  const [ocupados, setOcupados] = useState<string[]>([])
+  const [ocupados, setOcupados] = useState<Array<{ hora: string; duracion: number }>>([])
+  const [horariosCargando, setHorariosCargando] = useState(false)
+  const [horariosError, setHorariosError] = useState(false)
+  const [horariosReintento, setHorariosReintento] = useState(0)
   const [bloqueos, setBloqueos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [paso, setPaso] = useState(1)
@@ -55,49 +60,54 @@ export default function ReservaPage() {
 
   useEffect(() => {
     if (!sel.barbero || !sel.fecha) return
+    let vigente = true
+    setHorariosCargando(true)
+    setHorariosError(false)
+    setOcupados([])
+    setBloqueos([])
     async function check() {
-      const [{ data: t }, { data: b }] = await Promise.all([
-        supabase.from('turno').select('hora').eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha).not('estado', 'eq', 'cancelado'),
-        supabase.from('bloqueo').select('hora_inicio, hora_fin').eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha)
-      ])
-      setOcupados((t ?? []).map((i: any) => i.hora.slice(0, 5)))
-      setBloqueos(b ?? [])
+      try {
+        const [{ data: t, error: errorTurnos }, { data: b, error: errorBloqueos }] = await Promise.all([
+          supabase.from('turno').select('hora, servicio(duracion)').eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha).not('estado', 'eq', 'cancelado'),
+          supabase.from('bloqueo').select('hora_inicio, hora_fin').eq('staff_id', sel.barbero.id).eq('fecha', sel.fecha)
+        ])
+        if (!vigente) return
+        if (errorTurnos || errorBloqueos || !Array.isArray(t) || !Array.isArray(b)) {
+          setHorariosError(true)
+          return
+        }
+        const registros = t.map((item) => {
+          const servicio = Array.isArray(item.servicio) ? item.servicio[0] : item.servicio
+          return { hora: item.hora, duracion: Number(servicio?.duracion) }
+        })
+        if (registros.some((item) => typeof item.hora !== 'string' || !Number.isInteger(item.duracion) || item.duracion <= 0)) {
+          setHorariosError(true)
+          return
+        }
+        setOcupados(registros)
+        setBloqueos(b)
+      } catch {
+        if (vigente) setHorariosError(true)
+      } finally {
+        if (vigente) setHorariosCargando(false)
+      }
     }
-    check()
-  }, [sel.barbero, sel.fecha])
+    void check()
+    return () => { vigente = false }
+  }, [sel.barbero, sel.fecha, horariosReintento])
 
   const horas = useMemo(() => {
-    if (!negocio || !sel.servicio || !sel.fecha) return []
-    const list: string[] = []
-    let curr = negocio.hora_apertura || '09:00:00'
-    const cierre = negocio.hora_cierre || '18:00:00'
+    if (!negocio || !sel.servicio || !sel.fecha || horariosCargando || horariosError) return []
     const esHoy = sel.fecha === toBaDateStr(new Date())
-    const minLimite = esHoy ? getBaMinutes() + 15 : 0
-
-    while (curr < cierre) {
-      const hF = curr.slice(0, 5)
-      const [hh, mm] = hF.split(':').map(Number)
-      const minActual = hh * 60 + mm
-      
-      const estaOcupado = ocupados.includes(hF)
-      const estaBloqueado = bloqueos.some(b => {
-        const [hStart, mStart] = b.hora_inicio.split(':').map(Number)
-        const [hEnd, mEnd] = b.hora_fin.split(':').map(Number)
-        const mS = hStart * 60 + mStart
-        const mE = hEnd * 60 + mEnd
-        return minActual >= mS && minActual < mE
-      })
-
-      if (!estaOcupado && !estaBloqueado && (!esHoy || minActual >= minLimite)) {
-        list.push(hF)
-      }
-      
-      let [h, m] = curr.split(':').map(Number); m += sel.servicio.duracion
-      if (m >= 60) { h += Math.floor(m / 60); m %= 60 }
-      curr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`
-    }
-    return list
-  }, [negocio, sel.servicio, sel.fecha, ocupados, bloqueos])
+    return generarHorariosDisponibles({
+      apertura: negocio.hora_apertura || '09:00:00',
+      cierre: negocio.hora_cierre || '18:00:00',
+      duracion: Number(sel.servicio.duracion),
+      ocupados,
+      bloqueos,
+      minLimite: esHoy ? getBaMinutes() + 15 : 0,
+    })
+  }, [negocio, sel.servicio, sel.fecha, ocupados, bloqueos, horariosCargando, horariosError])
 
   // EL CEREBRO DE LAS SEÑAS FLEXIBLES
   const montoSenaCalculado = useMemo(() => {
@@ -110,16 +120,30 @@ export default function ReservaPage() {
   }, [sel.servicio])
 
   const handleFinal = async (nombre: string, tel: string, pagarSena: boolean, correoInvitado: string) => {
+    // Protección de UI; el servidor todavía debe validar disponibilidad atómicamente.
+    if (horariosCargando || horariosError || !sel.servicio || !sel.barbero || !sel.fecha || !sel.hora || !horas.includes(sel.hora)) {
+      toast.error('El horario ya no está disponible. Elegí otro turno.')
+      return
+    }
     setConfirmando(true)
     const cliNombre = user ? (user.user_metadata?.full_name || user.email) : `${nombre} · ${tel}`
     const correoFinal = user ? user.email : correoInvitado
     
     // 1. Validar Lista Negra
-    const { data: blacklistData } = await supabase.from('config').select('valor').eq('clave', `blacklist_${negocio.id}`).maybeSingle()
+    const { data: blacklistData, error: blacklistError } = await supabase.from('config').select('valor').eq('clave', `blacklist_${negocio.id}`).maybeSingle()
+    if (blacklistError) {
+      toast.error('No se pudo validar la reserva. Intentá nuevamente.')
+      setConfirmando(false)
+      return
+    }
     if (blacklistData?.valor) {
-      const listaNegra = JSON.parse(blacklistData.valor)
-      const telefonoLimpio = tel.replace(/[^0-9]/g, '')
-      if (listaNegra.some((t: string) => t.replace(/[^0-9]/g, '') === telefonoLimpio)) {
+      const listaNegra = parsearListaNegra(blacklistData.valor)
+      if (!listaNegra.ok) {
+        toast.error('No se pudo validar la reserva. Contactá al local.')
+        setConfirmando(false)
+        return
+      }
+      if (telefonoBloqueado(listaNegra.telefonos, tel)) {
         setConfirmando(false)
         return toast.error('Este servicio no está disponible para tu número. Contactá al local.', { duration: 5000 })
       }
@@ -179,7 +203,7 @@ export default function ReservaPage() {
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-8">Elegí un servicio</p>
             <div className="space-y-4">
               {servicios.map(s => (
-                <div key={s.id} onClick={() => { setSel({ ...sel, servicio: s }); setPaso(2) }} className="bg-white/4 border border-white/5 hover:border-white/20 p-8 rounded-[3rem] flex justify-between items-center cursor-pointer transition-all active:scale-[0.98]">
+                <div key={s.id} onClick={() => { setSel({ servicio: s, barbero: null, fecha: '', hora: '' }); setPaso(2) }} className="bg-white/4 border border-white/5 hover:border-white/20 p-8 rounded-[3rem] flex justify-between items-center cursor-pointer transition-all active:scale-[0.98]">
                   <div><p className="font-black italic uppercase text-2xl mb-1 tracking-tighter" style={{ color: colorP }}>{s.nombre}</p><p className="text-[10px] text-slate-500 font-black uppercase">{s.duracion} MINUTOS</p></div>
                   <p className="text-3xl font-black italic">${s.precio}</p>
                 </div>
@@ -211,7 +235,7 @@ export default function ReservaPage() {
                   {dias.map(({ iso, weekday, day }) => {
                     const esLaboral = diasLaborales.includes(getDayOfWeek(iso))
                     const activo = sel.fecha === iso
-                    return <div key={iso} onClick={() => esLaboral && setSel({ ...sel, fecha: iso, hora: '' })} className={`flex-shrink-0 w-16 h-24 rounded-[2rem] border flex flex-col items-center justify-center ${!esLaboral ? 'opacity-20' : activo ? 'border-transparent' : 'bg-white/4 border-white/5'}`} style={activo && esLaboral ? { backgroundColor: colorP } : {}}><p className={`text-[9px] font-black uppercase mb-2 ${activo?'text-black':'text-slate-500'}`}>{weekday}</p><p className={`text-2xl font-black ${activo?'text-black':''}`}>{day}</p></div>
+                    return <div key={iso} onClick={() => { if (!esLaboral) return; setHorariosCargando(true); setHorariosError(false); setHorariosReintento((n) => n + 1); setSel({ ...sel, fecha: iso, hora: '' }) }} className={`flex-shrink-0 w-16 h-24 rounded-[2rem] border flex flex-col items-center justify-center ${!esLaboral ? 'opacity-20' : activo ? 'border-transparent' : 'bg-white/4 border-white/5'}`} style={activo && esLaboral ? { backgroundColor: colorP } : {}}><p className={`text-[9px] font-black uppercase mb-2 ${activo?'text-black':'text-slate-500'}`}>{weekday}</p><p className={`text-2xl font-black ${activo?'text-black':''}`}>{day}</p></div>
                   })}
                 </div>
               </div>
@@ -219,14 +243,14 @@ export default function ReservaPage() {
             {sel.fecha && (
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-6">Horarios Libres</p>
-                {horas.length === 0 ? <div className="text-center py-10 bg-white/4 rounded-[3rem] border border-dashed border-white/10"><p className="text-slate-500 text-[10px] font-black uppercase">Sin Cupos</p></div> : (
+                {horariosCargando ? <div className="text-center py-10 text-slate-400 text-xs">Verificando disponibilidad...</div> : horariosError ? <div role="alert" className="text-center py-10 text-amber-300 text-xs">No se pudieron verificar los horarios. Volvé a elegir la fecha para reintentar.</div> : horas.length === 0 ? <div className="text-center py-10 bg-white/4 rounded-[3rem] border border-dashed border-white/10"><p className="text-slate-500 text-[10px] font-black uppercase">Sin Cupos</p></div> : (
                   <div className="grid grid-cols-4 gap-3">
                     {horas.map(h => <div key={h} onClick={() => setSel({ ...sel, hora: h })} className={`py-5 rounded-2xl text-[11px] font-black text-center cursor-pointer border ${sel.hora === h ? 'border-transparent shadow-lg' : 'bg-white/4 border-white/5'}`} style={sel.hora === h ? { backgroundColor: colorP, color: 'black' } : {}}>{h}</div>)}
                   </div>
                 )}
               </div>
             )}
-            {sel.hora && <button onClick={() => setPaso(3)} className="w-full py-6 rounded-[3rem] font-black uppercase italic text-xl text-black shadow-2xl mt-4" style={{ backgroundColor: colorP }}>Continuar</button>}
+            {!horariosCargando && !horariosError && sel.hora && horas.includes(sel.hora) && <button onClick={() => setPaso(3)} className="w-full py-6 rounded-[3rem] font-black uppercase italic text-xl text-black shadow-2xl mt-4" style={{ backgroundColor: colorP }}>Continuar</button>}
           </div>
         ) : (
           <div className="space-y-8 animate-in zoom-in-95">

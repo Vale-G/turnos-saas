@@ -16,7 +16,11 @@ declare
   ends_at timestamp without time zone;
   weekday smallint;
 begin
-  if new.estado = 'cancelado' then
+  -- Cancelling an existing booking must remain possible even if its staff or
+  -- business was disabled later. Keep the trusted snapshot already stored.
+  if tg_op = 'UPDATE' and new.estado = 'cancelado' then
+    new.duracion_minutos := old.duracion_minutos;
+    new.hora_fin := old.hora_fin;
     return new;
   end if;
 
@@ -47,6 +51,7 @@ begin
      or new.servicio_id is distinct from old.servicio_id
      or new.fecha is distinct from old.fecha
      or new.hora is distinct from old.hora
+     or (tg_op = 'UPDATE' and old.estado = 'cancelado' and new.estado <> 'cancelado')
      or old.duracion_minutos is null
      or old.hora_fin is null then
     new.duracion_minutos := svc.duracion;
@@ -62,6 +67,13 @@ begin
     raise exception using errcode = '23514', message = 'La reserva no puede cruzar de día';
   end if;
   new.hora_fin := ends_at::time;
+
+  -- A cancelled row does not consume availability, but INSERT still derives
+  -- its interval instead of trusting caller-provided snapshot fields.
+  if new.estado = 'cancelado' then
+    return new;
+  end if;
+
   weekday := extract(dow from new.fecha)::smallint;
 
   if business.hora_apertura is null or business.hora_cierre is null
@@ -115,4 +127,11 @@ grant update (
   staff_id, servicio_id, cliente_id, cliente_nombre, cliente_telefono,
   cliente_email, fecha, hora, estado, pago_estado, pago_tipo, pago_id,
   requiere_sena, monto_sena, sena_pagada, mp_preference_id, updated_at
+) on public.turno to authenticated;
+
+revoke insert on public.turno from authenticated;
+grant insert (
+  negocio_id, staff_id, servicio_id, cliente_id, cliente_nombre,
+  cliente_telefono, cliente_email, fecha, hora, estado, pago_estado, pago_tipo,
+  pago_id, requiere_sena, monto_sena, sena_pagada, mp_preference_id, updated_at
 ) on public.turno to authenticated;

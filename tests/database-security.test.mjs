@@ -177,3 +177,48 @@ test('un cambio de estado conserva el snapshot histórico de duración', async (
   const stored = await db.query('select duracion_minutos,hora_fin from public.turno where id=$1', [turnoId])
   assert.deepEqual(stored.rows[0], { duracion_minutos: 60, hora_fin: '16:00:00' })
 })
+
+test('un turno cancelado no permite inyectar un intervalo falso y reactivarlo', async (t) => {
+  const db = await database()
+  t.after(() => db.close())
+  const ids = await seed(db)
+
+  await db.exec(`set role authenticated; set request.jwt.claim.sub = '${ids.owner}'`)
+  await assert.rejects(
+    () => db.query(`insert into public.turno(
+      negocio_id,servicio_id,staff_id,fecha,hora,estado,duracion_minutos,hora_fin
+    ) values ($1,$2,$3,$4,'12:00','cancelado',1,'12:01')`,
+    [ids.negocio, ids.servicio, ids.staff, tomorrow()]),
+    /permission denied/i,
+  )
+
+  const inserted = await db.query(`insert into public.turno(
+    negocio_id,servicio_id,staff_id,fecha,hora,estado
+  ) values ($1,$2,$3,$4,'12:00','cancelado') returning id,duracion_minutos,hora_fin`,
+  [ids.negocio, ids.servicio, ids.staff, tomorrow()])
+  assert.equal(inserted.rows[0].duracion_minutos, 60)
+  assert.equal(inserted.rows[0].hora_fin, '13:00:00')
+
+  await db.query("update public.turno set estado='pendiente' where id=$1", [inserted.rows[0].id])
+  await db.exec('reset role')
+  await assert.rejects(() => book(db, ids, '12:30'), /horario ya no está disponible/i)
+})
+
+test('reactivar recalcula un turno editado mientras estaba cancelado', async (t) => {
+  const db = await database()
+  t.after(() => db.close())
+  const ids = await seed(db)
+  const shorter = '30000000-0000-4000-8000-000000000002'
+  await db.query(`insert into public.servicio(id,negocio_id,nombre,duracion,precio)
+    values ($1,$2,'Consulta corta',30,500)`, [shorter, ids.negocio])
+
+  const created = await book(db, ids, '14:00')
+  await db.query("update public.turno set estado='cancelado' where id=$1", [created.rows[0].turno_id])
+  await db.query(`update public.turno set servicio_id=$1,hora='15:00' where id=$2`,
+    [shorter, created.rows[0].turno_id])
+  await db.query("update public.turno set estado='pendiente' where id=$1", [created.rows[0].turno_id])
+
+  const stored = await db.query('select duracion_minutos,hora_fin from public.turno where id=$1',
+    [created.rows[0].turno_id])
+  assert.deepEqual(stored.rows[0], { duracion_minutos: 30, hora_fin: '15:30:00' })
+})

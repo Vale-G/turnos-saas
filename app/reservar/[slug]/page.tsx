@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation'
 import { supabase, getOAuthRedirectUrl } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
 import { generarHorariosDisponibles } from '@/lib/reserva-disponibilidad.mjs'
+import { parsearListaNegra, telefonoBloqueado } from '@/lib/reserva-lista-negra.mjs'
 import { toast } from 'sonner'
 
 const BA_TZ = 'America/Argentina/Buenos_Aires'
@@ -136,21 +137,13 @@ export default function ReservaPage() {
       return
     }
     if (blacklistData?.valor) {
-      let listaNegra: unknown
-      try {
-        listaNegra = JSON.parse(blacklistData.valor)
-      } catch {
+      const listaNegra = parsearListaNegra(blacklistData.valor)
+      if (!listaNegra.ok) {
         toast.error('No se pudo validar la reserva. Contactá al local.')
         setConfirmando(false)
         return
       }
-      if (!Array.isArray(listaNegra) || !listaNegra.every((t: unknown) => typeof t === 'string')) {
-        toast.error('No se pudo validar la reserva. Contactá al local.')
-        setConfirmando(false)
-        return
-      }
-      const telefonoLimpio = tel.replace(/[^0-9]/g, '')
-      if (listaNegra.some((t: string) => t.replace(/[^0-9]/g, '') === telefonoLimpio)) {
+      if (telefonoBloqueado(listaNegra.telefonos, tel)) {
         setConfirmando(false)
         return toast.error('Este servicio no está disponible para tu número. Contactá al local.', { duration: 5000 })
       }

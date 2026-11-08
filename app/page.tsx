@@ -13,7 +13,7 @@ const FEATURES: LandingFeature[] = [
   { icon: '💰', titulo: 'Cobros integrados', desc: 'Registrá cobros en efectivo, transferencia o MercadoPago.' },
   { icon: '📊', titulo: 'Estadísticas reales', desc: 'Sabé cuánto cobraste, qué servicios venden más y quiénes son tus mejores clientes.' },
   { icon: '💬', titulo: 'WhatsApp automático', desc: 'Confirmaciones y recordatorios por WhatsApp sin que hagas nada.' },
-  { icon: '👥', titulo: 'Multi-barbero', desc: 'Gestioná todo tu equipo desde un solo panel.' },
+  { icon: '👥', titulo: 'Todo tu equipo', desc: 'Gestioná profesionales, recursos y disponibilidad desde un solo panel.' },
   { icon: '📱', titulo: 'Sin app que instalar', desc: 'Tus clientes reservan desde el navegador, sin descargar nada.' },
 ]
 

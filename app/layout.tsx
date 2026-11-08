@@ -6,8 +6,8 @@ import { Toaster } from 'sonner'
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "Turnly | SaaS de Gestión para Barberías",
-  description: "El software de reservas y control financiero definitivo.",
+  title: "Turnly | Reservas y gestión para tu negocio",
+  description: "Agenda, reservas, clientes y cobros en un solo lugar.",
   icons: {
     icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>",
   },

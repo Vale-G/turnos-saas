@@ -37,7 +37,7 @@ export default function Pricing({ precios, onRegisterClick }: PricingProps) {
           </div>
 
           <div className="p-6 space-y-2.5">
-            {['Reservas ilimitadas', '2 barberos', '5 servicios', 'Agenda y cobros'].map((feature) => (
+            {['Reservas ilimitadas', '2 profesionales', '5 servicios', 'Agenda y cobros'].map((feature) => (
               <div key={feature} className="flex items-center gap-3">
                 <div className="w-4 h-4 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">{CHECK_ICON}</div>
                 <span className="text-sm text-slate-400">{feature}</span>

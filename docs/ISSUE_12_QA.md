@@ -98,6 +98,17 @@ profesional y horario. Debe persistir exactamente una reserva y rechazarse la ot
 
 ## Límites y validación pendiente
 
+- Revalidación del 2026-11-08: la definición activa de
+  `turnly_private.enforce_turno_interval()` en el Supabase QA coincide con la
+  revisión endurecida y la prueba transaccional real aprobó reserva válida,
+  rechazo de superposición, intervalo adyacente, aislamiento RLS, columnas
+  derivadas no editables e intento de inyectar/reactivar un turno cancelado.
+  Todo terminó en `ROLLBACK`; el control posterior devolvió cero turnos.
+- El historial remoto sólo registra `booking_security_and_intervals`. La
+  revisión de `booking_interval_hardening` fue aplicada anteriormente mediante
+  SQL y aún debe registrarse como migración remota. Dos intentos con el conector
+  expiraron en la confirmación, por lo que no se alteró producción ni se forzó
+  el historial manualmente.
 - QA independiente reprodujo tres bypasses P1 posteriores al primer E2E: un
   intervalo legado sin snapshot, edición directa de columnas derivadas y
   recálculo de una duración histórica al cambiar estado. La migración incremental
@@ -106,8 +117,8 @@ profesional y horario. Debe persistir exactamente una reserva y rechazarse la ot
   autenticado podía insertar un turno ya cancelado con campos derivados falsos
   y reactivarlo. La misma migración ahora restringe también `INSERT`, deriva el
   intervalo de altas canceladas y lo recalcula al reactivar. Las regresiones
-  locales pasan (29/29); falta aplicar esta última revisión en QA y repetir la
-  revisión independiente.
+  locales pasan (29/29) y la revisión activa pasó en PostgreSQL QA real; falta
+  registrar la migración y solicitar una nueva revisión independiente.
 - El flujo externo completo de Mercado Pago necesita credenciales sandbox y un
   webhook accesible; las reglas de importe e idempotencia sí tienen prueba de base.
 - El `npm audit` completo informa alertas moderadas únicamente en herramientas de
@@ -115,6 +126,15 @@ profesional y horario. Debe persistir exactamente una reserva y rechazarse la ot
   no se aplicó el downgrade incompatible sugerido por `npm audit fix --force`.
 - No se debe promover ningún Preview ni integrar la rama hasta que CI termine en
   verde y QA pruebe el Preview contra la base aislada.
+
+## Adaptación por rubro
+
+- La portada, precios, alta de negocio, staff y búsqueda de turnos ya no presentan
+  Turnly como un producto exclusivo para barberías.
+- El lenguaje visible usa “profesionales”, “equipo” y “atender”, e incluye
+  consultorios, estética, peluquerías y servicios profesionales.
+- Revalidación local posterior: 29/29 pruebas, TypeScript, ESLint y build
+  aprobados; dependencias de producción con cero vulnerabilidades conocidas.
 
 ## Variables requeridas para Preview aislado
 

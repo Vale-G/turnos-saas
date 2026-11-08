@@ -54,7 +54,7 @@ export default function GestionStaff() {
 
     if (staff.length >= MAX_STAFF[plan]) {
       setError(plan === 'normal'
-        ? 'Límite del plan Normal (2 barberos). Upgradea a Pro para agregar más.'
+        ? 'Límite del plan Normal (2 profesionales). Pasate a Pro para agregar más.'
         : 'Límite alcanzado.')
       return
     }
@@ -99,7 +99,7 @@ export default function GestionStaff() {
             Mi Equipo
           </h1>
           <span className="text-xs font-black text-slate-500">
-            {plan === 'pro' ? staff.length + ' barberos' : staff.length + ' / ' + limite}
+            {plan === 'pro' ? staff.length + ' profesionales' : staff.length + ' / ' + limite}
           </span>
           {plan === 'pro' && (
             <span className="bg-amber-400 text-black text-[9px] font-black uppercase px-2 py-0.5 rounded-full">PRO</span>
@@ -109,17 +109,17 @@ export default function GestionStaff() {
         {lleno && plan === 'normal' ? (
           <div className="bg-amber-400/10 border border-amber-400/20 rounded-2xl p-5 mb-8">
             <p className="font-black text-amber-400 text-sm uppercase">Límite del plan Normal</p>
-            <p className="text-slate-400 text-xs mt-0.5">Tenés {limite} barberos. Upgrade a Pro para agregar más.</p>
+            <p className="text-slate-400 text-xs mt-0.5">Tenés {limite} profesionales. Pasate a Pro para agregar más.</p>
           </div>
         ) : (
           <form onSubmit={agregarBarbero}
             className="bg-white/4 border border-white/8 p-6 rounded-[2rem] mb-10 flex gap-4 items-end">
             <div className="flex-1">
               <label className="text-[10px] font-black uppercase text-slate-500 ml-2 mb-1 block">
-                Nombre del Barbero / Estilista
+                Nombre del profesional
               </label>
               <input type="text" value={nombre} onChange={e => setNombre(e.target.value)}
-                placeholder="Ej: Franco el barbero"
+                placeholder="Ej: María González"
                 className="w-full bg-black border border-white/10 p-4 rounded-2xl outline-none text-sm transition-colors"
                 required />
             </div>

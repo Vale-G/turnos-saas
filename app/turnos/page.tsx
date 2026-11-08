@@ -396,7 +396,7 @@ export default function AgendaTurnos() {
 
         <input
           type="text"
-          placeholder="Buscar cliente, servicio o barbero..."
+          placeholder="Buscar cliente, servicio o profesional..."
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
           className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-sm outline-none focus:border-white/25 transition-colors mb-4"

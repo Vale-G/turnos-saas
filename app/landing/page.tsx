@@ -8,7 +8,7 @@ const FEATURES = [
   { icon: '💰', titulo: 'Cobros integrados', desc: 'Registrá cobros en efectivo, transferencia o MercadoPago.' },
   { icon: '📊', titulo: 'Estadísticas reales', desc: 'Sabé cuánto cobraste, qué servicios venden más y quiénes son tus mejores clientes.' },
   { icon: '💬', titulo: 'WhatsApp automático', desc: 'Confirmaciones y recordatorios por WhatsApp sin que hagas nada.' },
-  { icon: '👥', titulo: 'Multi-barbero', desc: 'Gestioná todo tu equipo desde un solo panel.' },
+  { icon: '👥', titulo: 'Todo tu equipo', desc: 'Gestioná profesionales, recursos y disponibilidad desde un solo panel.' },
   { icon: '📱', titulo: 'Sin app que instalar', desc: 'Tus clientes reservan desde el navegador, sin descargar nada.' },
 ]
 
@@ -67,10 +67,10 @@ export default function Landing() {
         <h1 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter leading-none mb-6">
           Tus clientes reservan solos.
           <br />
-          <span className="text-[#6366F1]">Vos te concentrás en cortar.</span>
+          <span className="text-[#6366F1]">Vos te concentrás en atender.</span>
         </h1>
         <p className="text-slate-400 text-lg max-w-xl mx-auto mb-10 leading-relaxed">
-          El sistema de turnos para barberías, peluquerías y centros de estética que no quieren perder tiempo con WhatsApps y llamadas.
+          El sistema de turnos para consultorios, estética, peluquerías y profesionales que quieren trabajar sin perder tiempo con mensajes y llamadas.
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <button onClick={() => router.push('/registro-negocio')}
@@ -95,7 +95,7 @@ export default function Landing() {
                 <path d="M11 7v4l2.5 2.5" stroke="white" strokeWidth="2" strokeLinecap="round"/>
               </svg>
             </div>
-            <span className="font-black italic text-sm">Barberia El Flaco</span>
+            <span className="font-black italic text-sm">Espacio Norte</span>
             <span className="ml-auto text-[9px] bg-amber-400 text-black font-black uppercase px-2 py-0.5 rounded-full">PRO</span>
           </div>
           <div className="grid grid-cols-2 gap-3 mb-4">
@@ -161,7 +161,7 @@ export default function Landing() {
               </div>
             </div>
             <div className="p-6 space-y-2.5">
-              {['Reservas ilimitadas','2 barberos','5 servicios','Agenda y cobros'].map(f => (
+              {['Reservas ilimitadas','2 profesionales','5 servicios','Agenda y cobros'].map(f => (
                 <div key={f} className="flex items-center gap-3">
                   <div className="w-4 h-4 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
                     <svg width="8" height="8" viewBox="0 0 8 8" fill="none">

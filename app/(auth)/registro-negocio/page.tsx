@@ -167,7 +167,7 @@ export default function RegistroNegocio() {
         <form onSubmit={handleRegistro} className="space-y-4">
           <input
             type="text"
-            placeholder="Nombre de tu negocio (ej: Barbería El Flaco)"
+            placeholder="Nombre de tu negocio (ej: Espacio Norte)"
             value={nombreNegocio}
             className="w-full bg-black/50 border border-slate-800 p-4 rounded-2xl focus:border-emerald-500 outline-none transition-all"
             onChange={(e) => handleNombreChange(e.target.value)}

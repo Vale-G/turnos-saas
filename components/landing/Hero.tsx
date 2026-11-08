@@ -15,10 +15,10 @@ export default function Hero({ onPrimaryClick, onSecondaryClick }: HeroProps) {
       <h1 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter leading-none mb-6">
         Tus clientes reservan solos.
         <br />
-        <span className="text-[#6366F1]">Vos te concentrás en cortar.</span>
+        <span className="text-[#6366F1]">Vos te concentrás en atender.</span>
       </h1>
       <p className="text-slate-400 text-lg max-w-xl mx-auto mb-10 leading-relaxed">
-        El sistema de turnos para barberías, peluquerías y centros de estética que no quieren perder tiempo con WhatsApps y llamadas.
+        El sistema de turnos para consultorios, estética, peluquerías y profesionales que quieren trabajar sin perder tiempo con mensajes y llamadas.
       </p>
       <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
         <button

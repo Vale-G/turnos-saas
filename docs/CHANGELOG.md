@@ -1,3 +1,11 @@
+## 2026-11-06 — Lista negra: helper verificable y regresiones
+
+- Base estable: `codex/revisar-informes-de-turnos-cancelados` @ `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf` (sin cambios); trabajo en `codex/ci-automatico-lint-build`, PR #11 borrador.
+- `lib/reserva-lista-negra.mjs` y `.d.mts`: extracción de parseo conservador de configuración y comparación normalizada de teléfonos. `app/reservar/[slug]/page.tsx` utiliza ahora el helper. `tests/reserva-lista-negra.test.mjs`: cinco pruebas nuevas para JSON inválido, tipos incorrectos, lista vacía, normalización y coincidencias.
+- Commits de implementación: `dcc5771`, `315a80f`, `a5a9248`, `a4b61ee`. No se alteraron los permisos ni los datos de Supabase.
+- Validación de CI del nuevo head: pendiente de inspección. El run anterior [42016776355](https://github.com/Vale-G/turnos-saas/actions/runs/42016776355) terminó con build y pruebas unitarias aprobadas, ESLint fallido; no atribuir ese resultado a estos cambios.
+- Riesgos abiertos: excepciones de red no capturadas en la consulta de lista negra; reserva insertada desde navegador sin control transaccional, RLS pública, concurrencia y aislamiento. No hay integración/E2E ni QA independiente aprobado. Sin merge ni despliegue.
+
 ## 2026-11-03 — Correcciones puntuales de hallazgos QA en reservas
 
 - Base estable: `codex/revisar-informes-de-turnos-cancelados` @ `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf` (sin cambios). Rama: `codex/ci-automatico-lint-build`; PR #11 borrador.

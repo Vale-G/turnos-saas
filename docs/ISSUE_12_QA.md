@@ -104,11 +104,10 @@ profesional y horario. Debe persistir exactamente una reserva y rechazarse la ot
   rechazo de superposición, intervalo adyacente, aislamiento RLS, columnas
   derivadas no editables e intento de inyectar/reactivar un turno cancelado.
   Todo terminó en `ROLLBACK`; el control posterior devolvió cero turnos.
-- El historial remoto sólo registra `booking_security_and_intervals`. La
-  revisión de `booking_interval_hardening` fue aplicada anteriormente mediante
-  SQL y aún debe registrarse como migración remota. Dos intentos con el conector
-  expiraron en la confirmación, por lo que no se alteró producción ni se forzó
-  el historial manualmente.
+- El 2026-11-09 se registró `booking_interval_hardening` mediante el conector,
+  con autorización explícita y exclusivamente en el Supabase QA. El historial
+  remoto lista ambas migraciones. La prueba transaccional completa se repitió
+  después de aplicarla y el control posterior confirmó cero turnos residuales.
 - QA independiente reprodujo tres bypasses P1 posteriores al primer E2E: un
   intervalo legado sin snapshot, edición directa de columnas derivadas y
   recálculo de una duración histórica al cambiar estado. La migración incremental

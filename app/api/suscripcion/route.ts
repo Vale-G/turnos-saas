@@ -39,5 +39,8 @@ export async function POST(request: NextRequest) {
   if (typeof preference.id !== 'string' || typeof preference.init_point !== 'string') return NextResponse.json({ error: 'Respuesta de pago inválida' }, { status: 502 })
   const { error } = await admin.from('suscripcion').insert({ negocio_id: negocio.id, plan, estado: 'pendiente', mp_preference_id: preference.id, monto: amount })
   if (error) return NextResponse.json({ error: 'No se pudo registrar la suscripción' }, { status: 500 })
-  return NextResponse.json({ url: preference.init_point })
+  const paymentUrl = token.startsWith('TEST-') && typeof preference.sandbox_init_point === 'string'
+    ? preference.sandbox_init_point
+    : preference.init_point
+  return NextResponse.json({ url: paymentUrl })
 }

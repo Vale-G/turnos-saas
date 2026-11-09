@@ -124,12 +124,15 @@ export async function POST(req: NextRequest) {
         failure: `${origin}/reservar/${negocioSlug}?pago=error&turno=${turnoId}`,
         pending: `${origin}/reservar/${negocioSlug}?pago=pendiente&turno=${turnoId}`,
       },
+      notificationUrl: `${origin}/api/webhooks/mercadopago`,
     })
 
     return NextResponse.json(
       {
         id: preferencia.id,
-        url: process.env.NODE_ENV === 'production' ? preferencia.init_point : preferencia.sandbox_init_point,
+        url: process.env.MP_ACCESS_TOKEN?.startsWith('TEST-')
+          ? preferencia.sandbox_init_point
+          : preferencia.init_point,
       },
       {
         headers: {

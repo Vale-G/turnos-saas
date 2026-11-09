@@ -5,6 +5,7 @@ export type MPPreferenciaInput = {
   clienteEmail: string
   clienteNombre: string
   backUrls: { success: string; failure: string; pending: string }
+  notificationUrl: string
 }
 
 export type MPPreferenciaOutput = {
@@ -26,7 +27,7 @@ export async function crearPreferenciaMercadoPago(input: MPPreferenciaInput): Pr
       external_reference: input.turnoId,
       back_urls: input.backUrls,
       auto_return: 'approved',
-      notification_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/webhooks/mercadopago`,
+      notification_url: input.notificationUrl,
       statement_descriptor: 'TURNLY',
     }),
   })

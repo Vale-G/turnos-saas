@@ -94,5 +94,8 @@ export async function POST(request: NextRequest) {
   }).eq('id', turnoId)
   if (updateError) return NextResponse.json({ error: 'No se pudo registrar la preferencia' }, { status: 500 })
 
-  return NextResponse.json({ url: preference.init_point }, { headers: { 'Cache-Control': 'no-store' } })
+  const paymentUrl = negocio.mp_access_token.startsWith('TEST-') && typeof preference.sandbox_init_point === 'string'
+    ? preference.sandbox_init_point
+    : preference.init_point
+  return NextResponse.json({ url: paymentUrl }, { headers: { 'Cache-Control': 'no-store' } })
 }

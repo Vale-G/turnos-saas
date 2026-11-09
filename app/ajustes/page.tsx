@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
 import { toast } from 'sonner'
+import Image from 'next/image'
 
 const TEMAS_DISPONIBLES = [
   { id: 'emerald', color: '#10b981', nombre: 'Esmeralda' },
@@ -25,14 +26,14 @@ const DIAS_SEMANA = [
   { id: 0, letra: 'D' },
 ]
 
-function maskToken(token: string) {
-  if (!token) return ''
-  const last4 = token.slice(-4)
-  return `************${last4}`
+type NegocioAjustes = {
+  id: string; nombre: string; slug: string; tema: string | null; whatsapp: string | null
+  hora_apertura: string | null; hora_cierre: string | null; dias_laborales: number[] | null
+  logo_url: string | null; email_contacto: string | null
 }
 
 export default function AjustesPage() {
-  const [negocio, setNegocio] = useState<any>(null)
+  const [negocio, setNegocio] = useState<NegocioAjustes | null>(null)
   const [loading, setLoading] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [subiendoLogo, setSubiendoLogo] = useState(false)
@@ -46,9 +47,11 @@ export default function AjustesPage() {
   const [cierre, setCierre] = useState('20:00')
   const [diasLaborales, setDiasLaborales] = useState<number[]>([1, 2, 3, 4, 5, 6])
   const [logoUrl, setLogoUrl] = useState('')
-  const [mpToken, setMpToken] = useState('')
-  const [mpTokenMaskedValue, setMpTokenMaskedValue] = useState('')
-  const [mpTokenEditado, setMpTokenEditado] = useState(false)
+  const [mpConnected, setMpConnected] = useState(false)
+  const [mpOauth, setMpOauth] = useState(false)
+  const [mpAvailable, setMpAvailable] = useState(false)
+  const [mpAccountId, setMpAccountId] = useState<string | null>(null)
+  const [desconectandoMp, setDesconectandoMp] = useState(false)
   const [emailContacto, setEmailContacto] = useState('')
 
   useEffect(() => {
@@ -58,7 +61,7 @@ export default function AjustesPage() {
       } = await supabase.auth.getUser()
       if (!user) return router.push('/login')
 
-      const { data: adm } = await supabase.from('adminrol').select('*').eq('user_id', user.id).maybeSingle()
+      const { data: adm } = await supabase.from('adminrol').select('negocio_id,role').eq('user_id', user.id).maybeSingle()
       let nId = adm?.negocio_id
       if (!nId) {
         const { data: n } = await supabase.from('negocio').select('id').eq('owner_id', user.id).maybeSingle()
@@ -66,7 +69,7 @@ export default function AjustesPage() {
       }
 
       if (nId) {
-        const { data: neg } = await supabase.from('negocio').select('*').eq('id', nId).single()
+        const { data: neg } = await supabase.from('negocio').select('id,nombre,slug,tema,whatsapp,hora_apertura,hora_cierre,dias_laborales,logo_url,email_contacto').eq('id', nId).single()
         if (neg) {
           setNegocio(neg)
           setNombre(neg.nombre || '')
@@ -78,10 +81,16 @@ export default function AjustesPage() {
           setDiasLaborales(neg.dias_laborales || [1, 2, 3, 4, 5, 6])
           setLogoUrl(neg.logo_url || '')
 
-          const tokenEnmascarado = neg.mp_access_token ? maskToken(neg.mp_access_token) : ''
-          setMpToken(tokenEnmascarado)
-          setMpTokenMaskedValue(tokenEnmascarado)
-          setMpTokenEditado(false)
+          const credential = await fetch('/api/ajustes/mercadopago', { cache: 'no-store' }).then((response) => response.ok ? response.json() : { connected: false })
+          setMpConnected(Boolean(credential.connected))
+          setMpOauth(Boolean(credential.oauth))
+          setMpAvailable(Boolean(credential.available))
+          setMpAccountId(credential.accountId ?? null)
+
+          const mpResult = new URLSearchParams(window.location.search).get('mp')
+          if (mpResult === 'connected') toast.success('Mercado Pago quedó conectado correctamente')
+          if (mpResult === 'error' || mpResult === 'invalid') toast.error('No se pudo completar la conexión con Mercado Pago')
+          if (mpResult === 'not-configured') toast.error('Falta configurar la aplicación de Mercado Pago en Turnly')
 
           setEmailContacto(neg.email_contacto || '')
         }
@@ -124,7 +133,7 @@ export default function AjustesPage() {
     e.preventDefault()
     setGuardando(true)
 
-    const updatePayload: Record<string, any> = {
+    const updatePayload: Record<string, string | number[]> = {
       nombre,
       slug,
       tema,
@@ -136,14 +145,7 @@ export default function AjustesPage() {
       email_contacto: emailContacto,
     }
 
-    if (mpTokenEditado) {
-      if (!mpToken.trim()) {
-        setGuardando(false)
-        return toast.error('El Access Token no puede estar vacío si decidís modificarlo')
-      }
-      updatePayload.mp_access_token = mpToken.trim()
-    }
-
+    if (!negocio) { setGuardando(false); return }
     const { error } = await supabase.from('negocio').update(updatePayload).eq('id', negocio.id)
 
     setGuardando(false)
@@ -162,6 +164,17 @@ export default function AjustesPage() {
   }
 
   const colorP = getThemeColor(tema)
+
+  async function desconectarMercadoPago() {
+    setDesconectandoMp(true)
+    const response = await fetch('/api/ajustes/mercadopago', { method: 'DELETE' })
+    setDesconectandoMp(false)
+    if (!response.ok) return toast.error('No se pudo desconectar Mercado Pago')
+    setMpConnected(false)
+    setMpOauth(false)
+    setMpAccountId(null)
+    toast.success('Mercado Pago desconectado')
+  }
 
   return (
     <div className="min-h-screen bg-[#020617] text-white p-6 md:p-12">
@@ -184,7 +197,7 @@ export default function AjustesPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2 flex items-center gap-6 bg-black/50 border border-white/10 p-6 rounded-3xl">
                 <div className="w-24 h-24 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
-                  {logoUrl ? <img src={logoUrl} alt="Logo Local" className="w-full h-full object-cover" /> : <span className="text-3xl">🖼️</span>}
+                  {logoUrl ? <Image src={logoUrl} alt="Logo del negocio" width={96} height={96} unoptimized className="w-full h-full object-cover" /> : <span className="text-3xl">🖼️</span>}
                 </div>
                 <div className="flex-1">
                   <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Logo del Local</label>
@@ -314,21 +327,34 @@ export default function AjustesPage() {
               </div>
             </div>
             <div className="relative overflow-hidden bg-blue-500/10 border border-blue-500/20 p-6 rounded-3xl mt-4">
-              <h3 className="text-sm font-black uppercase italic mb-4 text-blue-400">MercadoPago</h3>
-              <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Access Token (Producción)</label>
-                <input
-                  type="password"
-                  value={mpToken}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    setMpToken(value)
-                    setMpTokenEditado(value !== mpTokenMaskedValue)
-                  }}
-                  placeholder="APP_USR-..."
-                  className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-mono outline-none focus:border-blue-500/50"
-                />
-              </div>
+              <h3 className="text-sm font-black uppercase italic mb-2 text-blue-400">Mercado Pago</h3>
+              <p className="text-sm text-slate-300 mb-5">
+                Vinculá tu cuenta para recibir directamente las señas y cobros de tus clientes. Turnly no recibe ni almacena datos de tarjetas.
+              </p>
+              {mpConnected ? (
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="flex-1 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+                    <p className="text-xs font-black uppercase text-emerald-400">✓ Cuenta conectada</p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      {mpAccountId ? `Cuenta ${mpAccountId}` : 'Credencial existente'}
+                      {!mpOauth && ' · reconectala para activar renovación automática'}
+                    </p>
+                  </div>
+                  <button type="button" onClick={desconectarMercadoPago} disabled={desconectandoMp}
+                    className="rounded-2xl border border-rose-500/30 px-5 py-4 text-xs font-black uppercase text-rose-300 hover:bg-rose-500/10 disabled:opacity-50">
+                    {desconectandoMp ? 'Desconectando…' : 'Desconectar'}
+                  </button>
+                </div>
+              ) : mpAvailable ? (
+                <a href="/api/ajustes/mercadopago/connect"
+                  className="inline-flex rounded-2xl bg-[#009ee3] px-6 py-4 text-sm font-black uppercase text-white hover:bg-[#008ed0]">
+                  Conectar Mercado Pago
+                </a>
+              ) : (
+                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-200">
+                  La conexión estará disponible cuando se configure la aplicación OAuth de Turnly.
+                </div>
+              )}
             </div>
           </div>
 

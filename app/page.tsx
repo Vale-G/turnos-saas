@@ -6,13 +6,14 @@ import Hero from '@/components/landing/Hero'
 import Mockup from '@/components/landing/Mockup'
 import Features, { type LandingFeature } from '@/components/landing/Features'
 import Pricing from '@/components/landing/Pricing'
+import Image from 'next/image'
 
 const FEATURES: LandingFeature[] = [
   { icon: '📅', titulo: 'Reservas 24/7', desc: 'Tus clientes reservan desde el celular a cualquier hora, sin llamarte.' },
   { icon: '💰', titulo: 'Cobros integrados', desc: 'Registrá cobros en efectivo, transferencia o MercadoPago.' },
   { icon: '📊', titulo: 'Estadísticas reales', desc: 'Sabé cuánto cobraste, qué servicios venden más y quiénes son tus mejores clientes.' },
   { icon: '💬', titulo: 'WhatsApp automático', desc: 'Confirmaciones y recordatorios por WhatsApp sin que hagas nada.' },
-  { icon: '👥', titulo: 'Multi-barbero', desc: 'Gestioná todo tu equipo desde un solo panel.' },
+  { icon: '👥', titulo: 'Todo tu equipo', desc: 'Gestioná profesionales, recursos y disponibilidad desde un solo panel.' },
   { icon: '📱', titulo: 'Sin app que instalar', desc: 'Tus clientes reservan desde el navegador, sin descargar nada.' },
 ]
 
@@ -43,7 +44,7 @@ export default function Landing() {
       <nav className="flex items-center justify-between px-6 py-5 max-w-5xl mx-auto">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center bg-[#0F172A] border border-white/10">
-            <img src="/fvtech-logo.jpg" alt="F&V Tech" className="w-full h-full object-cover" />
+            <Image src="/fvtech-logo.jpg" alt="F&V Tech" width={48} height={48} className="w-full h-full object-cover" />
           </div>
           <div className="flex flex-col items-start">
             <span className="text-xl font-black italic tracking-tighter">
@@ -97,7 +98,7 @@ export default function Landing() {
       <footer className="border-t border-white/5 px-6 py-8 text-center">
         <div className="flex items-center justify-center gap-3 mb-3">
           <div className="w-10 h-10 rounded-xl overflow-hidden border border-white/10">
-            <img src="/fvtech-logo.jpg" alt="F&V Tech" className="w-full h-full object-cover" />
+            <Image src="/fvtech-logo.jpg" alt="F&V Tech" width={48} height={48} className="w-full h-full object-cover" />
           </div>
           <div className="text-left">
             <span className="font-black italic block">

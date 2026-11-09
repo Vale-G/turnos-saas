@@ -15,10 +15,23 @@ function getMonthRange(monthIso: string) {
   return { start, next }
 }
 
+type NegocioCaja = { id: string; tema: string | null; suscripcion_tipo: string }
+type Ingreso = { estado: string; pago_estado: string | null; servicio: { precio: number } | Array<{ precio: number }> | null }
+type Gasto = { id: string; concepto: string; monto: number | string; fecha: string }
+
+async function fetchCaja(negocioId: string, month: string) {
+  const { start, next } = getMonthRange(month)
+  const [{ data: turnos }, { data: gastos }] = await Promise.all([
+    supabase.from('turno').select('fecha, estado, pago_estado, servicio(precio)').eq('negocio_id', negocioId).gte('fecha', start).lt('fecha', next),
+    supabase.from('gasto').select('*').eq('negocio_id', negocioId).gte('fecha', start).lt('fecha', next).order('fecha', { ascending: false }),
+  ])
+  return { ingresos: (turnos ?? []) as Ingreso[], gastos: (gastos ?? []) as Gasto[] }
+}
+
 export default function CajaElite() {
-  const [negocio, setNegocio] = useState<any>(null)
-  const [ingresos, setIngresos] = useState<any[]>([])
-  const [gastos, setGastos] = useState<any[]>([])
+  const [negocio, setNegocio] = useState<NegocioCaja | null>(null)
+  const [ingresos, setIngresos] = useState<Ingreso[]>([])
+  const [gastos, setGastos] = useState<Gasto[]>([])
   const [loading, setLoading] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [tieneAcceso, setTieneAcceso] = useState(false)
@@ -32,7 +45,10 @@ export default function CajaElite() {
   // REGLA DE REACT: Todos los Hooks van ARRIBA de los 'if'
   const colorP = getThemeColor(negocio?.tema)
   const totalIngresos = useMemo(
-    () => ingresos.filter((t) => t.estado === 'completado' || t.pago_estado === 'cobrado').reduce((acc, t) => acc + (t.servicio?.precio || 0), 0),
+    () => ingresos.filter((t) => t.estado === 'completado' || t.pago_estado === 'cobrado').reduce((acc, t) => {
+      const servicio = Array.isArray(t.servicio) ? t.servicio[0] : t.servicio
+      return acc + Number(servicio?.precio ?? 0)
+    }, 0),
     [ingresos],
   )
   const totalGastos = useMemo(() => gastos.reduce((acc, g) => acc + Number(g.monto), 0), [gastos])
@@ -43,7 +59,7 @@ export default function CajaElite() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return router.push('/login')
       
-      const { data: adm } = await supabase.from('adminrol').select('*').eq('user_id', user.id).maybeSingle()
+      const { data: adm } = await supabase.from('adminrol').select('negocio_id,role').eq('user_id', user.id).maybeSingle()
       let negId = adm?.negocio_id
       if (!negId) {
          const { data: n } = await supabase.from('negocio').select('id').eq('owner_id', user.id).maybeSingle()
@@ -51,7 +67,7 @@ export default function CajaElite() {
       }
 
       if (negId) {
-        const { data: neg } = await supabase.from('negocio').select('*').eq('id', negId).single()
+        const { data: neg } = await supabase.from('negocio').select('id,tema,suscripcion_tipo').eq('id', negId).single()
         if (neg) {
           setNegocio(neg)
           if (neg.suscripcion_tipo === 'pro' || neg.suscripcion_tipo === 'trial' || adm?.role === 'superadmin') {
@@ -66,30 +82,21 @@ export default function CajaElite() {
     init()
   }, [router])
 
-  const cargarDatos = async () => {
+  useEffect(() => {
     if (!negocio?.id || !tieneAcceso) return
-    const { start, next } = getMonthRange(mesFiltro)
-
-    const [{ data: turnos }, { data: gst }] = await Promise.all([
-      supabase
-        .from('turno')
-        .select('fecha, estado, pago_estado, servicio(precio)')
-        .eq('negocio_id', negocio.id)
-        .gte('fecha', start)
-        .lt('fecha', next),
-      supabase.from('gasto').select('*').eq('negocio_id', negocio.id).gte('fecha', start).lt('fecha', next).order('fecha', { ascending: false })
-    ])
-    setIngresos(turnos || []); setGastos(gst || [])
-  }
-
-  useEffect(() => { cargarDatos() }, [negocio, mesFiltro, tieneAcceso])
+    let active = true
+    void fetchCaja(negocio.id, mesFiltro).then((data) => {
+      if (active) { setIngresos(data.ingresos); setGastos(data.gastos) }
+    })
+    return () => { active = false }
+  }, [negocio?.id, mesFiltro, tieneAcceso])
 
   useEffect(() => {
     if (!negocio?.id || !tieneAcceso) return
     const channel = supabase
       .channel(`caja-turnos-${negocio.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'turno', filter: `negocio_id=eq.${negocio.id}` }, () => {
-        cargarDatos()
+        void fetchCaja(negocio.id, mesFiltro).then((data) => { setIngresos(data.ingresos); setGastos(data.gastos) })
       })
       .subscribe()
 
@@ -100,13 +107,16 @@ export default function CajaElite() {
 
   const agregarGasto = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!negocio) return toast.error('No se encontró el negocio')
+    const negocioId = negocio.id
     setGuardando(true)
-    const { error } = await supabase.from('gasto').insert({ negocio_id: negocio.id, concepto, monto: Number(monto), fecha: fechaGasto })
+    const { error } = await supabase.from('gasto').insert({ negocio_id: negocioId, concepto, monto: Number(monto), fecha: fechaGasto })
     setGuardando(false)
     if (error) return toast.error('Error al registrar el gasto')
     toast.success('Gasto registrado con éxito')
     setConcepto(''); setMonto('')
-    cargarDatos()
+    const data = await fetchCaja(negocioId, mesFiltro)
+    setIngresos(data.ingresos); setGastos(data.gastos)
   }
 
   const eliminarGasto = async (id: string) => {

@@ -17,7 +17,7 @@ export default function Mockup() {
               <path d="M11 7v4l2.5 2.5" stroke="white" strokeWidth="2" strokeLinecap="round" />
             </svg>
           </div>
-          <span className="font-black italic text-sm">Barberia El Flaco</span>
+          <span className="font-black italic text-sm">Espacio Norte</span>
           <span className="ml-auto text-[9px] bg-amber-400 text-black font-black uppercase px-2 py-0.5 rounded-full">PRO</span>
         </div>
 

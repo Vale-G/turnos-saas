@@ -1,62 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { createClient } from '@supabase/supabase-js'
-import { cookies } from 'next/headers'
+import { createAdminClient, createUserServerClient } from '@/lib/server/supabase'
+import { validUuid } from '@/lib/server/public-booking'
 
-type Plan = 'basico' | 'pro'
-
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json()
-    const negocioId = body?.negocioId as string | undefined
-    const plan = body?.plan as Plan | undefined
-
-    if (!negocioId || !plan || !['basico', 'pro'].includes(plan)) {
-      return NextResponse.json({ error: 'Payload inválido' }, { status: 400 })
-    }
-
-    const cookieStore = await cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: (toSet) => {
-            try {
-              toSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
-            } catch { }
-          },
-        },
-      },
-    )
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    const { data: rol } = await supabase.from('adminrol').select('role').eq('user_id', user.id).maybeSingle()
-    if (rol?.role !== 'superadmin') {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
-    }
-
-    const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-    const { data, error } = await supabaseAdmin
-      .from('negocio')
-      .update({ suscripcion_tipo: plan })
-      .eq('id', negocioId)
-      .select('id, suscripcion_tipo')
-      .single()
-
-    if (error) {
-      return NextResponse.json({ error: 'No se pudo actualizar el plan' }, { status: 500 })
-    }
-
-    return NextResponse.json({ ok: true, negocio: data })
-  } catch (error) {
-    console.error('[superadmin/plan] error', error)
-    return NextResponse.json({ error: 'Error interno' }, { status: 500 })
-  }
+async function authorize() {
+  const userClient = await createUserServerClient()
+  const { data: { user } } = await userClient.auth.getUser()
+  if (!user) return null
+  const { data: role } = await userClient.from('adminrol').select('role').eq('user_id', user.id).maybeSingle()
+  return role?.role === 'superadmin' ? createAdminClient() : null
 }
 
+export async function POST(request: NextRequest) {
+  const admin = await authorize()
+  if (!admin) return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+  const body = await request.json().catch(() => ({}))
+  const negocioId = body.negocioId
+  const plan = body.plan
+  if (!validUuid(negocioId) || (plan !== 'basico' && plan !== 'pro')) {
+    return NextResponse.json({ error: 'Payload inválido' }, { status: 400 })
+  }
+  const { data, error } = await admin.from('negocio').update({ suscripcion_tipo: plan }).eq('id', negocioId).select('id,suscripcion_tipo').maybeSingle()
+  if (error || !data) return NextResponse.json({ error: 'No se pudo actualizar el plan' }, { status: 404 })
+  return NextResponse.json({ negocio: data })
+}
+
+export async function PATCH(request: NextRequest) {
+  const admin = await authorize()
+  if (!admin) return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+  const body = await request.json().catch(() => ({}))
+  if (!validUuid(body.negocioId) || !Number.isInteger(body.dias) || body.dias < 1 || body.dias > 60) {
+    return NextResponse.json({ error: 'Payload inválido' }, { status: 400 })
+  }
+  const trialHasta = new Date(Date.now() + body.dias * 86400000).toISOString()
+  const { data, error } = await admin.from('negocio').update({ trial_hasta: trialHasta, suscripcion_tipo: 'trial' }).eq('id', body.negocioId).select('id,trial_hasta,suscripcion_tipo').maybeSingle()
+  if (error || !data) return NextResponse.json({ error: 'No se pudo extender el trial' }, { status: 404 })
+  return NextResponse.json({ negocio: data })
+}
+
+export async function DELETE(request: NextRequest) {
+  const admin = await authorize()
+  if (!admin) return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+  const negocioId = request.nextUrl.searchParams.get('negocioId')
+  if (!validUuid(negocioId)) return NextResponse.json({ error: 'Negocio inválido' }, { status: 400 })
+  const { data, error } = await admin.from('negocio').delete().eq('id', negocioId).select('id').maybeSingle()
+  if (error || !data) return NextResponse.json({ error: 'No se pudo eliminar el negocio' }, { status: 404 })
+  return NextResponse.json({ deleted: true })
+}

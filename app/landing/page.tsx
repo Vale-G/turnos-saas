@@ -1,13 +1,14 @@
 'use client'
 import React from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 
 const FEATURES = [
   { icon: '📅', titulo: 'Reservas 24/7', desc: 'Tus clientes reservan desde el celular a cualquier hora, sin llamarte.' },
   { icon: '💰', titulo: 'Cobros integrados', desc: 'Registrá cobros en efectivo, transferencia o MercadoPago.' },
   { icon: '📊', titulo: 'Estadísticas reales', desc: 'Sabé cuánto cobraste, qué servicios venden más y quiénes son tus mejores clientes.' },
   { icon: '💬', titulo: 'WhatsApp automático', desc: 'Confirmaciones y recordatorios por WhatsApp sin que hagas nada.' },
-  { icon: '👥', titulo: 'Multi-barbero', desc: 'Gestioná todo tu equipo desde un solo panel.' },
+  { icon: '👥', titulo: 'Todo tu equipo', desc: 'Gestioná profesionales, recursos y disponibilidad desde un solo panel.' },
   { icon: '📱', titulo: 'Sin app que instalar', desc: 'Tus clientes reservan desde el navegador, sin descargar nada.' },
 ]
 
@@ -36,7 +37,7 @@ export default function Landing() {
       <nav className="flex items-center justify-between px-6 py-5 max-w-5xl mx-auto">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center bg-[#0F172A] border border-white/10">
-            <img src="/fvtech-logo.jpg" alt="F&V Tech" className="w-full h-full object-cover" />
+            <Image src="/fvtech-logo.jpg" alt="F&V Tech" width={48} height={48} className="w-full h-full object-cover" />
           </div>
           <div className="flex flex-col items-start">
           <span className="text-xl font-black italic tracking-tighter">
@@ -66,10 +67,10 @@ export default function Landing() {
         <h1 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter leading-none mb-6">
           Tus clientes reservan solos.
           <br />
-          <span className="text-[#6366F1]">Vos te concentrás en cortar.</span>
+          <span className="text-[#6366F1]">Vos te concentrás en atender.</span>
         </h1>
         <p className="text-slate-400 text-lg max-w-xl mx-auto mb-10 leading-relaxed">
-          El sistema de turnos para barberías, peluquerías y centros de estética que no quieren perder tiempo con WhatsApps y llamadas.
+          El sistema de turnos para consultorios, estética, peluquerías y profesionales que quieren trabajar sin perder tiempo con mensajes y llamadas.
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <button onClick={() => router.push('/registro-negocio')}
@@ -94,7 +95,7 @@ export default function Landing() {
                 <path d="M11 7v4l2.5 2.5" stroke="white" strokeWidth="2" strokeLinecap="round"/>
               </svg>
             </div>
-            <span className="font-black italic text-sm">Barberia El Flaco</span>
+            <span className="font-black italic text-sm">Espacio Norte</span>
             <span className="ml-auto text-[9px] bg-amber-400 text-black font-black uppercase px-2 py-0.5 rounded-full">PRO</span>
           </div>
           <div className="grid grid-cols-2 gap-3 mb-4">
@@ -160,7 +161,7 @@ export default function Landing() {
               </div>
             </div>
             <div className="p-6 space-y-2.5">
-              {['Reservas ilimitadas','2 barberos','5 servicios','Agenda y cobros'].map(f => (
+              {['Reservas ilimitadas','2 profesionales','5 servicios','Agenda y cobros'].map(f => (
                 <div key={f} className="flex items-center gap-3">
                   <div className="w-4 h-4 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0">
                     <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
@@ -231,7 +232,7 @@ export default function Landing() {
       <footer className="border-t border-white/5 px-6 py-8 text-center">
         <div className="flex items-center justify-center gap-3 mb-3">
           <div className="w-10 h-10 rounded-xl overflow-hidden border border-white/10">
-            <img src="/fvtech-logo.jpg" alt="F&V Tech" className="w-full h-full object-cover" />
+            <Image src="/fvtech-logo.jpg" alt="F&V Tech" width={48} height={48} className="w-full h-full object-cover" />
           </div>
           <div className="text-left">
             <span className="font-black italic block">turn<span className="text-[#6366F1]">ly</span></span>

@@ -1,89 +1,103 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { rateLimitByIp } from '@/lib/rate-limit'
+import { createAdminClient } from '@/lib/server/supabase'
+import { validUuid } from '@/lib/server/public-booking'
+import { getBusinessAccessToken } from '@/lib/server/mercadopago-oauth'
 
-export async function POST(req: NextRequest) {
+export const dynamic = 'force-dynamic'
+
+export async function POST(request: NextRequest) {
+  const rate = rateLimitByIp(request, { limit: 5, windowMs: 60_000 }, 'deposit')
+  if (!rate.success) return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429 })
+
+  let body: Record<string, unknown>
   try {
-    const body = await req.json()
-    const { turno_id, monto_sena, servicio_nombre, negocio_nombre, cliente_email } = body
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Solicitud inválida' }, { status: 400 })
+  }
+  const turnoId = body.turno_id
+  const manageToken = body.manage_token
+  if (!validUuid(turnoId) || typeof manageToken !== 'string' || !/^[0-9a-f]{64}$/.test(manageToken)) {
+    return NextResponse.json({ error: 'Reserva inválida' }, { status: 400 })
+  }
 
-    if (!turno_id || !monto_sena) {
-      return NextResponse.json({ error: 'Faltan datos requeridos (turno_id, monto_sena)' }, { status: 400 })
-    }
+  const admin = createAdminClient()
+  const { data: authorized, error: tokenError } = await admin.rpc('turnly_verify_manage_token', {
+    p_turno_id: turnoId,
+    p_token: manageToken,
+  })
+  if (tokenError || authorized !== true) return NextResponse.json({ error: 'Reserva inexistente' }, { status: 404 })
 
-    const cookieStore = await cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: (toSet) => {
-            try { toSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options)) }
-            catch { }
-          },
-        },
-      }
-    )
+  const { data: turno, error } = await admin
+    .from('turno')
+    .select('id,estado,cliente_email,negocio_id,servicio_id')
+    .eq('id', turnoId)
+    .maybeSingle()
+  if (error || !turno || turno.estado === 'cancelado') return NextResponse.json({ error: 'Reserva inexistente' }, { status: 404 })
 
-    // Buscamos a qué negocio pertenece el turno para obtener SU token de MercadoPago
-    const { data: turnoData } = await supabase.from('turno').select('negocio_id').eq('id', turno_id).single()
-    if (!turnoData) return NextResponse.json({ error: 'Turno no encontrado' }, { status: 404 })
+  const [{ data: negocio }, { data: servicio }] = await Promise.all([
+    admin.from('negocio').select('id,nombre,moneda').eq('id', turno.negocio_id).maybeSingle(),
+    admin.from('servicio').select('*').eq('id', turno.servicio_id).maybeSingle(),
+  ])
+  const accessToken = negocio ? await getBusinessAccessToken(admin, negocio.id) : null
+  if (!negocio || !accessToken || !servicio) {
+    return NextResponse.json({ error: 'El negocio no tiene señas configuradas' }, { status: 409 })
+  }
 
-    const { data: negocioData } = await supabase.from('negocio').select('mp_access_token').eq('id', turnoData.negocio_id).single()
-    const ownerToken = negocioData?.mp_access_token
+  const precio = Number(servicio.precio)
+  const valor = Number(servicio.seña_valor)
+  const monto = servicio.seña_tipo === 'fijo'
+    ? Math.min(precio, valor)
+    : servicio.seña_tipo === 'porcentaje'
+      ? Math.round(precio * Math.min(100, Math.max(0, valor)) / 100 * 100) / 100
+      : 0
+  if (!Number.isFinite(monto) || monto <= 0 || monto > precio) {
+    return NextResponse.json({ error: 'La seña no está configurada correctamente' }, { status: 409 })
+  }
 
-    if (!ownerToken) {
-      return NextResponse.json({ error: 'El negocio no tiene configurado MercadoPago' }, { status: 400 })
-    }
-
-    const emailComprador = cliente_email || 'invitado@turnly.app'
-    const origin = req.headers.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'https://turnly.app'
-
-    const mpBody = {
+  const origin = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? request.nextUrl.origin).origin
+  const preferenceResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+    body: JSON.stringify({
       items: [{
-        title: 'Seña — ' + servicio_nombre,
-        description: 'Seña para turno en ' + negocio_nombre,
+        title: `Seña — ${servicio.nombre}`,
+        description: `Seña para turno en ${negocio.nombre}`,
         quantity: 1,
-        unit_price: monto_sena,
-        currency_id: 'ARS',
+        unit_price: monto,
+        currency_id: negocio.moneda,
       }],
-      payer: { email: emailComprador },
-      external_reference: turno_id + '|sena',
+      payer: { email: turno.cliente_email },
+      external_reference: `${turnoId}|sena`,
       back_urls: {
-        success: origin + '/reservar/sena-ok?turno=' + turno_id,
-        failure: origin + '/reservar/sena-error?turno=' + turno_id,
-        pending: origin + '/reservar/sena-pendiente?turno=' + turno_id,
+        success: `${origin}/reservar/sena-ok?turno=${turnoId}`,
+        failure: `${origin}/reservar/sena-error?turno=${turnoId}`,
+        pending: `${origin}/reservar/sena-pendiente?turno=${turnoId}`,
       },
       auto_return: 'approved',
-      notification_url: origin + '/api/webhooks/sena',
+      notification_url: `${origin}/api/webhooks/mercadopago?negocio=${negocio.id}`,
       statement_descriptor: 'TURNLY SENA',
-    }
-
-    // USAMOS EL TOKEN DEL DUEÑO DEL LOCAL
-    const mpRes = await fetch('https://api.mercadopago.com/checkout/preferences', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + ownerToken, 
-      },
-      body: JSON.stringify(mpBody),
-    })
-
-    if (!mpRes.ok) throw new Error('Error en MP: ' + await mpRes.text())
-    const preferencia = await mpRes.json()
-
-    await supabase.from('turno')
-      .update({ mp_preference_id: preferencia.id, requiere_sena: true, monto_sena })
-      .eq('id', turno_id)
-
-    return NextResponse.json({
-      url: process.env.NODE_ENV === 'production'
-        ? preferencia.init_point
-        : preferencia.sandbox_init_point,
-    })
-  } catch (err) {
-    console.error('[Turnly] Error seña:', err)
-    return NextResponse.json({ error: err instanceof Error ? err.message : 'Error interno' }, { status: 500 })
+    }),
+  })
+  if (!preferenceResponse.ok) {
+    console.error('[Turnly] Mercado Pago rechazó la preferencia de seña', preferenceResponse.status)
+    return NextResponse.json({ error: 'No se pudo iniciar el pago' }, { status: 502 })
   }
+  const preference = await preferenceResponse.json()
+  if (typeof preference.id !== 'string' || typeof preference.init_point !== 'string') {
+    return NextResponse.json({ error: 'Respuesta de pago inválida' }, { status: 502 })
+  }
+
+  const { error: updateError } = await admin.from('turno').update({
+    mp_preference_id: preference.id,
+    requiere_sena: true,
+    monto_sena: monto,
+  }).eq('id', turnoId)
+  if (updateError) return NextResponse.json({ error: 'No se pudo registrar la preferencia' }, { status: 500 })
+
+  const paymentUrl = accessToken.startsWith('TEST-') && typeof preference.sandbox_init_point === 'string'
+    ? preference.sandbox_init_point
+    : preference.init_point
+  return NextResponse.json({ url: paymentUrl }, { headers: { 'Cache-Control': 'no-store' } })
 }

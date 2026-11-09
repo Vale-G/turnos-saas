@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 
 type TurnoItem = {
   id: string
@@ -55,8 +56,6 @@ export default function AgendaTurnos() {
   const [busqueda, setBusqueda] = useState('')
   const [turnoEditando, setTurnoEditando] = useState<string | null>(null)
   const [turnoEditar, setTurnoEditar] = useState<TurnoItem | null>(null)
-  const [_staffList, _setStaffList] = useState<{ id: string; nombre: string }[]>([])
-  const [_serviciosList, _setServiciosList] = useState<{ id: string; nombre: string; precio: number; duracion: number }[]>([])
   const router = useRouter()
 
   const totalCobrado = useMemo(
@@ -111,12 +110,6 @@ export default function AgendaTurnos() {
       setNegocioId(nId)
       setColorPrincipal(getThemeColor(negData?.tema))
 
-      const [{ data: stf }, { data: svcs }] = await Promise.all([
-        supabase.from('staff').select('id, nombre').eq('negocio_id', nId).eq('activo', true),
-        supabase.from('servicio').select('id, nombre, precio, duracion').eq('negocio_id', nId),
-      ])
-      _setStaffList(stf ?? [])
-      _setServiciosList(svcs ?? [])
     }
     init()
   }, [router])
@@ -173,30 +166,38 @@ export default function AgendaTurnos() {
   }
 
   const cambiarEstado = useCallback(async (id: string, estado: string) => {
-    await supabase.from('turno').update({ estado }).eq('id', id)
+    const { error } = await supabase.from('turno').update({ estado }).eq('id', id)
+    if (error) return toast.error('No se pudo cambiar el estado', { description: error.message })
+    toast.success('Estado actualizado')
     setReloadKey((k) => k + 1)
   }, [])
 
   const registrarPago = useCallback(async (id: string, tipo: string) => {
-    await supabase.from('turno').update({ pago_tipo: tipo, pago_estado: 'cobrado', estado: 'completado' }).eq('id', id)
+    const { error } = await supabase.from('turno').update({ pago_tipo: tipo, pago_estado: 'cobrado', estado: 'completado' }).eq('id', id)
+    if (error) return toast.error('No se pudo registrar el cobro', { description: error.message })
+    toast.success('Cobro registrado')
     setTurnoEditando(null)
     setReloadKey((k) => k + 1)
   }, [])
 
   const deshacerPago = useCallback(async (id: string) => {
-    await supabase.from('turno').update({ pago_tipo: null, pago_estado: 'pendiente' }).eq('id', id)
+    const { error } = await supabase.from('turno').update({ pago_tipo: null, pago_estado: 'pendiente' }).eq('id', id)
+    if (error) return toast.error('No se pudo deshacer el cobro', { description: error.message })
+    toast.success('Cobro deshecho')
     setReloadKey((k) => k + 1)
   }, [])
 
   const eliminarTurno = useCallback(async (id: string) => {
     if (!confirm('Seguro?')) return
-    await supabase.from('turno').delete().eq('id', id)
+    const { error } = await supabase.from('turno').delete().eq('id', id)
+    if (error) return toast.error('No se pudo eliminar el turno', { description: error.message })
+    toast.success('Turno eliminado')
     setReloadKey((k) => k + 1)
   }, [])
 
   const guardarEdicion = async () => {
     if (!turnoEditar) return
-    await supabase
+    const { error } = await supabase
       .from('turno')
       .update({
         cliente_nombre: turnoEditar.cliente_nombre,
@@ -206,6 +207,9 @@ export default function AgendaTurnos() {
       })
       .eq('id', turnoEditar.id)
 
+    if (error) return toast.error('No se pudo guardar el turno', { description: error.message })
+
+    toast.success('Turno actualizado')
     setTurnoEditar(null)
     setReloadKey((k) => k + 1)
   }
@@ -404,7 +408,7 @@ export default function AgendaTurnos() {
 
         <input
           type="text"
-          placeholder="Buscar cliente, servicio o barbero..."
+          placeholder="Buscar cliente, servicio o profesional..."
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
           className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-sm outline-none focus:border-white/25 transition-colors mb-4"

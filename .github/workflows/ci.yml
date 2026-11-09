@@ -23,10 +23,12 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Descargar código
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
           cache: npm
@@ -41,12 +43,27 @@ jobs:
     name: Pruebas unitarias
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: qa-only-local-password
+          POSTGRES_DB: turnly_test
+        ports:
+          - 5432/tcp
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - name: Descargar código
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
           cache: npm
@@ -56,6 +73,11 @@ jobs:
 
       - name: Ejecutar pruebas unitarias
         run: npm test
+
+      - name: Probar concurrencia en PostgreSQL 17
+        run: bash tests/native-concurrency.sh
+        env:
+          TURNLY_TEST_DATABASE_URL: postgresql://postgres:qa-only-local-password@127.0.0.1:${{ job.services.postgres.ports[5432] }}/turnly_test
 
   build:
     name: Build Next.js
@@ -67,10 +89,12 @@ jobs:
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-not-a-real-key
     steps:
       - name: Descargar código
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
           cache: npm
@@ -80,6 +104,9 @@ jobs:
 
       - name: Compilar aplicación
         run: npm run build
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-not-a-real-key
+          NEXT_PUBLIC_SITE_URL: http://localhost:3000
 
   baseline-lint:
     name: ESLint en base (informativo)
@@ -88,12 +115,13 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Descargar commit base del PR
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
           cache: npm
@@ -126,10 +154,12 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Descargar código
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
 
       - name: Configurar Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22
           cache: npm

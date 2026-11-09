@@ -6,7 +6,7 @@ import { getThemeColor } from '@/lib/theme'
 
 const FEATURES_BASICO = [
   'Reservas online ilimitadas',
-  '2 barberos, 5 servicios',
+  '2 profesionales, 5 servicios',
   'Agenda y cobros',
   'WhatsApp al confirmar',
 ]

@@ -1,98 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import { createAdminClient, createUserServerClient } from '@/lib/server/supabase'
+import { rateLimitByIp } from '@/lib/rate-limit'
 
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json().catch(() => ({}))
-    const plan = (body.plan ?? 'pro') as 'basico' | 'pro'
+export async function POST(request: NextRequest) {
+  const rate = rateLimitByIp(request, { limit: 3, windowMs: 60_000 }, 'subscription')
+  if (!rate.success) return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429 })
+  const body = await request.json().catch(() => ({}))
+  const plan = body.plan
+  if (plan !== 'basico' && plan !== 'pro') return NextResponse.json({ error: 'Plan inválido' }, { status: 400 })
+  const token = process.env.MP_ACCESS_TOKEN
+  if (!token) return NextResponse.json({ error: 'Pagos de Turnly no configurados' }, { status: 503 })
 
-    const cookieStore = await cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: (toSet) => {
-            try { toSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options)) }
-            catch { }
-          },
-        },
-      }
-    )
+  const userClient = await createUserServerClient()
+  const { data: { user } } = await userClient.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
+  const admin = createAdminClient()
+  const [{ data: negocio }, { data: configs }] = await Promise.all([
+    admin.from('negocio').select('id,nombre,slug,moneda').eq('owner_id', user.id).maybeSingle(),
+    admin.from('config').select('clave,valor').in('clave', ['precio_basico', 'precio_pro']),
+  ])
+  if (!negocio) return NextResponse.json({ error: 'Negocio inexistente' }, { status: 404 })
+  const prices = Object.fromEntries((configs ?? []).map((item) => [item.clave, Number(item.valor)]))
+  const amount = plan === 'pro' ? (prices.precio_pro ?? 25000) : (prices.precio_basico ?? 5000)
+  if (!Number.isFinite(amount) || amount <= 0) return NextResponse.json({ error: 'Precio de plan inválido' }, { status: 500 })
 
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    // Leer precio desde la DB (configurable por superadmin)
-    const { data: configs } = await supabase
-      .from('config').select('clave, valor')
-      .in('clave', ['precio_basico', 'precio_pro'])
-
-    const precioMap: Record<string, number> = {}
-    configs?.forEach(c => { precioMap[c.clave] = Number(c.valor) })
-    const precio = plan === 'pro'
-      ? (precioMap.precio_pro ?? 25000)
-      : (precioMap.precio_basico ?? 5000)
-
-    // Buscar negocio
-    let neg = null
-    const { data: byOwner } = await supabase.from('negocio').select('id, nombre, slug').eq('owner_id', user.id).single()
-    if (byOwner) neg = byOwner
-    else {
-      const { data: byId } = await supabase.from('negocio').select('id, nombre, slug').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
-      neg = byId
-    }
-    if (!neg) return NextResponse.json({ error: 'Negocio no encontrado' }, { status: 404 })
-
-    const origin = req.headers.get('origin') ?? process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'
-    const planNombre = plan === 'pro' ? 'Pro' : 'Basico'
-
-    const mpBody = {
-      items: [{
-        title: 'Turnly ' + planNombre + ' — 1 mes',
-        description: 'Plan ' + planNombre + ' para ' + neg.nombre,
-        quantity: 1,
-        unit_price: precio,
-        currency_id: 'ARS',
-      }],
-      payer: { email: user.email },
-      external_reference: neg.id + '|' + plan,
-      back_urls: {
-        success: origin + '/upgrade?suscripcion=ok',
-        failure: origin + '/upgrade?suscripcion=error',
-        pending: origin + '/upgrade?suscripcion=pendiente',
-      },
-      auto_return: 'approved',
-      notification_url: origin + '/api/webhooks/suscripcion',
-      statement_descriptor: 'TURNLY',
-    }
-
-    const mpRes = await fetch('https://api.mercadopago.com/checkout/preferences', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + process.env.MP_ACCESS_TOKEN,
-      },
-      body: JSON.stringify(mpBody),
-    })
-
-    if (!mpRes.ok) throw new Error('MP error: ' + await mpRes.text())
-    const preferencia = await mpRes.json()
-
-    await supabase.from('suscripcion').insert({
-      negocio_id: neg.id, plan, estado: 'pendiente',
-      mp_preference_id: preferencia.id, monto: precio,
-    })
-
-    return NextResponse.json({
-      url: process.env.NODE_ENV === 'production'
-        ? preferencia.init_point
-        : preferencia.sandbox_init_point,
-    })
-  } catch (err) {
-    console.error('[Turnly] Error suscripcion:', err)
-    return NextResponse.json({ error: err instanceof Error ? err.message : 'Error' }, { status: 500 })
-  }
+  const origin = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? request.nextUrl.origin).origin
+  const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      items: [{ title: `Turnly ${plan} — 1 mes`, quantity: 1, unit_price: amount, currency_id: negocio.moneda }],
+      payer: { email: user.email }, external_reference: `${negocio.id}|${plan}`,
+      back_urls: { success: `${origin}/upgrade?suscripcion=ok`, failure: `${origin}/upgrade?suscripcion=error`, pending: `${origin}/upgrade?suscripcion=pendiente` },
+      auto_return: 'approved', notification_url: `${origin}/api/webhooks/suscripcion`, statement_descriptor: 'TURNLY',
+    }),
+  })
+  if (!response.ok) return NextResponse.json({ error: 'No se pudo iniciar el pago' }, { status: 502 })
+  const preference = await response.json()
+  if (typeof preference.id !== 'string' || typeof preference.init_point !== 'string') return NextResponse.json({ error: 'Respuesta de pago inválida' }, { status: 502 })
+  const { error } = await admin.from('suscripcion').insert({ negocio_id: negocio.id, plan, estado: 'pendiente', mp_preference_id: preference.id, monto: amount })
+  if (error) return NextResponse.json({ error: 'No se pudo registrar la suscripción' }, { status: 500 })
+  const paymentUrl = token.startsWith('TEST-') && typeof preference.sandbox_init_point === 'string'
+    ? preference.sandbox_init_point
+    : preference.init_point
+  return NextResponse.json({ url: paymentUrl })
 }

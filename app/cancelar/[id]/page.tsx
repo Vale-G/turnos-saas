@@ -1,214 +1,123 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase'
+import { useParams, useSearchParams } from 'next/navigation'
 import { getThemeColor } from '@/lib/theme'
 import { toast } from 'sonner'
+import Image from 'next/image'
 
-function normalizeEmail(value: string) {
-  return value.trim().toLowerCase()
+type ReservaPublica = {
+  id: string; clienteNombre: string; fecha: string; hora: string; estado: string; servicio: string
+  negocioId: string; servicioId: string; staffId: string
 }
+type NegocioPublico = { nombre: string; slug: string; logo_url: string | null; tema: string | null }
+type StaffPublico = { id: string; nombre: string }
 
 export default function CancelarTurnoPage() {
-  const { id } = useParams()
-  const router = useRouter()
-
-  const [turno, setTurno] = useState<any>(null)
-  const [negocio, setNegocio] = useState<any>(null)
+  const { id } = useParams<{ id: string }>()
+  const token = useSearchParams().get('token') ?? ''
+  const [reserva, setReserva] = useState<ReservaPublica | null>(null)
+  const [negocio, setNegocio] = useState<NegocioPublico | null>(null)
   const [loading, setLoading] = useState(true)
   const [cancelando, setCancelando] = useState(false)
-  const [yaCancelado, setYaCancelado] = useState(false)
-  const [emailIngresado, setEmailIngresado] = useState('')
-  const [emailVerificado, setEmailVerificado] = useState(false)
-  const [emailError, setEmailError] = useState('')
+  const [staff, setStaff] = useState<StaffPublico[]>([])
+  const [reprogramando, setReprogramando] = useState(false)
+  const [guardando, setGuardando] = useState(false)
+  const [fecha, setFecha] = useState('')
+  const [staffId, setStaffId] = useState('')
+  const [hora, setHora] = useState('')
+  const [horarios, setHorarios] = useState<string[]>([])
+  const [buscandoHorarios, setBuscandoHorarios] = useState(false)
 
   useEffect(() => {
-    async function cargarTurno() {
-      if (!id) return
-
-      const { data, error } = await supabase
-        .from('turno')
-        .select('*, negocio(*), servicio(nombre)')
-        .eq('id', id)
-        .single()
-
-      if (error || !data) {
-        setLoading(false)
-        return
+    let active = true
+    async function load() {
+      const response = await fetch(`/api/public/reservas/${encodeURIComponent(id)}?token=${encodeURIComponent(token)}`, { cache: 'no-store' })
+      if (!response.ok) { if (active) setLoading(false); return }
+      const data = await response.json()
+      if (active) {
+        setReserva(data.reserva); setNegocio(data.negocio); setStaff(data.staff ?? [])
+        setFecha(data.reserva.fecha); setStaffId(data.reserva.staffId); setHora(data.reserva.hora.slice(0, 5)); setLoading(false)
       }
-
-      setTurno(data)
-      setNegocio(data.negocio)
-      if (data.estado === 'cancelado') {
-        setYaCancelado(true)
-      }
-      setLoading(false)
     }
+    void load()
+    return () => { active = false }
+  }, [id, token])
 
-    cargarTurno()
-  }, [id])
-
-  const verificarEmail = () => {
-    const enviado = normalizeEmail(emailIngresado)
-    const real = normalizeEmail(turno?.cliente_email || '')
-
-    if (!enviado) {
-      setEmailError('Ingresá tu email para continuar')
-      setEmailVerificado(false)
-      return
+  useEffect(() => {
+    if (!reprogramando || !reserva || !fecha || !staffId) return
+    const currentReservation = reserva
+    let active = true
+    async function loadAvailability() {
+      setBuscandoHorarios(true)
+      setHora('')
+      const query = new URLSearchParams({
+        negocioId: currentReservation.negocioId, servicioId: currentReservation.servicioId, staffId, fecha,
+        excludeTurnoId: currentReservation.id, token,
+      })
+      const response = await fetch(`/api/public/disponibilidad?${query}`, { cache: 'no-store' })
+      const payload = response.ok ? await response.json() : { horarios: [] }
+      if (active) { setHorarios(payload.horarios ?? []); setBuscandoHorarios(false) }
     }
+    void loadAvailability()
+    return () => { active = false }
+  }, [reprogramando, reserva, fecha, staffId, token])
 
-    if (!real || enviado !== real) {
-      setEmailError('Acceso denegado: El email no coincide con la reserva')
-      setEmailVerificado(false)
-      return
-    }
-
-    setEmailError('')
-    setEmailVerificado(true)
-  }
-
-  const confirmarCancelacion = async () => {
-    if (!emailVerificado) {
-      setEmailError('Acceso denegado: El email no coincide con la reserva')
-      return
-    }
-
+  async function cancelar() {
     setCancelando(true)
-    const { error } = await supabase.from('turno').update({ estado: 'cancelado' }).eq('id', id)
-
+    const response = await fetch(`/api/public/reservas/${encodeURIComponent(id)}?token=${encodeURIComponent(token)}`, { method: 'DELETE' })
     setCancelando(false)
-    if (error) {
-      toast.error('Hubo un error al cancelar. Intentá nuevamente.')
-    } else {
-      setYaCancelado(true)
-      toast.success('Turno cancelado correctamente')
-    }
+    if (!response.ok) { toast.error('No se pudo cancelar el turno'); return }
+    setReserva((current) => current ? { ...current, estado: 'cancelado' } : current)
+    toast.success('Turno cancelado correctamente')
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black animate-pulse text-white">
-        BUSCANDO TURNO...
-      </div>
-    )
+  async function reprogramar() {
+    if (!hora) return toast.error('Elegí un horario disponible')
+    setGuardando(true)
+    const response = await fetch(`/api/public/reservas/${encodeURIComponent(id)}?token=${encodeURIComponent(token)}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ fecha, hora, staffId }),
+    })
+    const payload = await response.json().catch(() => ({}))
+    setGuardando(false)
+    if (!response.ok) return toast.error(payload.error || 'No se pudo reprogramar el turno')
+    setReserva((current) => current ? { ...current, fecha, hora: `${hora}:00`, staffId } : current)
+    setReprogramando(false)
+    toast.success('Turno reprogramado correctamente')
   }
 
-  if (!turno) {
-    return (
-      <div className="min-h-screen bg-[#020617] text-white flex flex-col items-center justify-center p-6 text-center">
-        <div className="text-6xl mb-6">🔍</div>
-        <h1 className="text-3xl font-black uppercase italic mb-2">Turno no encontrado</h1>
-        <p className="text-slate-500 font-bold text-sm">El link puede estar roto o el turno fue eliminado.</p>
-      </div>
-    )
-  }
+  if (loading) return <div className="min-h-screen bg-[#020617] text-white grid place-items-center font-bold">BUSCANDO TURNO...</div>
+  if (!reserva || !negocio) return <div className="min-h-screen bg-[#020617] text-white grid place-items-center p-6 text-center"><div><h1 className="text-3xl font-black mb-2">Enlace inválido</h1><p className="text-slate-400">La reserva no existe o el enlace de gestión ya no es válido.</p></div></div>
 
-  const colorP = getThemeColor(negocio?.tema)
-  const nombreCliente = turno.cliente_nombre?.split('·')[0] || 'Cliente'
-
+  const cancelled = reserva.estado === 'cancelado'
+  const color = getThemeColor(negocio.tema)
   return (
-    <div className="min-h-screen bg-[#020617] text-white p-6 font-sans flex items-center justify-center">
-      <div className="max-w-md w-full bg-white/5 border border-white/10 rounded-[3rem] p-10 text-center relative overflow-hidden shadow-2xl animate-in zoom-in-95">
-        <div className="absolute top-0 right-0 w-32 h-32 blur-[60px] opacity-20" style={{ backgroundColor: yaCancelado ? '#ef4444' : colorP }} />
-
-        {negocio?.logo_url ? (
-          <img src={negocio.logo_url} className="w-20 h-20 rounded-2xl object-cover mx-auto mb-6 border border-white/10 shadow-lg" alt="Logo" />
-        ) : (
-          <div
-            className="w-20 h-20 rounded-2xl flex items-center justify-center font-black text-3xl mx-auto mb-6 border border-white/10"
-            style={{ background: colorP + '20', color: colorP }}
-          >
-            {negocio?.nombre[0]}
-          </div>
-        )}
-
-        {yaCancelado ? (
-          <div className="animate-in fade-in">
-            <div className="w-24 h-24 rounded-full bg-rose-500/10 border-4 border-rose-500/30 text-rose-500 mx-auto mb-6 flex items-center justify-center text-4xl shadow-[0_0_40px_rgba(244,63,94,0.2)]">
-              ✕
+    <div className="min-h-screen bg-[#020617] text-white p-6 grid place-items-center" style={{ colorScheme: 'dark' }}>
+      <main className="max-w-md w-full bg-white/5 border border-white/10 rounded-[3rem] p-9 text-center shadow-2xl">
+        {negocio.logo_url ? <Image src={negocio.logo_url} alt={`Logo de ${negocio.nombre}`} width={80} height={80} unoptimized className="w-20 h-20 rounded-2xl object-cover mx-auto mb-6" /> : <div className="w-20 h-20 rounded-2xl grid place-items-center text-3xl font-black mx-auto mb-6" style={{ background: `${color}22`, color }}>{negocio.nombre[0]}</div>}
+        {cancelled ? <>
+          <div className="text-5xl mb-5">✓</div>
+          <h1 className="text-3xl font-black mb-2">Turno cancelado</h1>
+          <p className="text-slate-400 mb-7">El horario volvió a quedar disponible.</p>
+          <a href={`/reservar/${negocio.slug}`} className="inline-block px-6 py-3 rounded-xl font-bold text-black" style={{ background: color }}>Reservar otro turno</a>
+        </> : <>
+          <h1 className="text-2xl font-black mb-2">Gestionar reserva</h1>
+          <p className="text-slate-400 mb-7">Hola, {reserva.clienteNombre}</p>
+          <dl className="bg-black/40 rounded-3xl p-6 text-left space-y-4 mb-7">
+            <div><dt className="text-xs text-slate-500 uppercase">Servicio</dt><dd className="font-bold">{reserva.servicio}</dd></div>
+            <div className="grid grid-cols-2 gap-4"><div><dt className="text-xs text-slate-500 uppercase">Fecha</dt><dd className="font-bold">{reserva.fecha}</dd></div><div><dt className="text-xs text-slate-500 uppercase">Hora</dt><dd className="font-bold">{reserva.hora.slice(0, 5)}</dd></div></div>
+          </dl>
+          {reprogramando ? (
+            <div className="bg-black/40 rounded-3xl p-5 text-left mb-4 space-y-4">
+              <div><label className="block text-xs text-slate-400 uppercase mb-2">Nueva fecha</label><input type="date" min={new Date().toISOString().split('T')[0]} value={fecha} onChange={(event) => setFecha(event.target.value)} className="w-full rounded-xl bg-white/10 border border-white/10 p-3" /></div>
+              <div><label className="block text-xs text-slate-400 uppercase mb-2">Profesional</label><select value={staffId} onChange={(event) => setStaffId(event.target.value)} className="w-full rounded-xl bg-slate-900 border border-white/10 p-3">{staff.map((person) => <option key={person.id} value={person.id}>{person.nombre}</option>)}</select></div>
+              <div><p className="text-xs text-slate-400 uppercase mb-2">Horario disponible</p>{buscandoHorarios ? <p className="text-sm text-slate-400">Buscando horarios…</p> : horarios.length ? <div className="grid grid-cols-3 gap-2">{horarios.map((slot) => <button type="button" key={slot} onClick={() => setHora(slot)} className={`rounded-xl border p-2 text-sm font-bold ${hora === slot ? 'text-black border-transparent' : 'border-white/10 bg-white/5'}`} style={hora === slot ? { background: color } : {}}>{slot}</button>)}</div> : <p className="text-sm text-amber-300">No hay horarios disponibles ese día.</p>}</div>
+              <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setReprogramando(false)} className="rounded-xl border border-white/10 p-3 font-bold">Volver</button><button type="button" onClick={reprogramar} disabled={guardando || !hora} className="rounded-xl p-3 font-bold text-black disabled:opacity-50" style={{ background: color }}>{guardando ? 'Guardando…' : 'Confirmar'}</button></div>
             </div>
-            <h2 className="text-3xl font-black uppercase italic tracking-tighter mb-2">Turno Cancelado</h2>
-            <p className="text-slate-400 text-sm font-medium mb-8">El lugar ya fue liberado en la agenda.</p>
-            <button
-              onClick={() => router.push(`/reservar/${negocio?.slug}`)}
-              className="text-[10px] font-black uppercase tracking-widest text-slate-500 border border-white/10 px-6 py-3 rounded-xl hover:bg-white/5 transition-all"
-            >
-              Volver a reservar
-            </button>
-          </div>
-        ) : (
-          <div className="animate-in fade-in">
-            <h2 className="text-2xl font-black uppercase italic tracking-tighter mb-2">Hola, {nombreCliente}</h2>
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-8">¿Querés cancelar este turno?</p>
-
-            <div className="bg-black/50 border border-white/5 rounded-3xl p-6 mb-8 text-left space-y-3">
-              <div>
-                <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest">Servicio</p>
-                <p className="text-sm font-black uppercase italic text-white">{turno.servicio?.nombre}</p>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest">Fecha</p>
-                  <p className="text-sm font-black uppercase text-white">{turno.fecha}</p>
-                </div>
-                <div>
-                  <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest">Hora</p>
-                  <p className="text-sm font-black uppercase text-white">{turno.hora.slice(0, 5)}</p>
-                </div>
-              </div>
-            </div>
-
-            {!emailVerificado && (
-              <div className="mb-6 text-left">
-                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 block mb-2">
-                  Confirmá tu email para cancelar
-                </label>
-                <input
-                  type="email"
-                  value={emailIngresado}
-                  onChange={(e) => {
-                    setEmailIngresado(e.target.value)
-                    if (emailError) setEmailError('')
-                  }}
-                  placeholder="tu@email.com"
-                  className="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-sm font-bold outline-none focus:border-white/30"
-                />
-                {emailError && <p className="text-rose-400 text-xs font-bold mt-2">{emailError}</p>}
-                <button
-                  onClick={verificarEmail}
-                  className="w-full mt-4 py-4 rounded-2xl font-black uppercase italic text-xs text-black"
-                  style={{ backgroundColor: colorP }}
-                >
-                  Verificar email
-                </button>
-              </div>
-            )}
-
-            <p className="text-[10px] text-slate-500 font-bold mb-6">
-              Al cancelar, este horario volverá a estar disponible para otra persona.
-            </p>
-
-            <div className="space-y-4">
-              <button
-                onClick={confirmarCancelacion}
-                disabled={cancelando || !emailVerificado}
-                className="w-full py-5 rounded-[2rem] font-black uppercase italic text-sm text-white bg-rose-500 hover:bg-rose-600 active:scale-95 transition-all shadow-lg disabled:opacity-50"
-              >
-                {cancelando ? 'CANCELANDO...' : 'SÍ, CANCELAR TURNO'}
-              </button>
-
-              <button
-                onClick={() => window.history.back()}
-                className="w-full py-5 rounded-[2rem] font-black uppercase italic text-xs text-slate-400 bg-transparent hover:text-white transition-all"
-              >
-                No, me equivoqué
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+          ) : <button onClick={() => setReprogramando(true)} className="w-full py-4 rounded-2xl font-black text-black mb-3" style={{ background: color }}>REPROGRAMAR TURNO</button>}
+          <button onClick={cancelar} disabled={cancelando || reprogramando} className="w-full py-4 rounded-2xl bg-rose-600 font-black disabled:opacity-50">{cancelando ? 'CANCELANDO...' : 'CANCELAR TURNO'}</button>
+        </>}
+      </main>
     </div>
   )
 }

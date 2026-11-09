@@ -8,6 +8,7 @@ const fixture = new URL('./fixtures/schema.sql', import.meta.url)
 const migration = new URL('../supabase/migrations/20261031015309_booking_security_and_intervals.sql', import.meta.url)
 const hardeningMigration = new URL('../supabase/migrations/20261105211500_booking_interval_hardening.sql', import.meta.url)
 const rescheduleMigration = new URL('../supabase/migrations/20261109014454_public_booking_reschedule.sql', import.meta.url)
+const rolesMigration = new URL('../supabase/migrations/20261109020119_role_permissions.sql', import.meta.url)
 
 async function database() {
   const db = new PGlite({ extensions: { pgcrypto } })
@@ -26,6 +27,7 @@ async function database() {
   await db.exec(await readFile(migration, 'utf8'))
   await db.exec(await readFile(hardeningMigration, 'utf8'))
   await db.exec(await readFile(rescheduleMigration, 'utf8'))
+  await db.exec(await readFile(rolesMigration, 'utf8'))
   return db
 }
 
@@ -95,6 +97,34 @@ test('anon no puede leer tablas y RLS separa negocios autenticados', async (t) =
   const visible = await db.query('select id from public.negocio')
   assert.deepEqual(visible.rows.map((row) => row.id), [ids.negocio])
   await db.exec('reset role')
+})
+
+test('staff opera la agenda pero no modifica configuración ni elimina turnos', async (t) => {
+  const db = await database()
+  t.after(() => db.close())
+  const ids = await seed(db)
+  const staffUser = '10000000-0000-4000-8000-000000000003'
+  await db.exec(`
+    insert into auth.users(id) values ('${staffUser}');
+    insert into public.adminrol(user_id, role, negocio_id)
+      values ('${staffUser}', 'staff', '${ids.negocio}');
+  `)
+  const created = await book(db, ids, '16:00')
+
+  await db.exec(`set role authenticated; set request.jwt.claim.sub = '${staffUser}'`)
+  const visible = await db.query('select id from public.turno where id=$1', [created.rows[0].turno_id])
+  assert.equal(visible.rows.length, 1)
+  await db.query("update public.turno set estado='confirmado' where id=$1", [created.rows[0].turno_id])
+  const serviceUpdate = await db.query("update public.servicio set precio=1 where id=$1 returning id", [ids.servicio])
+  assert.equal(serviceUpdate.rows.length, 0)
+  const deleted = await db.query('delete from public.turno where id=$1 returning id', [created.rows[0].turno_id])
+  assert.equal(deleted.rows.length, 0)
+  await db.exec('reset role')
+
+  const stored = await db.query('select estado from public.turno where id=$1', [created.rows[0].turno_id])
+  assert.equal(stored.rows[0].estado, 'confirmado')
+  const service = await db.query('select precio from public.servicio where id=$1', [ids.servicio])
+  assert.equal(Number(service.rows[0].precio), 1000)
 })
 
 test('el enlace de gestión usa un token opaco y cancela sin exponer el turno', async (t) => {

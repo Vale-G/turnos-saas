@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation'
 import { supabase, getOAuthRedirectUrl } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
 import { generarHorariosDisponibles } from '@/lib/reserva-disponibilidad.mjs'
-import { parsearListaNegra, telefonoBloqueado } from '@/lib/reserva-lista-negra.mjs'
+import { verificarListaNegra } from '@/lib/reserva-lista-negra.mjs'
 import { toast } from 'sonner'
 
 const BA_TZ = 'America/Argentina/Buenos_Aires'
@@ -130,23 +130,20 @@ export default function ReservaPage() {
     const correoFinal = user ? user.email : correoInvitado
     
     // 1. Validar Lista Negra
-    const { data: blacklistData, error: blacklistError } = await supabase.from('config').select('valor').eq('clave', `blacklist_${negocio.id}`).maybeSingle()
-    if (blacklistError) {
-      toast.error('No se pudo validar la reserva. Intentá nuevamente.')
+    const validacion = await verificarListaNegra(
+      () => supabase.from('config').select('valor').eq('clave', `blacklist_${negocio.id}`).maybeSingle(),
+      tel
+    )
+    if (!validacion.permitido) {
       setConfirmando(false)
+      if (validacion.motivo === 'bloqueado') {
+        toast.error('Este servicio no está disponible para tu número. Contactá al local.', { duration: 5000 })
+      } else if (validacion.motivo === 'telefono') {
+        toast.error('Para validar tu reserva, necesitás indicar un teléfono. Contactá al local.')
+      } else {
+        toast.error('No se pudo validar la reserva. Intentá nuevamente.')
+      }
       return
-    }
-    if (blacklistData?.valor) {
-      const listaNegra = parsearListaNegra(blacklistData.valor)
-      if (!listaNegra.ok) {
-        toast.error('No se pudo validar la reserva. Contactá al local.')
-        setConfirmando(false)
-        return
-      }
-      if (telefonoBloqueado(listaNegra.telefonos, tel)) {
-        setConfirmando(false)
-        return toast.error('Este servicio no está disponible para tu número. Contactá al local.', { duration: 5000 })
-      }
     }
     
     // 2. Insertar Turno

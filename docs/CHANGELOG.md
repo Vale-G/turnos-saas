@@ -150,3 +150,12 @@
 - Límites: no hay prueba de integración de configuración inválida ni validación server-side; la consulta de `config` sigue en el navegador. P0 de privacidad y concurrencia sigue abierto. No se tocó producción, base de datos, pagos ni permisos.
 
 - Corrección adicional de QA (2026-11-05): commit `c4948d7b4c0e9a8e8d403f05e4939bb228b93841` en `app/reservar/[slug]/page.tsx`; si Supabase devuelve error consultando la lista negra, la reserva se rechaza y se restablece el estado de confirmación. Falta manejar posibles excepciones de red fuera del objeto `error`, pruebas automatizadas de integración y re-QA del commit. Sin deploy.
+
+
+## 2026-11-09 — validación defensiva de lista negra (PR #11, sin despliegue)
+
+- Base estable: `codex/revisar-informes-de-turnos-cancelados` @ `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`, intacta. Rama de trabajo: `codex/ci-automatico-lint-build`.
+- `lib/reserva-lista-negra.mjs`: función asíncrona `verificarListaNegra` que rechaza errores de consulta, excepciones de red, JSON corrupto, teléfonos bloqueados y ausencia de teléfono cuando existe una lista no vacía. `app/reservar/[slug]/page.tsx`: consume el resultado y restablece `confirmando` al fallar. `lib/reserva-lista-negra.d.mts`: firma compatible con consultas thenable de Supabase.
+- `tests/reserva-lista-negra.test.mjs`: cuatro pruebas de regresión adicionales para excepciones, errores Supabase, teléfono ausente y ausencia de lista.
+- Commits: `0ca0d3c`, `c230500`, `3bbcd06`, `be49302`, `a17695a`. Verificar CI sobre el head posterior a estos commits antes de afirmar resultados.
+- Limitaciones: un cliente autenticado sin teléfono y con lista no vacía ahora recibe un mensaje para contactar al local; se necesita definir captura de teléfono y validación server-side. La lista negra aún se consulta desde navegador; el riesgo P0 de RLS, datos privados y reserva concurrente sigue abierto. No se tocaron datos, políticas, secretos ni producción.

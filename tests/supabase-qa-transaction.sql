@@ -51,6 +51,20 @@ begin
     'Cliente QA 3','+5491112345680','qa3@example.com');
   if adjacent.turno_id is null then raise exception 'turno adyacente rechazado'; end if;
 
+  if public.turnly_reschedule_public_booking(
+    booking.turno_id,repeat('0',64),current_date + 1,'15:00','40000000-0000-4000-8000-000000000001'
+  ) then raise exception 'reprogramación aceptó token inválido'; end if;
+  begin
+    perform public.turnly_reschedule_public_booking(
+      booking.turno_id,booking.manage_token,current_date + 1,'10:30','40000000-0000-4000-8000-000000000001'
+    );
+    raise exception 'reprogramación permitió una superposición';
+  exception when exclusion_violation then null;
+  end;
+  if not public.turnly_reschedule_public_booking(
+    booking.turno_id,booking.manage_token,current_date + 1,'15:00','40000000-0000-4000-8000-000000000001'
+  ) then raise exception 'reprogramación válida fue rechazada'; end if;
+
   if has_column_privilege('authenticated','public.turno','duracion_minutos','insert')
      or has_column_privilege('authenticated','public.turno','hora_fin','insert')
      or has_column_privilege('authenticated','public.turno','duracion_minutos','update')
@@ -82,6 +96,9 @@ begin
   if has_table_privilege('anon','public.negocio','select') then raise exception 'anon conserva select'; end if;
   if has_function_privilege('anon','public.turnly_create_public_booking(uuid,uuid,uuid,date,time without time zone,uuid,text,text,text)','execute') then
     raise exception 'anon puede ejecutar reserva';
+  end if;
+  if has_function_privilege('anon','public.turnly_reschedule_public_booking(uuid,text,date,time without time zone,uuid)','execute') then
+    raise exception 'anon puede ejecutar reprogramación';
   end if;
 
   perform set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',true);

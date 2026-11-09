@@ -7,6 +7,7 @@ import { pgcrypto } from '@electric-sql/pglite/contrib/pgcrypto'
 const fixture = new URL('./fixtures/schema.sql', import.meta.url)
 const migration = new URL('../supabase/migrations/20261031015309_booking_security_and_intervals.sql', import.meta.url)
 const hardeningMigration = new URL('../supabase/migrations/20261105211500_booking_interval_hardening.sql', import.meta.url)
+const rescheduleMigration = new URL('../supabase/migrations/20261109014454_public_booking_reschedule.sql', import.meta.url)
 
 async function database() {
   const db = new PGlite({ extensions: { pgcrypto } })
@@ -24,6 +25,7 @@ async function database() {
   await db.exec(await readFile(fixture, 'utf8'))
   await db.exec(await readFile(migration, 'utf8'))
   await db.exec(await readFile(hardeningMigration, 'utf8'))
+  await db.exec(await readFile(rescheduleMigration, 'utf8'))
   return db
 }
 
@@ -111,6 +113,55 @@ test('el enlace de gestión usa un token opaco y cancela sin exponer el turno', 
   await db.exec('set role anon')
   await assert.rejects(
     () => db.query('select public.turnly_verify_manage_token($1, $2)', [turnoId, token]),
+    /permission denied/i,
+  )
+  await db.exec('reset role')
+})
+
+test('el cliente reprograma con token válido y la base conserva la exclusión mutua', async (t) => {
+  const db = await database()
+  t.after(() => db.close())
+  const ids = await seed(db)
+  const first = await book(db, ids, '10:00')
+  const second = await book(db, ids, '12:00')
+  const { turno_id: turnoId, manage_token: token } = first.rows[0]
+
+  const invalid = await db.query(`select public.turnly_reschedule_public_booking(
+    $1,$2,$3,'11:00',$4
+  ) as changed`, [turnoId, '0'.repeat(64), tomorrow(), ids.staff])
+  assert.equal(invalid.rows[0].changed, false)
+
+  await assert.rejects(
+    () => db.query(`select public.turnly_reschedule_public_booking($1,$2,$3,'11:30',$4)`,
+      [turnoId, token, tomorrow(), ids.staff]),
+    /horario ya no está disponible/i,
+  )
+
+  const moved = await db.query(`select public.turnly_reschedule_public_booking(
+    $1,$2,$3,'13:00',$4
+  ) as changed`, [turnoId, token, tomorrow(), ids.staff])
+  assert.equal(moved.rows[0].changed, true)
+  const stored = await db.query('select fecha,hora,hora_fin,duracion_minutos from public.turno where id=$1', [turnoId])
+  assert.equal(stored.rows[0].fecha.toISOString().slice(0, 10), tomorrow())
+  assert.deepEqual({ ...stored.rows[0], fecha: tomorrow() }, { fecha: tomorrow(), hora: '13:00:00', hora_fin: '14:00:00', duracion_minutos: 60 })
+
+  await db.query("update public.turno set estado='completado' where id=$1", [turnoId])
+  const completed = await db.query(`select public.turnly_reschedule_public_booking(
+    $1,$2,$3,'15:00',$4
+  ) as changed`, [turnoId, token, tomorrow(), ids.staff])
+  assert.equal(completed.rows[0].changed, false)
+  assert.ok(second.rows[0].turno_id)
+})
+
+test('anon no puede ejecutar la función privilegiada de reprogramación', async (t) => {
+  const db = await database()
+  t.after(() => db.close())
+  const ids = await seed(db)
+  const created = await book(db, ids, '10:00')
+  await db.exec('set role anon')
+  await assert.rejects(
+    () => db.query(`select public.turnly_reschedule_public_booking($1,$2,$3,'13:00',$4)`,
+      [created.rows[0].turno_id, created.rows[0].manage_token, tomorrow(), ids.staff]),
     /permission denied/i,
   )
   await db.exec('reset role')

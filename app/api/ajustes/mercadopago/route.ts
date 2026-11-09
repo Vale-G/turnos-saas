@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createAdminClient, createUserServerClient } from '@/lib/server/supabase'
 
 async function ownedBusiness() {
@@ -13,19 +13,26 @@ async function ownedBusiness() {
 export async function GET() {
   const context = await ownedBusiness()
   if (!context) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-  const { data } = await context.admin.from('negocio').select('mp_access_token').eq('id', context.id).single()
-  return NextResponse.json({ connected: Boolean(data?.mp_access_token) }, { headers: { 'Cache-Control': 'no-store' } })
+  const [{ data }, { data: legacy }] = await Promise.all([
+    context.admin.from('mercadopago_connection')
+      .select('mp_user_id,live_mode,token_expires_at').eq('negocio_id', context.id).maybeSingle(),
+    context.admin.from('negocio').select('mp_access_token').eq('id', context.id).single(),
+  ])
+  return NextResponse.json({
+    connected: Boolean(data || legacy?.mp_access_token),
+    oauth: Boolean(data),
+    accountId: data?.mp_user_id ?? null,
+    liveMode: data?.live_mode ?? null,
+    expiresAt: data?.token_expires_at ?? null,
+    available: Boolean(process.env.MP_CLIENT_ID && process.env.MP_CLIENT_SECRET && process.env.MP_OAUTH_REDIRECT_URI),
+  }, { headers: { 'Cache-Control': 'no-store' } })
 }
 
-export async function PUT(request: NextRequest) {
+export async function DELETE() {
   const context = await ownedBusiness()
   if (!context) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-  const body = await request.json().catch(() => ({}))
-  const token = typeof body.token === 'string' ? body.token.trim() : ''
-  if (!/^(APP_USR-|TEST-)[A-Za-z0-9._-]{20,300}$/.test(token)) {
-    return NextResponse.json({ error: 'El token de Mercado Pago no tiene un formato válido' }, { status: 400 })
-  }
-  const { error } = await context.admin.from('negocio').update({ mp_access_token: token }).eq('id', context.id)
-  if (error) return NextResponse.json({ error: 'No se pudo guardar la credencial' }, { status: 500 })
-  return NextResponse.json({ connected: true })
+  const { error } = await context.admin.from('mercadopago_connection').delete().eq('negocio_id', context.id)
+  const { error: legacyError } = await context.admin.from('negocio').update({ mp_access_token: null }).eq('id', context.id)
+  if (error || legacyError) return NextResponse.json({ error: 'No se pudo desconectar Mercado Pago' }, { status: 500 })
+  return NextResponse.json({ connected: false })
 }

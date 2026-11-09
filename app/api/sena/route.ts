@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { rateLimitByIp } from '@/lib/rate-limit'
 import { createAdminClient } from '@/lib/server/supabase'
 import { validUuid } from '@/lib/server/public-booking'
+import { getBusinessAccessToken } from '@/lib/server/mercadopago-oauth'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,10 +37,11 @@ export async function POST(request: NextRequest) {
   if (error || !turno || turno.estado === 'cancelado') return NextResponse.json({ error: 'Reserva inexistente' }, { status: 404 })
 
   const [{ data: negocio }, { data: servicio }] = await Promise.all([
-    admin.from('negocio').select('id,nombre,moneda,mp_access_token').eq('id', turno.negocio_id).maybeSingle(),
+    admin.from('negocio').select('id,nombre,moneda').eq('id', turno.negocio_id).maybeSingle(),
     admin.from('servicio').select('*').eq('id', turno.servicio_id).maybeSingle(),
   ])
-  if (!negocio?.mp_access_token || !servicio) {
+  const accessToken = negocio ? await getBusinessAccessToken(admin, negocio.id) : null
+  if (!negocio || !accessToken || !servicio) {
     return NextResponse.json({ error: 'El negocio no tiene señas configuradas' }, { status: 409 })
   }
 
@@ -57,7 +59,7 @@ export async function POST(request: NextRequest) {
   const origin = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? request.nextUrl.origin).origin
   const preferenceResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${negocio.mp_access_token}` },
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
     body: JSON.stringify({
       items: [{
         title: `Seña — ${servicio.nombre}`,
@@ -94,7 +96,7 @@ export async function POST(request: NextRequest) {
   }).eq('id', turnoId)
   if (updateError) return NextResponse.json({ error: 'No se pudo registrar la preferencia' }, { status: 500 })
 
-  const paymentUrl = negocio.mp_access_token.startsWith('TEST-') && typeof preference.sandbox_init_point === 'string'
+  const paymentUrl = accessToken.startsWith('TEST-') && typeof preference.sandbox_init_point === 'string'
     ? preference.sandbox_init_point
     : preference.init_point
   return NextResponse.json({ url: paymentUrl }, { headers: { 'Cache-Control': 'no-store' } })

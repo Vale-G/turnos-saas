@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/server/supabase'
 import { validUuid } from '@/lib/server/public-booking'
 import { obtenerPagoMercadoPago, verificarFirmaMercadoPago, type MercadoPagoWebhookPayload } from '@/lib/webhooks/mercadopago-handler'
+import { getBusinessAccessToken } from '@/lib/server/mercadopago-oauth'
 
 export async function POST(request: NextRequest) {
   let body: MercadoPagoWebhookPayload
@@ -14,8 +15,7 @@ export async function POST(request: NextRequest) {
   const negocioId = request.nextUrl.searchParams.get('negocio')
   let businessToken: string | undefined
   if (validUuid(negocioId)) {
-    const { data: negocio } = await admin.from('negocio').select('mp_access_token').eq('id', negocioId).maybeSingle()
-    businessToken = negocio?.mp_access_token ?? undefined
+    businessToken = await getBusinessAccessToken(admin, negocioId) ?? undefined
   }
   const payment = await obtenerPagoMercadoPago(dataId, businessToken)
   const [turnoId, suffix = 'full'] = payment?.external_reference?.split('|') ?? []

@@ -82,6 +82,17 @@ CREATE TABLE public.negocio (
   moneda text DEFAULT 'ARS'::text NOT NULL
 );
 
+CREATE TABLE public.mercadopago_connection (
+  negocio_id uuid NOT NULL,
+  access_token_encrypted text NOT NULL,
+  refresh_token_encrypted text,
+  token_expires_at timestamp with time zone NOT NULL,
+  mp_user_id text NOT NULL,
+  live_mode boolean DEFAULT false NOT NULL,
+  connected_at timestamp with time zone DEFAULT now() NOT NULL,
+  updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
 CREATE TABLE public.servicio (
   id uuid DEFAULT gen_random_uuid() NOT NULL,
   negocio_id uuid NOT NULL,
@@ -157,6 +168,7 @@ ALTER TABLE public.clientenota ADD CONSTRAINT clientenota_negocio_id_cliente_id_
 ALTER TABLE public.clientenota ADD CONSTRAINT clientenota_pkey PRIMARY KEY (id);
 ALTER TABLE public.config ADD CONSTRAINT config_pkey PRIMARY KEY (clave);
 ALTER TABLE public.gasto ADD CONSTRAINT gasto_pkey PRIMARY KEY (id);
+ALTER TABLE public.mercadopago_connection ADD CONSTRAINT mercadopago_connection_pkey PRIMARY KEY (negocio_id);
 ALTER TABLE public.negocio ADD CONSTRAINT negocio_moneda_iso4217_chk CHECK ((moneda ~ '^[A-Z]{3}$'::text));
 ALTER TABLE public.negocio ADD CONSTRAINT negocio_pkey PRIMARY KEY (id);
 ALTER TABLE public.negocio ADD CONSTRAINT negocio_slug_key UNIQUE (slug);
@@ -175,6 +187,7 @@ ALTER TABLE public.bloqueo ADD CONSTRAINT bloqueo_negocio_id_fkey FOREIGN KEY (n
 ALTER TABLE public.bloqueo ADD CONSTRAINT bloqueo_staff_id_fkey FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE CASCADE;
 ALTER TABLE public.clientenota ADD CONSTRAINT clientenota_negocio_id_fkey FOREIGN KEY (negocio_id) REFERENCES negocio(id) ON DELETE CASCADE;
 ALTER TABLE public.gasto ADD CONSTRAINT gasto_negocio_id_fkey FOREIGN KEY (negocio_id) REFERENCES negocio(id) ON DELETE CASCADE;
+ALTER TABLE public.mercadopago_connection ADD CONSTRAINT mercadopago_connection_negocio_id_fkey FOREIGN KEY (negocio_id) REFERENCES negocio(id) ON DELETE CASCADE;
 ALTER TABLE public.negocio ADD CONSTRAINT negocio_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 ALTER TABLE public.servicio ADD CONSTRAINT servicio_negocio_id_fkey FOREIGN KEY (negocio_id) REFERENCES negocio(id) ON DELETE CASCADE;
 ALTER TABLE public.staff ADD CONSTRAINT staff_negocio_id_fkey FOREIGN KEY (negocio_id) REFERENCES negocio(id) ON DELETE CASCADE;

@@ -47,9 +47,11 @@ export default function AjustesPage() {
   const [cierre, setCierre] = useState('20:00')
   const [diasLaborales, setDiasLaborales] = useState<number[]>([1, 2, 3, 4, 5, 6])
   const [logoUrl, setLogoUrl] = useState('')
-  const [mpToken, setMpToken] = useState('')
-  const [mpTokenEditado, setMpTokenEditado] = useState(false)
   const [mpConnected, setMpConnected] = useState(false)
+  const [mpOauth, setMpOauth] = useState(false)
+  const [mpAvailable, setMpAvailable] = useState(false)
+  const [mpAccountId, setMpAccountId] = useState<string | null>(null)
+  const [desconectandoMp, setDesconectandoMp] = useState(false)
   const [emailContacto, setEmailContacto] = useState('')
 
   useEffect(() => {
@@ -81,6 +83,14 @@ export default function AjustesPage() {
 
           const credential = await fetch('/api/ajustes/mercadopago', { cache: 'no-store' }).then((response) => response.ok ? response.json() : { connected: false })
           setMpConnected(Boolean(credential.connected))
+          setMpOauth(Boolean(credential.oauth))
+          setMpAvailable(Boolean(credential.available))
+          setMpAccountId(credential.accountId ?? null)
+
+          const mpResult = new URLSearchParams(window.location.search).get('mp')
+          if (mpResult === 'connected') toast.success('Mercado Pago quedó conectado correctamente')
+          if (mpResult === 'error' || mpResult === 'invalid') toast.error('No se pudo completar la conexión con Mercado Pago')
+          if (mpResult === 'not-configured') toast.error('Falta configurar la aplicación de Mercado Pago en Turnly')
 
           setEmailContacto(neg.email_contacto || '')
         }
@@ -135,24 +145,6 @@ export default function AjustesPage() {
       email_contacto: emailContacto,
     }
 
-    if (mpTokenEditado) {
-      if (!mpToken.trim()) {
-        setGuardando(false)
-        return toast.error('El Access Token no puede estar vacío si decidís modificarlo')
-      }
-      const credentialResponse = await fetch('/api/ajustes/mercadopago', {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: mpToken.trim() }),
-      })
-      if (!credentialResponse.ok) {
-        const payload = await credentialResponse.json().catch(() => ({}))
-        setGuardando(false)
-        return toast.error(payload.error ?? 'No se pudo guardar Mercado Pago')
-      }
-      setMpConnected(true)
-      setMpToken('')
-      setMpTokenEditado(false)
-    }
-
     if (!negocio) { setGuardando(false); return }
     const { error } = await supabase.from('negocio').update(updatePayload).eq('id', negocio.id)
 
@@ -172,6 +164,17 @@ export default function AjustesPage() {
   }
 
   const colorP = getThemeColor(tema)
+
+  async function desconectarMercadoPago() {
+    setDesconectandoMp(true)
+    const response = await fetch('/api/ajustes/mercadopago', { method: 'DELETE' })
+    setDesconectandoMp(false)
+    if (!response.ok) return toast.error('No se pudo desconectar Mercado Pago')
+    setMpConnected(false)
+    setMpOauth(false)
+    setMpAccountId(null)
+    toast.success('Mercado Pago desconectado')
+  }
 
   return (
     <div className="min-h-screen bg-[#020617] text-white p-6 md:p-12">
@@ -324,21 +327,34 @@ export default function AjustesPage() {
               </div>
             </div>
             <div className="relative overflow-hidden bg-blue-500/10 border border-blue-500/20 p-6 rounded-3xl mt-4">
-              <h3 className="text-sm font-black uppercase italic mb-4 text-blue-400">MercadoPago</h3>
-              <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Access Token (Producción)</label>
-                <input
-                  type="password"
-                  value={mpToken}
-                  onChange={(e) => {
-                    const value = e.target.value
-                    setMpToken(value)
-                    setMpTokenEditado(value.length > 0)
-                  }}
-                  placeholder={mpConnected ? 'Credencial configurada — pegá una nueva para reemplazarla' : 'APP_USR-...'}
-                  className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-mono outline-none focus:border-blue-500/50"
-                />
-              </div>
+              <h3 className="text-sm font-black uppercase italic mb-2 text-blue-400">Mercado Pago</h3>
+              <p className="text-sm text-slate-300 mb-5">
+                Vinculá tu cuenta para recibir directamente las señas y cobros de tus clientes. Turnly no recibe ni almacena datos de tarjetas.
+              </p>
+              {mpConnected ? (
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="flex-1 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+                    <p className="text-xs font-black uppercase text-emerald-400">✓ Cuenta conectada</p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      {mpAccountId ? `Cuenta ${mpAccountId}` : 'Credencial existente'}
+                      {!mpOauth && ' · reconectala para activar renovación automática'}
+                    </p>
+                  </div>
+                  <button type="button" onClick={desconectarMercadoPago} disabled={desconectandoMp}
+                    className="rounded-2xl border border-rose-500/30 px-5 py-4 text-xs font-black uppercase text-rose-300 hover:bg-rose-500/10 disabled:opacity-50">
+                    {desconectandoMp ? 'Desconectando…' : 'Desconectar'}
+                  </button>
+                </div>
+              ) : mpAvailable ? (
+                <a href="/api/ajustes/mercadopago/connect"
+                  className="inline-flex rounded-2xl bg-[#009ee3] px-6 py-4 text-sm font-black uppercase text-white hover:bg-[#008ed0]">
+                  Conectar Mercado Pago
+                </a>
+              ) : (
+                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 p-4 text-sm text-amber-200">
+                  La conexión estará disponible cuando se configure la aplicación OAuth de Turnly.
+                </div>
+              )}
             </div>
           </div>
 

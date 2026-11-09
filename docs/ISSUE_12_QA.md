@@ -149,5 +149,37 @@ profesional y horario. Debe persistir exactamente una reserva y rechazarse la ot
 - `RESEND_API_KEY` (para validar notificaciones)
 - Credenciales sandbox de Mercado Pago (para validar pagos externos)
 
+### OAuth de Mercado Pago por negocio
+
+Implementado en la rama `codex/turnly-issue-12`:
+
+- conexión y desconexión desde Ajustes, sin pegar Access Tokens;
+- Authorization Code con `state` firmado y PKCE S256;
+- access/refresh tokens cifrados con AES-256-GCM antes de persistir;
+- tabla `mercadopago_connection` sin permisos para `anon` ni `authenticated`;
+- renovación automática antes del vencimiento;
+- señas, cobros locales y consulta de webhooks con la cuenta del negocio;
+- compatibilidad temporal de lectura con el antiguo `mp_access_token`.
+
+Migración QA aplicada: `20261109004201_mercado_pago_oauth_credentials.sql`.
+Verificación posterior: RLS activo, `anon_select=false`,
+`authenticated_select=false`, `service_select=true` y cero credenciales guardadas.
+
+Pruebas locales posteriores: 38/38, TypeScript, ESLint y build aprobados.
+Las pruebas incluyen cifrado/descifrado, manipulación de ciphertext, vencimiento,
+firma de `state` y asociación de cada autorización al usuario y negocio correctos.
+
+Variables servidor necesarias:
+
+- `MP_CLIENT_ID`
+- `MP_CLIENT_SECRET`
+- `MP_OAUTH_REDIRECT_URI` (debe coincidir exactamente con la URL registrada)
+- `MP_OAUTH_STATE_SECRET` (mínimo 32 caracteres)
+- `MP_CREDENTIALS_ENCRYPTION_KEY` (32 bytes codificados en base64)
+
+Los dos secretos internos ya están creados sólo para el Preview de esta rama. La
+validación externa queda bloqueada hasta crear/configurar la aplicación OAuth de
+Mercado Pago y registrar el redirect URI; no se copiaron credenciales productivas.
+
 Los valores de Preview deben pertenecer exclusivamente al proyecto de QA y nunca
 copiarse desde producción.

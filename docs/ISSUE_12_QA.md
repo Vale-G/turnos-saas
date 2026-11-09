@@ -183,3 +183,5 @@ Mercado Pago y registrar el redirect URI; no se copiaron credenciales productiva
 
 Los valores de Preview deben pertenecer exclusivamente al proyecto de QA y nunca
 copiarse desde producción.
+
+- Configuración Preview OAuth completada el 2026-11-08: Client ID y Client Secret cargados como variables sensibles restringidas a `codex/turnly-issue-12`; callback corto `https://turnly-qa-oauth.vercel.app/api/ajustes/mercadopago/callback`. El secreto debe rotarse antes de producción porque fue compartido en una captura durante la configuración.

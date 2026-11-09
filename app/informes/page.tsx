@@ -14,9 +14,21 @@ function getMonthRange(monthIso: string) {
   return { start, next }
 }
 
+type NegocioInforme = {
+  id: string
+  tema: string | null
+  suscripcion_tipo: string | null
+}
+
+type TurnoInforme = {
+  estado: string | null
+  servicio: { nombre: string | null; precio: number | null } | { nombre: string | null; precio: number | null }[] | null
+  staff: { nombre: string | null } | { nombre: string | null }[] | null
+}
+
 export default function InformesElite() {
-  const [negocio, setNegocio] = useState<any>(null)
-  const [turnos, setTurnos] = useState<any[]>([])
+  const [negocio, setNegocio] = useState<NegocioInforme | null>(null)
+  const [turnos, setTurnos] = useState<TurnoInforme[]>([])
   const [loading, setLoading] = useState(true)
   const [tieneAcceso, setTieneAcceso] = useState(false)
   const [mesFiltro, setMesFiltro] = useState(toBaDateStr(new Date()).slice(0, 7))
@@ -45,13 +57,14 @@ export default function InformesElite() {
   }, [router])
 
   useEffect(() => {
-    if (!negocio?.id || !tieneAcceso) return
+    const negocioId = negocio?.id
+    if (!negocioId || !tieneAcceso) return
     async function fetchMetricas() {
       const { start, next } = getMonthRange(mesFiltro)
       const { data } = await supabase
         .from('turno')
         .select('estado, servicio(nombre, precio), staff(nombre)')
-        .eq('negocio_id', negocio.id)
+        .eq('negocio_id', negocioId)
         .gte('fecha', start)
         .lt('fecha', next)
       setTurnos(data || [])
@@ -60,15 +73,16 @@ export default function InformesElite() {
   }, [negocio, mesFiltro, tieneAcceso])
 
   useEffect(() => {
-    if (!negocio?.id || !tieneAcceso) return
+    const negocioId = negocio?.id
+    if (!negocioId || !tieneAcceso) return
     const channel = supabase
-      .channel(`informes-turnos-${negocio.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'turno', filter: `negocio_id=eq.${negocio.id}` }, async () => {
+      .channel(`informes-turnos-${negocioId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'turno', filter: `negocio_id=eq.${negocioId}` }, async () => {
         const { start, next } = getMonthRange(mesFiltro)
         const { data } = await supabase
           .from('turno')
           .select('estado, servicio(nombre, precio), staff(nombre)')
-          .eq('negocio_id', negocio.id)
+          .eq('negocio_id', negocioId)
           .gte('fecha', start)
           .lt('fecha', next)
         setTurnos(data || [])
@@ -87,9 +101,11 @@ export default function InformesElite() {
     const topStaff: Record<string, { count: number, total: number }> = {}
 
     turnos.forEach(t => {
-      const precio = t.servicio?.precio || 0
-      const nombreServicio = t.servicio?.nombre || 'Desconocido'
-      const nombreStaff = t.staff?.nombre || 'Sin Asignar'
+      const servicio = Array.isArray(t.servicio) ? t.servicio[0] : t.servicio
+      const staff = Array.isArray(t.staff) ? t.staff[0] : t.staff
+      const precio = servicio?.precio || 0
+      const nombreServicio = servicio?.nombre || 'Desconocido'
+      const nombreStaff = staff?.nombre || 'Sin Asignar'
 
       if (t.estado === 'completado') {
         ingresos += precio

@@ -108,6 +108,11 @@ profesional y horario. Debe persistir exactamente una reserva y rechazarse la ot
   con autorización explícita y exclusivamente en el Supabase QA. El historial
   remoto lista ambas migraciones. La prueba transaccional completa se repitió
   después de aplicarla y el control posterior confirmó cero turnos residuales.
+- También se aplicó `legacy_sandbox_surface_lockdown`: `anon` y
+  `authenticated` ya no pueden ejecutar la función heredada
+  `public.rls_auto_enable()`, y `anon` perdió lectura sobre las cuatro tablas
+  plurales antiguas. El asesor dejó de informar ambas exposiciones públicas; no
+  se eliminaron tablas, funciones ni datos.
 - QA independiente reprodujo tres bypasses P1 posteriores al primer E2E: un
   intervalo legado sin snapshot, edición directa de columnas derivadas y
   recálculo de una duración histórica al cambiar estado. La migración incremental

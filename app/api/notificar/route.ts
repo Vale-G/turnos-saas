@@ -57,4 +57,3 @@ export async function POST(request: NextRequest) {
   const skipped = results.filter((result) => result === 'skipped').length
   return NextResponse.json({ sent, failed, skipped }, { status: failed > 0 && sent === 0 ? 502 : 200 })
 }
-m«ëŒ4jš•©ÝŠx?¥¨¶Ì

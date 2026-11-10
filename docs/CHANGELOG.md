@@ -1,3 +1,10 @@
+## 2026-11-10 — Validación conservadora de lista negra vacía
+
+- Base estable intacta: `codex/revisar-informes-de-turnos-cancelados` @ `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`. Rama aislada `codex/fix-blacklist-empty-config-20261110`, creada desde el head de trabajo `9013bf0c95fdbf340f424a94e51a5e3ad0add18a` (PR #11 borrador); **no** se fusionó al PR #11.
+- `lib/reserva-lista-negra.mjs`: distingue ausencia de fila de configuración (permitida por comportamiento previo) de fila presente con valor vacío, nulo o de tipo inválido (rechazada como configuración corrupta). Commit `210ee25794e764dcb7005e4d37eec545b2d83290`.
+- `tests/reserva-lista-negra.test.mjs`: regresión para `''`, `null` y `undefined`. Commit `f58629e487011ba68a6bc1565b67d89165454195`.
+- Validación CI de este head: pendiente de consultar; no atribuir a esta rama resultados del PR #11. Seguridad P0 y experiencia de teléfono autenticado siguen abiertas; sin integración/E2E ni pruebas de aislamiento. No desplegar ni fusionar.
+
 ## 2026-11-06 — Lista negra: helper verificable y regresiones
 
 - Base estable: `codex/revisar-informes-de-turnos-cancelados` @ `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf` (sin cambios); trabajo en `codex/ci-automatico-lint-build`, PR #11 borrador.

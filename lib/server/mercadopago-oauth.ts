@@ -7,6 +7,7 @@ import {
   encryptCredentialValue,
   readSignedOAuthState,
 } from '@/lib/mercadopago-oauth-crypto.mjs'
+import { persistBusinessToken } from '@/lib/mercadopago-token-store.mjs'
 
 const OAUTH_AUTHORIZE_URL = 'https://auth.mercadopago.com.ar/authorization'
 const OAUTH_TOKEN_URL = 'https://api.mercadopago.com/oauth/token'
@@ -124,9 +125,7 @@ export async function storeBusinessToken(admin: SupabaseClient, negocioId: strin
     updated_at: new Date().toISOString(),
   }
   if (token.refresh_token) payload.refresh_token_encrypted = encryptCredential(token.refresh_token)
-  const { error } = await admin.from('mercadopago_connection').upsert(payload, { onConflict: 'negocio_id' })
-  if (error) throw new Error('No se pudo guardar la conexión de Mercado Pago')
-  await admin.from('negocio').update({ mp_access_token: null }).eq('id', negocioId)
+  await persistBusinessToken(admin, negocioId, payload)
 }
 
 export async function getBusinessAccessToken(admin: SupabaseClient, negocioId: string) {

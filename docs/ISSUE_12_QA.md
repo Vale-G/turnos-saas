@@ -1,6 +1,6 @@
 # Issue #12 — seguridad, disponibilidad y reservas concurrentes
 
-Última verificación: 2026-11-05.
+Última verificación: 2026-11-10.
 
 ## Alcance implementado
 
@@ -97,6 +97,12 @@ profesional y horario. Debe persistir exactamente una reserva y rechazarse la ot
 - Cleanup comprobado: cero negocios, turnos, servicios y profesionales ficticios.
 
 ## Límites y validación pendiente
+
+- El hallazgo de QA sobre la limpieza de credenciales heredadas de Mercado Pago
+  quedó corregido: una conexión OAuth ya no informa éxito si falla el borrado de
+  `negocio.mp_access_token`. La regresión cubre éxito, fallo del guardado cifrado
+  y fallo de limpieza. Validación local: 48/48 pruebas, TypeScript, ESLint, build
+  y auditoría de dependencias de producción aprobados.
 
 - Revalidación del 2026-11-08: la definición activa de
   `turnly_private.enforce_turno_interval()` en el Supabase QA coincide con la

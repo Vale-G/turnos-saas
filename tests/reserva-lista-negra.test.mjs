@@ -50,3 +50,11 @@ test('permite reserva si no existe lista negra o está vacía', async () => {
   assert.equal((await verificarListaNegra(async () => ({ data: null, error: null }), '')).permitido, true)
   assert.equal((await verificarListaNegra(async () => ({ data: { valor: '[]' }, error: null }), '')).permitido, true)
 })
+
+
+test('rechaza configuraciones presentes pero vacías o nulas', async () => {
+  for (const valor of ['', null, undefined]) {
+    const resultado = await verificarListaNegra(async () => ({ data: { valor }, error: null }), '123')
+    assert.deepEqual(resultado, { permitido: false, motivo: 'configuracion' })
+  }
+})

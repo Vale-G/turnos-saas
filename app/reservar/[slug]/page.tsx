@@ -290,7 +290,32 @@ function AuthSelector({ user, colorP, loading, onConfirm, slug, montoSena }: any
     </div>
   )
 
-  if (user) return renderBotones((s) => onConfirm('', '', s, ''))
+  if (user) return (
+    <div className="space-y-4">
+      <label htmlFor="telefono-reserva-autenticada" className="block text-xs font-bold text-slate-300">
+        Teléfono de contacto para verificar la reserva
+      </label>
+      <input
+        id="telefono-reserva-autenticada"
+        type="tel"
+        autoComplete="tel"
+        placeholder="WHATSAPP (EJ: 1123456789)"
+        value={tel}
+        onChange={e => setTel(e.target.value)}
+        disabled={loading}
+        required
+        className="w-full bg-black/50 border border-white/10 rounded-[1.5rem] p-5 text-[11px] font-black uppercase outline-none focus:border-white/30"
+      />
+      <p className="text-xs text-slate-400">Se utiliza para comprobar las restricciones de reserva del establecimiento.</p>
+      {renderBotones((s) => {
+        if (!/^[0-9]{6,15}$/.test(tel.replace(/[^0-9]/g, ''))) {
+          toast.error('Ingresá un teléfono válido para reservar.')
+          return
+        }
+        onConfirm('', tel, s, '')
+      })}
+    </div>
+  )
   return (
     <div className="space-y-6">
       <div className="flex bg-black/50 p-1.5 rounded-2xl border border-white/5">

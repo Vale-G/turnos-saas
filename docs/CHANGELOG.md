@@ -1,3 +1,10 @@
+## 2026-11-11 — Teléfono para reservas de usuarios autenticados
+
+- Rama de trabajo aislada: `codex/fix-authenticated-booking-phone-20261111`, derivada de `d7c976d69f2a73d75c3973d3bccfd4f5f41edd55` (rama de corrección de lista negra, a su vez derivada del PR #11). Base estable de referencia `codex/revisar-informes-de-turnos-cancelados` @ `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`, sin modificaciones.
+- Código: `app/reservar/[slug]/page.tsx` solicita un teléfono a usuarios autenticados, valida formato básico de 6 a 15 dígitos y lo entrega al verificador de lista negra, evitando pasar siempre una cadena vacía. Commit de código `909c11ef51fe8c733d3a8aaa08234c05b4f13c99`.
+- Evidencia anterior: run [42806928591](https://github.com/Vale-G/turnos-saas/actions/runs/42806928591) sobre la rama de origen: pruebas unitarias y build aprobados, ESLint fallido. No atribuir esos resultados a este cambio; revisar CI de la rama nueva.
+- Alcance limitado: comprobación de UI, no prueba identidad ni propiedad del teléfono. El servidor aún no valida reservas atómicamente; la consulta de lista negra y la inserción siguen en cliente. P0 (lectura pública, RLS y concurrencia) continúa abierto. Falta integración/E2E y QA independiente. No fusionar ni desplegar.
+
 ## 2026-11-10 — Validación conservadora de lista negra vacía
 
 - Base estable intacta: `codex/revisar-informes-de-turnos-cancelados` @ `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf`. Rama aislada `codex/fix-blacklist-empty-config-20261110`, creada desde el head de trabajo `9013bf0c95fdbf340f424a94e51a5e3ad0add18a` (PR #11 borrador); **no** se fusionó al PR #11.

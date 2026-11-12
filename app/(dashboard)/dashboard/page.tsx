@@ -25,6 +25,7 @@ export default function DashboardPrincipal() {
   const [staffCount, setStaffCount] = useState(0)
   const [serviciosCount, setServiciosCount] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [copiado, setCopiado] = useState(false)
   const router = useRouter()
 
@@ -36,7 +37,7 @@ export default function DashboardPrincipal() {
       let currentRol = 'owner'
       let negocioId = null
 
-      const { data: adminData } = await supabase.from('adminrol').select('*').eq('user_id', user.id).maybeSingle()
+      const { data: adminData } = await supabase.from('adminrol').select('negocio_id,role').eq('user_id', user.id).maybeSingle()
       
       if (adminData) {
         currentRol = adminData.role
@@ -62,7 +63,11 @@ export default function DashboardPrincipal() {
       }
 
       if (negocioId) {
-        const { data: neg } = await supabase.from('negocio').select('*').eq('id', negocioId).maybeSingle()
+        const { data: neg, error: negocioError } = await supabase
+          .from('negocio')
+          .select('id,nombre,tema,logo_url,suscripcion_tipo,slug,trial_hasta')
+          .eq('id', negocioId)
+          .maybeSingle()
         if (neg) {
           const diasRestantes = diasTrialRestantes(neg.trial_hasta)
           // Si es superadmin, no lo bloqueamos nunca con el paywall
@@ -87,8 +92,13 @@ export default function DashboardPrincipal() {
              setStaffCount(sc ?? 0)
              setServiciosCount(svc ?? 0)
           }
-        } else {
+        } else if (!negocioError) {
           router.push('/onboarding')
+          return
+        } else {
+          console.error('No se pudo cargar el negocio del panel', negocioError.message)
+          setLoadError('No pudimos cargar tu negocio. Reintentá en unos segundos.')
+          setLoading(false)
           return
         }
       } else {
@@ -101,6 +111,7 @@ export default function DashboardPrincipal() {
   }, [router])
 
   if (loading) return <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black italic text-white text-3xl uppercase tracking-tighter animate-pulse">CARGANDO PANEL...</div>
+  if (loadError) return <div className="min-h-screen bg-[#020617] text-white grid place-items-center p-6 text-center"><div><h1 className="text-3xl font-black mb-3">No pudimos abrir el panel</h1><p className="text-slate-400 mb-6">{loadError}</p><button type="button" onClick={() => window.location.reload()} className="rounded-2xl bg-white px-6 py-3 font-black text-slate-950">Reintentar</button></div></div>
 
   const colorPrincipal = getThemeColor(negocio?.tema)
   const plan = (negocio?.suscripcion_tipo ?? 'normal') as keyof typeof LIMITES

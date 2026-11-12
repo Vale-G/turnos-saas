@@ -10,6 +10,7 @@ const hardeningMigration = new URL('../supabase/migrations/20261105211500_bookin
 const rescheduleMigration = new URL('../supabase/migrations/20261109014454_public_booking_reschedule.sql', import.meta.url)
 const rolesMigration = new URL('../supabase/migrations/20261109020119_role_permissions.sql', import.meta.url)
 const notificationMigration = new URL('../supabase/migrations/20261110103749_notification_delivery.sql', import.meta.url)
+const personalizationMigration = new URL('../supabase/migrations/20261112214500_business_personalization.sql', import.meta.url)
 
 async function database() {
   const db = new PGlite({ extensions: { pgcrypto } })
@@ -30,6 +31,7 @@ async function database() {
   await db.exec(await readFile(rescheduleMigration, 'utf8'))
   await db.exec(await readFile(rolesMigration, 'utf8'))
   await db.exec(await readFile(notificationMigration, 'utf8'))
+  await db.exec(await readFile(personalizationMigration, 'utf8'))
   return db
 }
 
@@ -58,6 +60,54 @@ function tomorrow() {
   const date = new Date(Date.now() + 86400000)
   return date.toISOString().slice(0, 10)
 }
+
+test('la personalización usa valores seguros y solo el negocio autenticado puede cambiarla', async (t) => {
+  const db = await database()
+  t.after(() => db.close())
+  const ids = await seed(db)
+
+  const defaults = await db.query(
+    'select rubro, estilo_visual, modo_visual from public.negocio where id = $1',
+    [ids.negocio],
+  )
+  assert.deepEqual(defaults.rows[0], {
+    rubro: 'general',
+    estilo_visual: 'sereno',
+    modo_visual: 'oscuro',
+  })
+
+  await db.exec(`set role authenticated; set request.jwt.claim.sub = '${ids.owner}'`)
+  await db.query(
+    `update public.negocio
+      set rubro = 'salud', estilo_visual = 'minimal', modo_visual = 'claro'
+      where id = $1`,
+    [ids.negocio],
+  )
+  await assert.rejects(
+    () => db.query("update public.negocio set rubro = 'arbitrario' where id = $1", [ids.negocio]),
+    /negocio_rubro_chk/i,
+  )
+  await db.exec('reset role')
+
+  const changed = await db.query(
+    'select rubro, estilo_visual, modo_visual from public.negocio where id = $1',
+    [ids.negocio],
+  )
+  assert.deepEqual(changed.rows[0], {
+    rubro: 'salud',
+    estilo_visual: 'minimal',
+    modo_visual: 'claro',
+  })
+  const other = await db.query(
+    'select rubro, estilo_visual, modo_visual from public.negocio where id = $1',
+    [ids.otherNegocio],
+  )
+  assert.deepEqual(other.rows[0], {
+    rubro: 'general',
+    estilo_visual: 'sereno',
+    modo_visual: 'oscuro',
+  })
+})
 
 async function book(db, ids, hour) {
   return db.query(`

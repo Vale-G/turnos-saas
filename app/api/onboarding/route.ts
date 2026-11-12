@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient, createUserServerClient } from '@/lib/server/supabase'
 import { cleanText } from '@/lib/server/public-booking'
 import { isThemeId } from '@/lib/theme'
+import { isBusinessType, isVisualMode, isVisualStyle } from '@/lib/personalization.mjs'
 
 export async function POST(request: NextRequest) {
   const userClient = await createUserServerClient()
@@ -14,6 +15,9 @@ export async function POST(request: NextRequest) {
   const slug = cleanText(body.slug, 80).toLowerCase()
   const whatsapp = cleanText(body.whatsapp, 30)
   const tema = typeof body.tema === 'string' && isThemeId(body.tema) ? body.tema : 'emerald'
+  const rubro = isBusinessType(body.rubro) ? body.rubro : 'general'
+  const estiloVisual = isVisualStyle(body.estiloVisual) ? body.estiloVisual : 'sereno'
+  const modoVisual = isVisualMode(body.modoVisual) ? body.modoVisual : 'oscuro'
   const apertura = body.apertura
   const cierre = body.cierre
   if (nombre.length < 2 || !/^[a-z0-9-]{3,80}$/.test(slug)
@@ -41,6 +45,9 @@ export async function POST(request: NextRequest) {
     slug,
     whatsapp,
     tema,
+    rubro,
+    estilo_visual: estiloVisual,
+    modo_visual: modoVisual,
     hora_apertura: `${apertura}:00`,
     hora_cierre: `${cierre}:00`,
     suscripcion_tipo: 'trial',

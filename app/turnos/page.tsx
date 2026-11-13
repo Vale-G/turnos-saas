@@ -80,7 +80,7 @@ export default function AgendaTurnos() {
       let nId = null
       let negData = null
 
-      const { data: adm } = await supabase.from('adminrol').select('*').eq('user_id', user.id).maybeSingle()
+      const { data: adm } = await supabase.from('adminrol').select('negocio_id,role').eq('user_id', user.id).maybeSingle()
       if (adm?.negocio_id) {
         nId = adm.negocio_id
       } else {

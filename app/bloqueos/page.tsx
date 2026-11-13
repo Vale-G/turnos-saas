@@ -34,18 +34,18 @@ export default function BloqueosPage() {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return router.push('/login')
-      const { data: adm } = await supabase.from('adminrol').select('*').eq('user_id', user.id).maybeSingle()
+      const { data: adm } = await supabase.from('adminrol').select('negocio_id,role').eq('user_id', user.id).maybeSingle()
       let nId = adm?.negocio_id
       if (!nId) {
         const { data: n } = await supabase.from('negocio').select('id').eq('owner_id', user.id).maybeSingle()
         nId = n?.id
       }
       if (nId) {
-        const { data: neg } = await supabase.from('negocio').select('*').eq('id', nId).single()
+        const { data: neg } = await supabase.from('negocio').select('id,tema').eq('id', nId).single()
         setNegocio(neg as NegocioBloqueos | null)
         const [{ data: stf }, { data: blq }] = await Promise.all([
-          supabase.from('staff').select('*').eq('negocio_id', nId).eq('activo', true),
-          supabase.from('bloqueo').select('*, staff(nombre)').eq('negocio_id', nId).gte('fecha', new Date().toISOString().split('T')[0]).order('fecha', { ascending: true })
+          supabase.from('staff').select('id,nombre,activo').eq('negocio_id', nId).eq('activo', true),
+          supabase.from('bloqueo').select('id,negocio_id,staff_id,fecha,hora_inicio,hora_fin,staff(nombre)').eq('negocio_id', nId).gte('fecha', new Date().toISOString().split('T')[0]).order('fecha', { ascending: true })
         ])
         setStaff((stf || []) as StaffBloqueos[])
         setBloqueos((blq || []) as BloqueoItem[])

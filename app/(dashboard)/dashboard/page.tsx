@@ -86,8 +86,8 @@ export default function DashboardPrincipal() {
           
           if (currentRol === 'owner' || currentRol === 'superadmin') {
              const [{ count: sc }, { count: svc }] = await Promise.all([
-               supabase.from('staff').select('*', { count: 'exact', head: true }).eq('negocio_id', neg.id),
-               supabase.from('servicio').select('*', { count: 'exact', head: true }).eq('negocio_id', neg.id),
+               supabase.from('staff').select('id', { count: 'exact', head: true }).eq('negocio_id', neg.id),
+               supabase.from('servicio').select('id', { count: 'exact', head: true }).eq('negocio_id', neg.id),
              ])
              setStaffCount(sc ?? 0)
              setServiciosCount(svc ?? 0)

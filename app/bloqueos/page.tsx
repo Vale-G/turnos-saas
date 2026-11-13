@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
 import { toast } from 'sonner'
 import { esRangoHorarioValido, getStaffNombre } from '@/lib/bloqueos-helpers.mjs'
+import { todayInTimeZone } from '@/lib/local-date.mjs'
 
 type NegocioBloqueos = { id: string; tema: string | null }
 type StaffBloqueos = { id: string; nombre: string; activo?: boolean }
@@ -45,7 +46,7 @@ export default function BloqueosPage() {
         setNegocio(neg as NegocioBloqueos | null)
         const [{ data: stf }, { data: blq }] = await Promise.all([
           supabase.from('staff').select('id,nombre,activo').eq('negocio_id', nId).eq('activo', true),
-          supabase.from('bloqueo').select('id,negocio_id,staff_id,fecha,hora_inicio,hora_fin,staff(nombre)').eq('negocio_id', nId).gte('fecha', new Date().toISOString().split('T')[0]).order('fecha', { ascending: true })
+          supabase.from('bloqueo').select('id,negocio_id,staff_id,fecha,hora_inicio,hora_fin,staff(nombre)').eq('negocio_id', nId).gte('fecha', todayInTimeZone()).order('fecha', { ascending: true })
         ])
         setStaff((stf || []) as StaffBloqueos[])
         setBloqueos((blq || []) as BloqueoItem[])

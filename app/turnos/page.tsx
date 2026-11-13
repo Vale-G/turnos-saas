@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { addDaysISO, mondayOfISOWeek, todayInTimeZone } from '@/lib/local-date.mjs'
 
 type TurnoItem = {
   id: string
@@ -24,7 +25,7 @@ const ESTADOS_TURNO = ['pendiente', 'confirmado', 'completado', 'cancelado']
 const TIPOS_PAGO = ['efectivo', 'mercadopago', 'transferencia', 'otro']
 
 function getTodayISO() {
-  return new Date().toISOString().split('T')[0]
+  return todayInTimeZone()
 }
 
 function normalizeDateISO(input: string) {
@@ -136,13 +137,8 @@ export default function AgendaTurnos() {
       if (vista === 'dia') {
         query = query.eq('fecha', fechaSegura)
       } else {
-        const inicio = new Date(fechaSegura + 'T12:00:00')
-        const lunes = new Date(inicio)
-        lunes.setDate(inicio.getDate() - ((inicio.getDay() + 6) % 7))
-        const domingo = new Date(lunes)
-        domingo.setDate(lunes.getDate() + 6)
-
-        query = query.gte('fecha', lunes.toISOString().split('T')[0]).lte('fecha', domingo.toISOString().split('T')[0])
+        const lunes = mondayOfISOWeek(fechaSegura)
+        query = query.gte('fecha', lunes).lte('fecha', addDaysISO(lunes, 6))
       }
 
       const { data } = await query
@@ -160,9 +156,7 @@ export default function AgendaTurnos() {
 
   const moverFecha = (dias: number) => {
     const base = normalizeDateISO(fechaFiltro)
-    const d = new Date(base + 'T12:00:00')
-    d.setDate(d.getDate() + (vista === 'semana' ? dias * 7 : dias))
-    setFechaFiltro(d.toISOString().split('T')[0])
+    setFechaFiltro(addDaysISO(base, vista === 'semana' ? dias * 7 : dias))
   }
 
   const cambiarEstado = useCallback(async (id: string, estado: string) => {
@@ -233,14 +227,12 @@ export default function AgendaTurnos() {
   }, [turnos])
 
   const diasSemana = useMemo(() => {
-    const inicio = new Date(normalizeDateISO(fechaFiltro) + 'T12:00:00')
-    const lunes = new Date(inicio)
-    lunes.setDate(inicio.getDate() - ((inicio.getDay() + 6) % 7))
+    const lunes = mondayOfISOWeek(normalizeDateISO(fechaFiltro))
 
     return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(lunes)
-      d.setDate(lunes.getDate() + i)
-      return { iso: d.toISOString().split('T')[0], label: d.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric' }) }
+      const iso = addDaysISO(lunes, i)
+      const d = new Date(`${iso}T12:00:00`)
+      return { iso, label: d.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric' }) }
     })
   }, [fechaFiltro])
 

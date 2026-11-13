@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
 import { getThemeColor } from '@/lib/theme'
 import { getAppearance } from '@/lib/personalization.mjs'
+import { todayInTimeZone } from '@/lib/local-date.mjs'
 import { toast } from 'sonner'
 import Image from 'next/image'
 
@@ -127,7 +128,7 @@ export default function CancelarTurnoPage() {
           </dl>
           {reprogramando ? (
             <div className="border p-5 text-left mb-4 space-y-4" style={panelStyle}>
-              <div><label className="block text-xs uppercase mb-2" style={{ color: muted }}>Nueva fecha</label><input type="date" min={new Date().toISOString().split('T')[0]} value={fecha} onChange={(event) => setFecha(event.target.value)} className="w-full rounded-xl border p-3 bg-transparent" style={{ borderColor: appearance.border }} /></div>
+              <div><label className="block text-xs uppercase mb-2" style={{ color: muted }}>Nueva fecha</label><input type="date" min={todayInTimeZone()} value={fecha} onChange={(event) => setFecha(event.target.value)} className="w-full rounded-xl border p-3 bg-transparent" style={{ borderColor: appearance.border }} /></div>
               <div><label className="block text-xs uppercase mb-2" style={{ color: muted }}>Profesional</label><select value={staffId} onChange={(event) => setStaffId(event.target.value)} className="w-full rounded-xl border p-3" style={{ background: appearance.background, borderColor: appearance.border }}>{staff.map((person) => <option key={person.id} value={person.id}>{person.nombre}</option>)}</select></div>
               <div><p className="text-xs uppercase mb-2" style={{ color: muted }}>Horario disponible</p>{buscandoHorarios ? <p className="text-sm" style={{ color: muted }}>Buscando horarios…</p> : horarios.length ? <div className="grid grid-cols-3 gap-2">{horarios.map((slot) => <button type="button" key={slot} onClick={() => setHora(slot)} className={`rounded-xl border p-2 text-sm font-bold ${hora === slot ? 'text-black border-transparent' : ''}`} style={hora === slot ? { background: color } : { borderColor: appearance.border }}>{slot}</button>)}</div> : <p className="text-sm text-amber-500">No hay horarios disponibles ese día.</p>}</div>
               <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => setReprogramando(false)} className="rounded-xl border border-white/10 p-3 font-bold">Volver</button><button type="button" onClick={reprogramar} disabled={guardando || !hora} className="rounded-xl p-3 font-bold text-black disabled:opacity-50" style={{ background: color }}>{guardando ? 'Guardando…' : 'Confirmar'}</button></div>

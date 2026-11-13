@@ -14,7 +14,15 @@ const tenantPages = [
 test('el dashboard no solicita columnas sensibles mediante select wildcard', async () => {
   const source = await readFile(dashboard, 'utf8')
   assert.doesNotMatch(source, /from\(['"]negocio['"]\)\.select\(['"]\*['"]\)/)
-  assert.match(source, /select\(['"]id,nombre,tema,logo_url,suscripcion_tipo,slug,trial_hasta['"]\)/)
+  assert.match(source, /select\(['"]id,nombre,tema,logo_url,suscripcion_tipo,slug,trial_hasta,rubro,estilo_visual,modo_visual['"]\)/)
+})
+
+test('el panel usa la identidad del negocio y lenguaje profesional', async () => {
+  const source = await readFile(dashboard, 'utf8')
+  assert.match(source, /getAppearance/)
+  assert.match(source, /Panel de gestión/)
+  assert.doesNotMatch(source, /Elite Dashboard|Modo Dios|>DIOS</)
+  assert.doesNotMatch(source, /wa\.me\/5491123456789/)
 })
 
 test('las pantallas multi-negocio no solicitan todos los campos de negocio o roles', async () => {

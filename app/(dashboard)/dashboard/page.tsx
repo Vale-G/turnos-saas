@@ -5,12 +5,14 @@ import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
 import { LIMITES } from '@/lib/permisos'
 import { diasTrialRestantes } from '@/lib/planes'
+import { getAppearance } from '@/lib/personalization.mjs'
 import { useRouter } from 'next/navigation'
 
 type NegocioDashboard = {
   id: string; nombre: string; tema?: string
   logo_url?: string; suscripcion_tipo?: string; slug?: string
   trial_hasta?: string | null
+  rubro?: string; estilo_visual?: string; modo_visual?: string
 }
 
 const ICONS: Record<string, string> = {
@@ -65,7 +67,7 @@ export default function DashboardPrincipal() {
       if (negocioId) {
         const { data: neg, error: negocioError } = await supabase
           .from('negocio')
-          .select('id,nombre,tema,logo_url,suscripcion_tipo,slug,trial_hasta')
+          .select('id,nombre,tema,logo_url,suscripcion_tipo,slug,trial_hasta,rubro,estilo_visual,modo_visual')
           .eq('id', negocioId)
           .maybeSingle()
         if (neg) {
@@ -114,6 +116,11 @@ export default function DashboardPrincipal() {
   if (loadError) return <div className="min-h-screen bg-[#020617] text-white grid place-items-center p-6 text-center"><div><h1 className="text-3xl font-black mb-3">No pudimos abrir el panel</h1><p className="text-slate-400 mb-6">{loadError}</p><button type="button" onClick={() => window.location.reload()} className="rounded-2xl bg-white px-6 py-3 font-black text-slate-950">Reintentar</button></div></div>
 
   const colorPrincipal = getThemeColor(negocio?.tema)
+  const appearance = getAppearance({
+    businessType: negocio?.rubro,
+    visualStyle: negocio?.estilo_visual,
+    visualMode: negocio?.modo_visual,
+  })
   const plan = (negocio?.suscripcion_tipo ?? 'normal') as keyof typeof LIMITES
   const limites = LIMITES[plan] ?? LIMITES.normal
   const esPro = plan === 'pro'
@@ -136,31 +143,31 @@ export default function DashboardPrincipal() {
   ]
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white p-6 md:p-12 font-sans">
+    <div className="min-h-screen p-4 sm:p-6 md:p-12 font-sans transition-colors" style={{ background: appearance.background, color: appearance.foreground }}>
       <div className="max-w-5xl mx-auto">
-        <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12 border-b border-white/5 pb-10">
-          <div className="flex items-center gap-6">
+        <header className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 sm:mb-12 border-b pb-8 sm:pb-10" style={{ borderColor: appearance.border }}>
+          <div className="flex items-center gap-4 sm:gap-6 min-w-0">
             {negocio?.logo_url ? (
-              <Image src={negocio.logo_url} alt="Logo" width={80} height={80} unoptimized className="w-20 h-20 object-contain rounded-[2rem] bg-white/5 p-2 border border-white/10 shadow-xl" />
+              <Image src={negocio.logo_url} alt={`Logo de ${negocio.nombre}`} width={80} height={80} unoptimized className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 object-contain p-2 border shadow-xl" style={{ borderRadius: appearance.radius, background: appearance.surface, borderColor: appearance.border }} />
             ) : (
-              <div className="w-20 h-20 bg-white/5 rounded-[2rem] border border-white/10 flex items-center justify-center text-4xl font-black shadow-xl" style={{color: colorPrincipal}}>{negocio?.nombre?.[0]}</div>
+              <div className="w-16 h-16 sm:w-20 sm:h-20 shrink-0 border flex items-center justify-center text-3xl sm:text-4xl font-black shadow-xl" style={{ color: colorPrincipal, borderRadius: appearance.radius, background: appearance.surface, borderColor: appearance.border }}>{negocio?.nombre?.[0]}</div>
             )}
-            <div>
-              <div className="flex items-center gap-4 mb-2">
-                <h1 className="text-5xl font-black uppercase italic tracking-tighter leading-none" style={{ color: colorPrincipal }}>{negocio?.nombre}</h1>
-                {esSuperAdmin ? <span className="bg-rose-500 text-black text-[10px] font-black uppercase px-3 py-1 rounded-full shadow-lg shadow-rose-500/20">DIOS</span> : esStaff ? <span className="bg-slate-500/20 text-slate-400 text-[10px] font-black uppercase px-3 py-1 rounded-full">STAFF</span> : esPro ? <span className="bg-amber-400 text-black text-[10px] font-black uppercase px-3 py-1 rounded-full">PRO</span> : esTrial ? <span className="bg-blue-500 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full">TRIAL · {diasTrial}D</span> : <span className="bg-white/10 text-slate-400 text-[10px] font-black uppercase px-3 py-1 rounded-full">NORMAL</span>}
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-2">
+                <h1 className="text-3xl sm:text-5xl font-black uppercase italic leading-none break-words" style={{ color: colorPrincipal, letterSpacing: appearance.tracking }}>{negocio?.nombre}</h1>
+                {esSuperAdmin ? <span className="bg-rose-500 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full shadow-lg shadow-rose-500/20">SUPERADMIN</span> : esStaff ? <span className="bg-slate-500/20 text-slate-500 text-[10px] font-black uppercase px-3 py-1 rounded-full">STAFF</span> : esPro ? <span className="bg-amber-400 text-black text-[10px] font-black uppercase px-3 py-1 rounded-full">PRO</span> : esTrial ? <span className="bg-blue-500 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full">TRIAL · {diasTrial}D</span> : <span className="bg-slate-500/10 text-slate-500 text-[10px] font-black uppercase px-3 py-1 rounded-full">NORMAL</span>}
               </div>
-              <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em]">Elite Dashboard</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.25em]" style={{ color: appearance.muted }}>Panel de gestión</p>
             </div>
           </div>
           
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             {esSuperAdmin && (
               <button onClick={() => router.push('/superadmin')} className="text-[10px] font-black uppercase tracking-widest text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-colors px-6 py-3 rounded-2xl">
-                Modo Dios
+                Administración
               </button>
             )}
-            <button onClick={() => supabase.auth.signOut().then(() => router.push('/login'))} className="text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-white transition-colors bg-white/5 px-6 py-3 rounded-2xl">
+            <button onClick={() => supabase.auth.signOut().then(() => router.push('/login'))} className="text-[10px] font-black uppercase tracking-widest transition-colors px-6 py-3 border" style={{ color: appearance.muted, background: appearance.surface, borderColor: appearance.border, borderRadius: appearance.radius }}>
               Cerrar Sesión
             </button>
           </div>
@@ -172,27 +179,27 @@ export default function DashboardPrincipal() {
               <p className="font-black uppercase text-xl text-blue-400 mb-1 tracking-tight">TRIAL TERMINA EN {diasTrial} DÍA{diasTrial !== 1 ? 'S' : ''}</p>
               <p className="text-blue-200/60 text-xs font-bold uppercase tracking-widest">Activá tu plan PRO para no perder acceso al sistema.</p>
             </div>
-            <button onClick={() => window.open('https://wa.me/5491123456789?text=Hola,%20quiero%20pasar%20a%20PRO', '_blank')} className="text-[10px] font-black uppercase text-black bg-blue-400 px-6 py-3 rounded-2xl shadow-lg shadow-blue-500/20">Contactar</button>
+            <button onClick={() => router.push('/ajustes')} className="text-[10px] font-black uppercase text-black bg-blue-400 px-6 py-3 rounded-2xl shadow-lg shadow-blue-500/20">Ver mi plan</button>
           </div>
         )}
 
         <div className={`grid grid-cols-1 md:grid-cols-2 ${esStaff ? 'lg:grid-cols-2' : 'lg:grid-cols-4'} gap-5`}>
           {navItems.map(item => (
-            <button key={item.label} onClick={() => router.push(item.href)} className="bg-white/4 p-10 rounded-[3.5rem] border border-white/5 hover:border-white/20 transition-all text-left group relative overflow-hidden active:scale-95 shadow-lg">
+            <button key={item.label} onClick={() => router.push(item.href)} className="p-7 sm:p-10 border transition-all text-left group relative overflow-hidden active:scale-95 shadow-lg hover:-translate-y-1" style={{ background: appearance.surface, borderColor: appearance.border, borderRadius: appearance.radius }}>
               {item.badge && <span className="absolute top-8 right-8 bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[9px] font-black uppercase px-3 py-1 rounded-full">{item.badge}</span>}
               <div className="text-5xl mb-6 opacity-40 group-hover:opacity-100 transition-all group-hover:scale-110 origin-left">{ICONS[item.label] || '✨'}</div>
               <h3 className="text-2xl font-black italic uppercase mb-2 tracking-tighter" style={{ color: colorPrincipal }}>{item.label}</h3>
-              <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em]">{item.desc}</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: appearance.muted }}>{item.desc}</p>
             </button>
           ))}
         </div>
 
         {!esStaff && (
-          <div className="mt-12 p-10 rounded-[3.5rem] border flex flex-col md:flex-row justify-between items-center gap-6 shadow-2xl relative overflow-hidden group" style={{ background: colorPrincipal + '10', borderColor: colorPrincipal + '30' }}>
+          <div className="mt-12 p-7 sm:p-10 border flex flex-col md:flex-row justify-between items-stretch md:items-center gap-6 shadow-2xl relative overflow-hidden group" style={{ background: colorPrincipal + '10', borderColor: colorPrincipal + '30', borderRadius: appearance.radius }}>
             <div className="absolute -right-20 -top-20 w-64 h-64 blur-[100px] opacity-20 transition-opacity group-hover:opacity-40" style={{ backgroundColor: colorPrincipal }} />
             <div className="relative z-10">
-              <h4 className="text-2xl font-black uppercase italic tracking-tighter mb-2 text-white">Tu Link de Reservas</h4>
-              <p className="text-white/50 text-[10px] font-black uppercase tracking-[0.3em]">Copiá esto en tu biografía de Instagram</p>
+              <h4 className="text-2xl font-black uppercase italic tracking-tighter mb-2">Tu enlace de reservas</h4>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: appearance.muted }}>Compartilo en Instagram, WhatsApp o tu sitio</p>
             </div>
             <button onClick={() => {
                 if (!negocio?.slug) return
@@ -200,8 +207,8 @@ export default function DashboardPrincipal() {
                 navigator.clipboard.writeText(url)
                 setCopiado(true); setTimeout(() => setCopiado(false), 2000)
               }}
-              className="relative z-10 bg-black/60 px-8 py-5 rounded-[2rem] border border-white/10 font-mono text-sm hover:border-white/30 transition-all flex items-center gap-4 shadow-inner">
-              <span style={{ color: colorPrincipal }}>{'/reservar/' + negocio?.slug}</span>
+              className="relative z-10 px-5 sm:px-8 py-5 border font-mono text-xs sm:text-sm transition-all flex flex-wrap items-center justify-between gap-4 shadow-inner max-w-full" style={{ background: appearance.surface, borderColor: appearance.border, borderRadius: appearance.radius }}>
+              <span className="break-all" style={{ color: colorPrincipal }}>{'/reservar/' + negocio?.slug}</span>
               <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl transition-all ${copiado ? "bg-emerald-500/20 text-emerald-400" : "bg-white/10 text-white"}`}>
                 {copiado ? "¡COPIADO!" : "COPIAR"}
               </span>

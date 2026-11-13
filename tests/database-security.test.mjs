@@ -11,6 +11,7 @@ const rescheduleMigration = new URL('../supabase/migrations/20261109014454_publi
 const rolesMigration = new URL('../supabase/migrations/20261109020119_role_permissions.sql', import.meta.url)
 const notificationMigration = new URL('../supabase/migrations/20261110103749_notification_delivery.sql', import.meta.url)
 const personalizationMigration = new URL('../supabase/migrations/20261112214500_business_personalization.sql', import.meta.url)
+const planLimitsMigration = new URL('../supabase/migrations/20261113190000_plan_limits_and_payment_access.sql', import.meta.url)
 
 async function database() {
   const db = new PGlite({ extensions: { pgcrypto } })
@@ -32,8 +33,34 @@ async function database() {
   await db.exec(await readFile(rolesMigration, 'utf8'))
   await db.exec(await readFile(notificationMigration, 'utf8'))
   await db.exec(await readFile(personalizationMigration, 'utf8'))
+  await db.exec(await readFile(planLimitsMigration, 'utf8'))
   return db
 }
+
+test('los límites del plan se aplican en PostgreSQL y no solo en la interfaz', async (t) => {
+  const db = await database()
+  t.after(() => db.close())
+  const ids = await seed(db)
+  await db.query("update public.negocio set suscripcion_tipo='basico',trial_hasta=null where id=$1", [ids.negocio])
+
+  await db.query("insert into public.staff(negocio_id,nombre) values ($1,'Segundo')", [ids.negocio])
+  await assert.rejects(
+    () => db.query("insert into public.staff(negocio_id,nombre) values ($1,'Tercero')", [ids.negocio]),
+    /Básico permite hasta 2 profesionales/i,
+  )
+
+  for (let i = 2; i <= 5; i++) {
+    await db.query('insert into public.servicio(negocio_id,nombre,precio,duracion) values ($1,$2,100,30)', [ids.negocio, `Servicio ${i}`])
+  }
+  await assert.rejects(
+    () => db.query("insert into public.servicio(negocio_id,nombre,precio,duracion) values ($1,'Sexto',100,30)", [ids.negocio]),
+    /Básico permite hasta 5 servicios/i,
+  )
+
+  await db.query("update public.negocio set suscripcion_tipo='pro' where id=$1", [ids.negocio])
+  await db.query("insert into public.staff(negocio_id,nombre) values ($1,'Tercero Pro')", [ids.negocio])
+  await db.query("insert into public.servicio(negocio_id,nombre,precio,duracion) values ($1,'Sexto Pro',100,30)", [ids.negocio])
+})
 
 async function seed(db) {
   const owner = '10000000-0000-4000-8000-000000000001'

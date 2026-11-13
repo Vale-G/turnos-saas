@@ -3,6 +3,7 @@ import { rateLimitByIp } from '@/lib/rate-limit'
 import { createAdminClient } from '@/lib/server/supabase'
 import { validUuid } from '@/lib/server/public-booking'
 import { getBusinessAccessToken } from '@/lib/server/mercadopago-oauth'
+import { hasProAccess } from '@/lib/server/plan-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,9 +38,14 @@ export async function POST(request: NextRequest) {
   if (error || !turno || turno.estado === 'cancelado') return NextResponse.json({ error: 'Reserva inexistente' }, { status: 404 })
 
   const [{ data: negocio }, { data: servicio }] = await Promise.all([
-    admin.from('negocio').select('id,nombre,moneda').eq('id', turno.negocio_id).maybeSingle(),
+    admin.from('negocio').select('id,nombre,moneda,suscripcion_tipo,trial_hasta').eq('id', turno.negocio_id).maybeSingle(),
+    // Supabase's select-string parser cannot type columns containing ñ individually.
+    // This table contains only public service configuration, so selecting its row is safe.
     admin.from('servicio').select('*').eq('id', turno.servicio_id).maybeSingle(),
   ])
+  if (!negocio || !hasProAccess(negocio)) {
+    return NextResponse.json({ error: 'El negocio no tiene habilitado el cobro de señas' }, { status: 409 })
+  }
   const accessToken = negocio ? await getBusinessAccessToken(admin, negocio.id) : null
   if (!negocio || !accessToken || !servicio) {
     return NextResponse.json({ error: 'El negocio no tiene señas configuradas' }, { status: 409 })

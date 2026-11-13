@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 
 const dashboard = new URL('../app/(dashboard)/dashboard/page.tsx', import.meta.url)
+const upgrade = new URL('../app/upgrade/page.tsx', import.meta.url)
 const tenantPages = [
   dashboard,
   new URL('../app/bloqueos/page.tsx', import.meta.url),
@@ -31,4 +32,11 @@ test('las pantallas multi-negocio no solicitan todos los campos de negocio o rol
     assert.doesNotMatch(source, /from\(['"]negocio['"]\)\.select\(['"]\*['"]\)/)
     assert.doesNotMatch(source, /from\(['"]adminrol['"]\)\.select\(['"]\*['"]\)/)
   }
+})
+
+test('la comparación de planes no anuncia automatizaciones inexistentes', async () => {
+  const source = await readFile(upgrade, 'utf8')
+  assert.doesNotMatch(source, /Recordatorios automaticos|WhatsApp al confirmar|Agenda y cobros/)
+  assert.match(source, /Control de caja/)
+  assert.match(source, /Informes avanzados/)
 })

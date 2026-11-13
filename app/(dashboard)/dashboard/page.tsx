@@ -179,7 +179,7 @@ export default function DashboardPrincipal() {
               <p className="font-black uppercase text-xl text-blue-400 mb-1 tracking-tight">TRIAL TERMINA EN {diasTrial} DÍA{diasTrial !== 1 ? 'S' : ''}</p>
               <p className="text-blue-200/60 text-xs font-bold uppercase tracking-widest">Activá tu plan PRO para no perder acceso al sistema.</p>
             </div>
-            <button onClick={() => router.push('/ajustes')} className="text-[10px] font-black uppercase text-black bg-blue-400 px-6 py-3 rounded-2xl shadow-lg shadow-blue-500/20">Ver mi plan</button>
+            <button onClick={() => router.push('/upgrade')} className="text-[10px] font-black uppercase text-black bg-blue-400 px-6 py-3 rounded-2xl shadow-lg shadow-blue-500/20">Ver mi plan</button>
           </div>
         )}
 

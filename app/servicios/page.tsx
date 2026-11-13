@@ -42,7 +42,7 @@ export default function ServiciosConfig() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return router.push('/login')
       
-      const { data: adm } = await supabase.from('adminrol').select('*').eq('user_id', user.id).maybeSingle()
+      const { data: adm } = await supabase.from('adminrol').select('negocio_id,role').eq('user_id', user.id).maybeSingle()
       let nId = adm?.negocio_id
       if (!nId) {
         const { data: n } = await supabase.from('negocio').select('id, tema').eq('owner_id', user.id).maybeSingle()

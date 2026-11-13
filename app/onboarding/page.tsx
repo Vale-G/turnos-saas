@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase'
 import { getThemeColor, TEMAS } from '@/lib/theme'
 import { toast } from 'sonner'
 import type { User } from '@supabase/supabase-js'
+import { BUSINESS_TYPES } from '@/lib/personalization.mjs'
 
 export default function OnboardingElite() {
   const [paso, setPaso] = useState(1)
@@ -16,6 +17,7 @@ export default function OnboardingElite() {
   const [slug, setSlug] = useState('')
   const [whatsapp, setWhatsapp] = useState('')
   const [tema, setTema] = useState('emerald')
+  const [rubro, setRubro] = useState('general')
   const [apertura, setApertura] = useState('09:00')
   const [cierre, setCierre] = useState('20:00')
 
@@ -52,7 +54,7 @@ export default function OnboardingElite() {
     if (!user) return
     const response = await fetch('/api/onboarding', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nombre, slug, whatsapp, tema, apertura, cierre }),
+      body: JSON.stringify({ nombre, slug, whatsapp, tema, rubro, estiloVisual: 'sereno', modoVisual: 'oscuro', apertura, cierre }),
     })
     const data = await response.json().catch(() => ({}))
     if (!response.ok) {
@@ -129,6 +131,14 @@ export default function OnboardingElite() {
             <div className="animate-in slide-in-from-right-8 duration-500 space-y-6">
               <button type="button" onClick={() => setPaso(2)} className="text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-white mb-4 block">← Volver</button>
               <h2 className="text-2xl font-black uppercase italic tracking-tighter mb-8">El Toque Final</h2>
+              <div>
+                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-3 block text-center">¿Qué tipo de espacio administrás?</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {BUSINESS_TYPES.map((item) => <button type="button" key={item.id} onClick={() => setRubro(item.id)}
+                    className="rounded-xl border px-3 py-2 text-[10px] font-black"
+                    style={{ borderColor: rubro === item.id ? colorP : 'rgba(255,255,255,.1)', background: rubro === item.id ? colorP + '18' : 'transparent' }}>{item.name}</button>)}
+                </div>
+              </div>
               <div>
                 <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-4 block text-center">Elegí el color de tu marca</label>
                 <div className="flex flex-wrap justify-center gap-4">

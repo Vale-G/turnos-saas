@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
 import { toast } from 'sonner'
 import Image from 'next/image'
+import { BUSINESS_TYPES, VISUAL_MODES, VISUAL_STYLES, getAppearance } from '@/lib/personalization.mjs'
 
 const TEMAS_DISPONIBLES = [
   { id: 'emerald', color: '#10b981', nombre: 'Esmeralda' },
@@ -30,6 +31,7 @@ type NegocioAjustes = {
   id: string; nombre: string; slug: string; tema: string | null; whatsapp: string | null
   hora_apertura: string | null; hora_cierre: string | null; dias_laborales: number[] | null
   logo_url: string | null; email_contacto: string | null
+  rubro: string | null; estilo_visual: string | null; modo_visual: string | null
 }
 
 export default function AjustesPage() {
@@ -50,9 +52,13 @@ export default function AjustesPage() {
   const [mpConnected, setMpConnected] = useState(false)
   const [mpOauth, setMpOauth] = useState(false)
   const [mpAvailable, setMpAvailable] = useState(false)
+  const [mpPlanRequired, setMpPlanRequired] = useState(false)
   const [mpAccountId, setMpAccountId] = useState<string | null>(null)
   const [desconectandoMp, setDesconectandoMp] = useState(false)
   const [emailContacto, setEmailContacto] = useState('')
+  const [rubro, setRubro] = useState('general')
+  const [estiloVisual, setEstiloVisual] = useState('sereno')
+  const [modoVisual, setModoVisual] = useState('oscuro')
 
   useEffect(() => {
     async function init() {
@@ -69,7 +75,7 @@ export default function AjustesPage() {
       }
 
       if (nId) {
-        const { data: neg } = await supabase.from('negocio').select('id,nombre,slug,tema,whatsapp,hora_apertura,hora_cierre,dias_laborales,logo_url,email_contacto').eq('id', nId).single()
+        const { data: neg } = await supabase.from('negocio').select('id,nombre,slug,tema,whatsapp,hora_apertura,hora_cierre,dias_laborales,logo_url,email_contacto,rubro,estilo_visual,modo_visual').eq('id', nId).single()
         if (neg) {
           setNegocio(neg)
           setNombre(neg.nombre || '')
@@ -80,11 +86,15 @@ export default function AjustesPage() {
           setCierre(neg.hora_cierre?.slice(0, 5) || '20:00')
           setDiasLaborales(neg.dias_laborales || [1, 2, 3, 4, 5, 6])
           setLogoUrl(neg.logo_url || '')
+          setRubro(neg.rubro || 'general')
+          setEstiloVisual(neg.estilo_visual || 'sereno')
+          setModoVisual(neg.modo_visual || 'oscuro')
 
           const credential = await fetch('/api/ajustes/mercadopago', { cache: 'no-store' }).then((response) => response.ok ? response.json() : { connected: false })
           setMpConnected(Boolean(credential.connected))
           setMpOauth(Boolean(credential.oauth))
           setMpAvailable(Boolean(credential.available))
+          setMpPlanRequired(Boolean(credential.planRequired))
           setMpAccountId(credential.accountId ?? null)
 
           const mpResult = new URLSearchParams(window.location.search).get('mp')
@@ -143,6 +153,9 @@ export default function AjustesPage() {
       dias_laborales: diasLaborales,
       logo_url: logoUrl,
       email_contacto: emailContacto,
+      rubro,
+      estilo_visual: estiloVisual,
+      modo_visual: modoVisual,
     }
 
     if (!negocio) { setGuardando(false); return }
@@ -164,6 +177,7 @@ export default function AjustesPage() {
   }
 
   const colorP = getThemeColor(tema)
+  const preview = getAppearance({ businessType: rubro, visualStyle: estiloVisual, visualMode: modoVisual })
 
   async function desconectarMercadoPago() {
     setDesconectandoMp(true)
@@ -260,7 +274,54 @@ export default function AjustesPage() {
           </div>
 
           <div className="bg-white/5 border border-white/10 p-8 rounded-[3rem]">
-            <h2 className="text-xl font-black uppercase italic mb-6">2. Horarios y Días Laborales</h2>
+            <h2 className="text-xl font-black uppercase italic mb-2">2. Experiencia de reservas</h2>
+            <p className="text-sm text-slate-400 mb-8">Adaptá la página pública al rubro y la personalidad de tu marca.</p>
+            <div className="space-y-7">
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 mb-3 block">Rubro</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {BUSINESS_TYPES.map((item) => (
+                    <button type="button" key={item.id} onClick={() => setRubro(item.id)}
+                      className="rounded-2xl border p-4 text-left transition-all"
+                      style={{ borderColor: rubro === item.id ? colorP : 'rgba(255,255,255,.1)', background: rubro === item.id ? colorP + '15' : 'rgba(0,0,0,.25)' }}>
+                      <span className="block text-sm font-black">{item.name}</span>
+                      <span className="mt-1 block text-xs text-slate-500">{item.description}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid gap-6 md:grid-cols-2">
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-400 mb-3 block">Estilo</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {VISUAL_STYLES.map((item) => <button type="button" key={item.id} onClick={() => setEstiloVisual(item.id)}
+                      className="border px-4 py-3 text-xs font-black transition-all"
+                      style={{ borderRadius: item.radius, borderColor: estiloVisual === item.id ? colorP : 'rgba(255,255,255,.1)', background: estiloVisual === item.id ? colorP + '18' : 'rgba(0,0,0,.25)' }}>{item.name}</button>)}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-400 mb-3 block">Apariencia</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {VISUAL_MODES.map((item) => <button type="button" key={item.id} onClick={() => setModoVisual(item.id)}
+                      className="rounded-2xl border px-4 py-3 text-xs font-black transition-all"
+                      style={{ borderColor: modoVisual === item.id ? colorP : 'rgba(255,255,255,.1)', background: modoVisual === item.id ? colorP + '18' : 'rgba(0,0,0,.25)' }}>{item.name}</button>)}
+                  </div>
+                </div>
+              </div>
+              <div className="overflow-hidden border p-5 transition-all" style={{ background: preview.background, color: preview.foreground, borderColor: preview.border, borderRadius: preview.radius }}>
+                <div className="flex items-center gap-3">
+                  <div className="grid h-12 w-12 place-items-center font-black text-black" style={{ background: colorP, borderRadius: preview.radius }}>{nombre?.[0] || 'T'}</div>
+                  <div><p className="font-black" style={{ letterSpacing: preview.tracking }}>{nombre || 'Tu negocio'}</p><p className="text-xs" style={{ color: preview.muted }}>Vista previa de la reserva</p></div>
+                </div>
+                <div className="mt-5 grid grid-cols-2 gap-3">
+                  {['Servicio principal', 'Próximo horario'].map((label) => <div key={label} className="border p-4" style={{ background: preview.surface, borderColor: preview.border, borderRadius: preview.radius }}><p className="text-xs" style={{ color: preview.muted }}>{label}</p><p className="mt-1 text-sm font-bold">{label === 'Próximo horario' ? '10:30' : 'Consulta'}</p></div>)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 p-8 rounded-[3rem]">
+            <h2 className="text-xl font-black uppercase italic mb-6">3. Horarios y Días Laborales</h2>
 
             <div className="mb-8">
               <label className="text-[10px] font-black uppercase text-slate-400 mb-4 block">¿Qué días abrís?</label>
@@ -305,7 +366,7 @@ export default function AjustesPage() {
           </div>
 
           <div className="bg-white/5 border border-white/10 p-8 rounded-[3rem]">
-            <h2 className="text-xl font-black uppercase italic mb-6">3. Contacto y Pagos</h2>
+            <h2 className="text-xl font-black uppercase italic mb-6">4. Contacto y Pagos</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div>
                 <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">WhatsApp de Contacto</label>
@@ -343,6 +404,17 @@ export default function AjustesPage() {
                   <button type="button" onClick={desconectarMercadoPago} disabled={desconectandoMp}
                     className="rounded-2xl border border-rose-500/30 px-5 py-4 text-xs font-black uppercase text-rose-300 hover:bg-rose-500/10 disabled:opacity-50">
                     {desconectandoMp ? 'Desconectando…' : 'Desconectar'}
+                  </button>
+                </div>
+              ) : mpPlanRequired ? (
+                <div className="flex flex-col gap-4 rounded-2xl border border-indigo-500/20 bg-indigo-500/10 p-5 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase text-indigo-300">Disponible con Turnly Pro</p>
+                    <p className="mt-1 text-xs text-slate-400">Activá Pro para conectar la cuenta del negocio y cobrar señas.</p>
+                  </div>
+                  <button type="button" onClick={() => router.push('/upgrade?feature=mercadopago')}
+                    className="rounded-2xl bg-white px-5 py-3 text-xs font-black uppercase text-slate-950">
+                    Ver planes
                   </button>
                 </div>
               ) : mpAvailable ? (

@@ -11,6 +11,19 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
+  const handleGoogleLogin = async () => {
+    setLoading(true)
+    const redirectTo = `${window.location.origin}/auth/callback?next=/dashboard`
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo },
+    })
+    if (error) {
+      toast.error(`No se pudo ingresar con Google: ${error.message}`)
+      setLoading(false)
+    }
+  }
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
@@ -75,6 +88,19 @@ export default function Login() {
           className="w-full bg-white text-black font-black uppercase italic py-4 rounded-2xl hover:bg-emerald-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? 'Entrando...' : 'Entrar al Panel'}
+        </button>
+        <div className="flex items-center gap-3 text-xs font-bold uppercase tracking-[.2em] text-slate-600">
+          <span className="h-px flex-1 bg-slate-800" />
+          o
+          <span className="h-px flex-1 bg-slate-800" />
+        </div>
+        <button
+          type="button"
+          onClick={handleGoogleLogin}
+          disabled={loading}
+          className="w-full rounded-2xl border border-slate-700 bg-white px-4 py-4 font-black text-slate-950 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Continuar con Google
         </button>
         <p className="text-slate-500 text-sm">
           ¿No tenés cuenta?{' '}

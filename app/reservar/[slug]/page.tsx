@@ -6,10 +6,12 @@ import { getThemeColor } from '@/lib/theme'
 import { toast } from 'sonner'
 import type { User } from '@supabase/supabase-js'
 import Image from 'next/image'
+import { getAppearance } from '@/lib/personalization.mjs'
 
 type NegocioPublico = {
   id: string; nombre: string; descripcion: string | null; logo_url: string | null
   tema: string | null; dias_laborales: number[] | null
+  rubro: string | null; estilo_visual: string | null; modo_visual: string | null
 }
 type ServicioPublico = {
   id: string; nombre: string; descripcion: string | null; precio: number
@@ -47,6 +49,12 @@ export default function ReservaPage() {
   const [user, setUser] = useState<User | null>(null)
 
   const colorP = getThemeColor(negocio?.tema)
+  const appearance = getAppearance({
+    businessType: negocio?.rubro,
+    visualStyle: negocio?.estilo_visual,
+    visualMode: negocio?.modo_visual,
+  })
+  const cardStyle = { background: appearance.surface, borderColor: appearance.border, borderRadius: appearance.radius }
   const dias = useMemo(() => generateDias(), [])
   const diasLaborales: number[] = negocio?.dias_laborales ?? [1, 2, 3, 4, 5, 6]
 
@@ -167,12 +175,12 @@ export default function ReservaPage() {
   if (!negocio) return <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black text-slate-500">NEGOCIO NO ENCONTRADO</div>
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white pb-20">
+    <div className="min-h-screen pb-20 transition-colors" style={{ background: appearance.background, color: appearance.foreground }}>
       <div className="max-w-md mx-auto px-6">
-        <header className="py-8 flex items-center justify-between border-b border-white/5 mb-8">
+        <header className="py-8 flex items-center justify-between border-b mb-8" style={{ borderColor: appearance.border }}>
           <div className="flex items-center gap-4">
             {negocio.logo_url ? <Image src={negocio.logo_url} alt={`Logo de ${negocio.nombre}`} width={56} height={56} unoptimized className="w-14 h-14 rounded-2xl object-cover border border-white/10" /> : <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl border border-white/10" style={{ background: colorP + '20', color: colorP }}>{negocio.nombre[0]}</div>}
-            <div><h1 className="text-2xl font-black uppercase italic tracking-tighter" style={{ color: colorP }}>{negocio.nombre}</h1><p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em] mt-1">Reserva online</p></div>
+            <div><h1 className="text-2xl font-black uppercase tracking-tighter" style={{ color: colorP, letterSpacing: appearance.tracking }}>{negocio.nombre}</h1><p className="text-[10px] font-black uppercase tracking-[0.2em] mt-1" style={{ color: appearance.muted }}>Reserva online</p></div>
           </div>
         </header>
 
@@ -189,7 +197,7 @@ export default function ReservaPage() {
             <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-8">Elegí un servicio</p>
             <div className="space-y-4">
               {servicios.map(s => (
-                <div key={s.id} onClick={() => { setSel({ servicio: s, barbero: null, fecha: '', hora: '' }); setHoras([]); setPaso(2) }} className="bg-white/4 border border-white/5 hover:border-white/20 p-8 rounded-[3rem] flex justify-between items-center cursor-pointer transition-all active:scale-[0.98]">
+                <div key={s.id} onClick={() => { setSel({ servicio: s, barbero: null, fecha: '', hora: '' }); setHoras([]); setPaso(2) }} className="border p-8 flex justify-between items-center cursor-pointer transition-all active:scale-[0.98]" style={cardStyle}>
                   <div><p className="font-black italic uppercase text-2xl mb-1 tracking-tighter" style={{ color: colorP }}>{s.nombre}</p><p className="text-[10px] text-slate-500 font-black uppercase">{s.duracion} MINUTOS</p></div>
                   <p className="text-3xl font-black italic">${s.precio}</p>
                 </div>
@@ -199,7 +207,7 @@ export default function ReservaPage() {
         ) : paso === 2 ? (
           <div className="space-y-12 animate-in slide-in-from-right-4">
             <button onClick={() => setPaso(1)} className="text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-white">← Volver</button>
-            <div className="bg-white/4 border border-white/5 rounded-3xl px-6 py-4 flex justify-between items-center">
+            <div className="border px-6 py-4 flex justify-between items-center" style={cardStyle}>
               <div><p className="font-black uppercase text-base italic" style={{ color: colorP }}>{sel.servicio?.nombre}</p><p className="text-[10px] text-slate-500 font-bold uppercase mt-0.5">{sel.servicio?.duracion} MIN</p></div>
               <p className="font-black text-xl italic">${sel.servicio?.precio}</p>
             </div>
@@ -241,7 +249,7 @@ export default function ReservaPage() {
         ) : (
           <div className="space-y-8 animate-in zoom-in-95">
             <button onClick={() => setPaso(2)} className="text-[10px] font-black uppercase text-slate-600 hover:text-white">← Volver</button>
-            <div className="bg-white/4 border border-white/5 rounded-[4rem] p-10">
+            <div className="border p-10" style={cardStyle}>
               <p className="text-[10px] font-black uppercase text-slate-500 tracking-[0.4em] mb-8 text-center">Ticket de Reserva</p>
               <div className="text-center mb-10 space-y-3">
                 <p className="text-4xl font-black italic uppercase leading-none" style={{ color: colorP }}>{sel.servicio?.nombre}</p>

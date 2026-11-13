@@ -1,13 +1,15 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createUserServerClient } from '@/lib/server/supabase'
+import { mercadoPagoOAuthAvailable } from '@/lib/server/mercadopago-oauth'
+import { hasProAccess } from '@/lib/server/plan-access'
 
 async function ownedBusiness() {
   const userClient = await createUserServerClient()
   const { data: { user } } = await userClient.auth.getUser()
   if (!user) return null
   const admin = createAdminClient()
-  const { data } = await admin.from('negocio').select('id').eq('owner_id', user.id).maybeSingle()
-  return data ? { admin, id: data.id } : null
+  const { data } = await admin.from('negocio').select('id,suscripcion_tipo,trial_hasta').eq('owner_id', user.id).maybeSingle()
+  return data ? { admin, id: data.id, proAccess: hasProAccess(data) } : null
 }
 
 export async function GET() {
@@ -24,7 +26,8 @@ export async function GET() {
     accountId: data?.mp_user_id ?? null,
     liveMode: data?.live_mode ?? null,
     expiresAt: data?.token_expires_at ?? null,
-    available: Boolean(process.env.MP_CLIENT_ID && process.env.MP_CLIENT_SECRET && process.env.MP_OAUTH_REDIRECT_URI),
+    available: context.proAccess && mercadoPagoOAuthAvailable(),
+    planRequired: !context.proAccess,
   }, { headers: { 'Cache-Control': 'no-store' } })
 }
 

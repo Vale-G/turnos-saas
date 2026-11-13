@@ -28,7 +28,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
     .eq('id', id).maybeSingle()
   if (!turno) return NextResponse.json({ error: 'Reserva inexistente' }, { status: 404 })
   const [{ data: negocio }, { data: servicio }, { data: staff }] = await Promise.all([
-    admin.from('negocio').select('nombre,slug,logo_url,tema').eq('id', turno.negocio_id).maybeSingle(),
+    admin.from('negocio').select('nombre,slug,logo_url,tema,rubro,estilo_visual,modo_visual').eq('id', turno.negocio_id).maybeSingle(),
     admin.from('servicio').select('nombre').eq('id', turno.servicio_id).maybeSingle(),
     admin.from('staff').select('id,nombre').eq('negocio_id', turno.negocio_id).eq('activo', true).order('nombre'),
   ])

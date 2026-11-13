@@ -3,6 +3,7 @@ import { rateLimitByIp } from '@/lib/rate-limit'
 import { createAdminClient } from '@/lib/server/supabase'
 import { validUuid } from '@/lib/server/public-booking'
 import { getBusinessAccessToken } from '@/lib/server/mercadopago-oauth'
+import { hasProAccess } from '@/lib/server/plan-access'
 
 export const dynamic = 'force-dynamic'
 
@@ -37,9 +38,14 @@ export async function POST(request: NextRequest) {
   if (error || !turno || turno.estado === 'cancelado') return NextResponse.json({ error: 'Reserva inexistente' }, { status: 404 })
 
   const [{ data: negocio }, { data: servicio }] = await Promise.all([
-    admin.from('negocio').select('id,nombre,moneda').eq('id', turno.negocio_id).maybeSingle(),
+    admin.from('negocio').select('id,nombre,moneda,suscripcion_tipo,trial_hasta').eq('id', turno.negocio_id).maybeSingle(),
+    // Supabase's select-string parser cannot type columns containing ñ individually.
+    // This table contains only public service configuration, so selecting its row is safe.
     admin.from('servicio').select('*').eq('id', turno.servicio_id).maybeSingle(),
   ])
+  if (!negocio || !hasProAccess(negocio)) {
+    return NextResponse.json({ error: 'El negocio no tiene habilitado el cobro de señas' }, { status: 409 })
+  }
   const accessToken = negocio ? await getBusinessAccessToken(admin, negocio.id) : null
   if (!negocio || !accessToken || !servicio) {
     return NextResponse.json({ error: 'El negocio no tiene señas configuradas' }, { status: 409 })
@@ -56,7 +62,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'La seña no está configurada correctamente' }, { status: 409 })
   }
 
-  const origin = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? request.nextUrl.origin).origin
+  // El origen de la solicitud es el mismo dominio estable donde vive la cookie OAuth.
+  // Evita que un Preview genere retornos o webhooks hacia producción por una variable heredada.
+  const origin = request.nextUrl.origin
   const preferenceResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },

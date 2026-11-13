@@ -12,7 +12,7 @@ export async function GET(_request: Request, context: { params: Promise<{ slug: 
   const admin = createAdminClient()
   const { data: negocio, error } = await admin
     .from('negocio')
-    .select('id,nombre,slug,descripcion,logo_url,whatsapp,tema,hora_apertura,hora_cierre,dias_laborales,activo,email_contacto,moneda,zona_horaria')
+    .select('id,nombre,slug,descripcion,logo_url,whatsapp,tema,rubro,estilo_visual,modo_visual,hora_apertura,hora_cierre,dias_laborales,activo,email_contacto,moneda,zona_horaria')
     .eq('slug', slug)
     .eq('activo', true)
     .maybeSingle()

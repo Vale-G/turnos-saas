@@ -6,18 +6,16 @@ import { getThemeColor } from '@/lib/theme'
 
 const FEATURES_BASICO = [
   'Reservas online ilimitadas',
-  '2 profesionales, 5 servicios',
-  'Agenda y cobros',
-  'WhatsApp al confirmar',
+  'Hasta 2 profesionales y 5 servicios',
+  'Agenda diaria y semanal',
+  'Enlace público personalizado',
 ]
 
 const FEATURES_PRO = [
-  'Todo lo del plan Basico',
-  'Staff y servicios ilimitados',
-  'Informes y estadisticas PRO',
-  'Historial completo de clientes',
-  'Cobros con MercadoPago',
-  'Recordatorios automaticos',
+  'Todo lo del plan Básico',
+  'Profesionales y servicios ilimitados',
+  'Control de caja',
+  'Informes avanzados',
 ]
 
 function Check({ color }: { color: string }) {
@@ -133,14 +131,14 @@ function UpgradeContent() {
           {/* BASICO */}
           <div className="bg-white/4 border border-white/8 rounded-[2rem] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-white/8">
-              <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-2">Plan Basico</p>
+              <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-2">Plan Básico</p>
               <div className="flex items-baseline gap-2">
                 <span className="text-4xl font-black text-white">
                   ${precios.basico.toLocaleString('es-AR')}
                 </span>
                 <span className="text-slate-400 text-sm">ARS / mes</span>
               </div>
-              <p className="text-slate-500 text-xs mt-1">Para negocios que estan empezando</p>
+              <p className="text-slate-500 text-xs mt-1">Para negocios que están empezando</p>
             </div>
             <div className="p-6 space-y-2.5 flex-1">
               {FEATURES_BASICO.map(f => (
@@ -158,7 +156,7 @@ function UpgradeContent() {
               ) : (
                 <button onClick={() => handlePago('basico')} disabled={!!loadingPlan}
                   className="w-full py-4 rounded-2xl font-black italic text-base text-white border border-white/20 hover:bg-white/10 transition-all disabled:opacity-50">
-                  {loadingPlan === 'basico' ? 'Redirigiendo...' : 'Elegir Basico'}
+                  {loadingPlan === 'basico' ? 'Redirigiendo...' : 'Elegir Básico'}
                 </button>
               )}
             </div>
@@ -202,7 +200,7 @@ function UpgradeContent() {
                 <button onClick={() => handlePago('pro')} disabled={!!loadingPlan}
                   className="w-full py-4 rounded-2xl font-black italic text-base text-black transition-all hover:opacity-90 disabled:opacity-50"
                   style={{ backgroundColor: colorPrincipal }}>
-                  {loadingPlan === 'pro' ? 'Redirigiendo...' : 'Activar Pro con MercadoPago'}
+                  {loadingPlan === 'pro' ? 'Redirigiendo...' : 'Activar Pro con Mercado Pago'}
                 </button>
               )}
             </div>
@@ -211,7 +209,7 @@ function UpgradeContent() {
         </div>
 
         <p className="text-center text-slate-600 text-xs mt-6">
-          Pago seguro via MercadoPago · Podes cancelar cuando quieras
+          Pago seguro vía Mercado Pago · Podés cancelar cuando quieras
         </p>
       </div>
     </div>

@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { getThemeColor } from '@/lib/theme'
 import { useRouter } from 'next/navigation'
+import { getNegocioDelUsuario } from '@/lib/getnegocio'
 
 type StaffItem = { id: string; nombre: string; activo: boolean }
 const MAX_STAFF: Record<string, number> = { normal: 2, basico: 2, pro: 999, trial: 999 }
@@ -20,7 +21,7 @@ export default function GestionStaff() {
 
   const cargarStaff = useCallback(async (nId: string) => {
     const { data } = await supabase
-      .from('staff').select('*').eq('negocio_id', nId).order('created_at', { ascending: false })
+      .from('staff').select('id,nombre,activo').eq('negocio_id', nId).order('created_at', { ascending: false })
     setStaff(data || [])
   }, [])
 
@@ -29,13 +30,7 @@ export default function GestionStaff() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/login'); return }
 
-      let neg = null
-      const { data: byOwner } = await supabase.from('negocio').select('id, tema, suscripcion_tipo').eq('owner_id', user.id).single()
-      if (byOwner) neg = byOwner
-      else {
-        const { data: byId } = await supabase.from('negocio').select('id, tema, suscripcion_tipo').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(1).single()
-        neg = byId
-      }
+      const { negocio: neg } = await getNegocioDelUsuario(user.id)
       if (!neg) { router.push('/onboarding'); return }
 
       setNegocioId(neg.id)

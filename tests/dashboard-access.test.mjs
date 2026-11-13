@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 
 const dashboard = new URL('../app/(dashboard)/dashboard/page.tsx', import.meta.url)
 const upgrade = new URL('../app/upgrade/page.tsx', import.meta.url)
+const settings = new URL('../app/ajustes/page.tsx', import.meta.url)
 const tenantPages = [
   dashboard,
   new URL('../app/bloqueos/page.tsx', import.meta.url),
@@ -39,4 +40,11 @@ test('la comparación de planes no anuncia automatizaciones inexistentes', async
   assert.doesNotMatch(source, /Recordatorios automaticos|WhatsApp al confirmar|Agenda y cobros/)
   assert.match(source, /Control de caja/)
   assert.match(source, /Informes avanzados/)
+})
+
+test('ajustes explica el requisito de plan antes de iniciar Mercado Pago', async () => {
+  const source = await readFile(settings, 'utf8')
+  assert.match(source, /credential\.planRequired/)
+  assert.match(source, /Disponible con Turnly Pro/)
+  assert.match(source, /\/upgrade\?feature=mercadopago/)
 })

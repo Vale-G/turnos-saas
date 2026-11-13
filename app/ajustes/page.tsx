@@ -52,6 +52,7 @@ export default function AjustesPage() {
   const [mpConnected, setMpConnected] = useState(false)
   const [mpOauth, setMpOauth] = useState(false)
   const [mpAvailable, setMpAvailable] = useState(false)
+  const [mpPlanRequired, setMpPlanRequired] = useState(false)
   const [mpAccountId, setMpAccountId] = useState<string | null>(null)
   const [desconectandoMp, setDesconectandoMp] = useState(false)
   const [emailContacto, setEmailContacto] = useState('')
@@ -93,6 +94,7 @@ export default function AjustesPage() {
           setMpConnected(Boolean(credential.connected))
           setMpOauth(Boolean(credential.oauth))
           setMpAvailable(Boolean(credential.available))
+          setMpPlanRequired(Boolean(credential.planRequired))
           setMpAccountId(credential.accountId ?? null)
 
           const mpResult = new URLSearchParams(window.location.search).get('mp')
@@ -402,6 +404,17 @@ export default function AjustesPage() {
                   <button type="button" onClick={desconectarMercadoPago} disabled={desconectandoMp}
                     className="rounded-2xl border border-rose-500/30 px-5 py-4 text-xs font-black uppercase text-rose-300 hover:bg-rose-500/10 disabled:opacity-50">
                     {desconectandoMp ? 'Desconectando…' : 'Desconectar'}
+                  </button>
+                </div>
+              ) : mpPlanRequired ? (
+                <div className="flex flex-col gap-4 rounded-2xl border border-indigo-500/20 bg-indigo-500/10 p-5 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase text-indigo-300">Disponible con Turnly Pro</p>
+                    <p className="mt-1 text-xs text-slate-400">Activá Pro para conectar la cuenta del negocio y cobrar señas.</p>
+                  </div>
+                  <button type="button" onClick={() => router.push('/upgrade?feature=mercadopago')}
+                    className="rounded-2xl bg-white px-5 py-3 text-xs font-black uppercase text-slate-950">
+                    Ver planes
                   </button>
                 </div>
               ) : mpAvailable ? (

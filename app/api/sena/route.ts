@@ -56,7 +56,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'La seña no está configurada correctamente' }, { status: 409 })
   }
 
-  const origin = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? request.nextUrl.origin).origin
+  // El origen de la solicitud es el mismo dominio estable donde vive la cookie OAuth.
+  // Evita que un Preview genere retornos o webhooks hacia producción por una variable heredada.
+  const origin = request.nextUrl.origin
   const preferenceResponse = await fetch('https://api.mercadopago.com/checkout/preferences', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },

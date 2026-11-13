@@ -29,7 +29,8 @@ export async function GET(request: NextRequest) {
     const token = await exchangeAuthorizationCode(code, oauth.verifier)
     await storeBusinessToken(admin, negocio.id, token)
     return result(request, 'connected')
-  } catch {
+  } catch (error) {
+    console.error('[Turnly] Falló el callback de Mercado Pago OAuth', error instanceof Error ? error.message : 'Error desconocido')
     return result(request, 'error')
   }
 }

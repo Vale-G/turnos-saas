@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createAdminClient, createUserServerClient } from '@/lib/server/supabase'
+import { mercadoPagoOAuthAvailable } from '@/lib/server/mercadopago-oauth'
 
 async function ownedBusiness() {
   const userClient = await createUserServerClient()
@@ -24,7 +25,7 @@ export async function GET() {
     accountId: data?.mp_user_id ?? null,
     liveMode: data?.live_mode ?? null,
     expiresAt: data?.token_expires_at ?? null,
-    available: Boolean(process.env.MP_CLIENT_ID && process.env.MP_CLIENT_SECRET && process.env.MP_OAUTH_REDIRECT_URI),
+    available: mercadoPagoOAuthAvailable(),
   }, { headers: { 'Cache-Control': 'no-store' } })
 }
 

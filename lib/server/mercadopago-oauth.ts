@@ -66,6 +66,17 @@ function oauthConfig() {
   return { clientId, clientSecret, redirectUri }
 }
 
+export function mercadoPagoOAuthAvailable() {
+  try {
+    oauthConfig()
+    stateSecret()
+    if (Buffer.from(encryptionKey(), 'base64').length !== 32) return false
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function createAuthorizationUrl(state: string, challenge: string) {
   const { clientId, redirectUri } = oauthConfig()
   const url = new URL(OAUTH_AUTHORIZE_URL)

@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error('[Turnly] Error checkout:', err)
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Error interno' },
+      { error: 'No se pudo iniciar el pago. Intentá nuevamente.' },
       { status: 500 },
     )
   }

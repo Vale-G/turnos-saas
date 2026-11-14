@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { parsearListaNegra, telefonoBloqueado } from '../lib/reserva-lista-negra.mjs'
+import { parsearListaNegra, telefonoBloqueado, verificarListaNegra } from '../lib/reserva-lista-negra.mjs'
 
 test('rechaza JSON malformado sin excepción', () => {
   assert.deepEqual(parsearListaNegra('{'), { ok: false, telefonos: [] })
@@ -26,4 +26,27 @@ test('compara teléfonos normalizados y evita coincidencias parciales', () => {
 test('rechaza entrada de verificación inválida de forma conservadora', () => {
   assert.equal(telefonoBloqueado(null, '123'), true)
   assert.equal(telefonoBloqueado(['123'], null), true)
+})
+
+
+test('rechaza excepciones de red sin autorizar la reserva', async () => {
+  const resultado = await verificarListaNegra(async () => { throw new Error('network') }, '123')
+  assert.deepEqual(resultado, { permitido: false, motivo: 'consulta' })
+})
+
+test('rechaza errores de Supabase y configuración corrupta', async () => {
+  assert.equal((await verificarListaNegra(async () => ({ data: null, error: { message: 'offline' } }), '123')).permitido, false)
+  assert.equal((await verificarListaNegra(async () => ({ data: { valor: '{' }, error: null }), '123')).motivo, 'configuracion')
+})
+
+test('rechaza teléfono ausente con lista no vacía y teléfonos bloqueados', async () => {
+  const consultar = async () => ({ data: { valor: '["123"]' }, error: null })
+  assert.equal((await verificarListaNegra(consultar, '')).motivo, 'telefono')
+  assert.equal((await verificarListaNegra(consultar, '123')).motivo, 'bloqueado')
+  assert.equal((await verificarListaNegra(consultar, '456')).permitido, true)
+})
+
+test('permite reserva si no existe lista negra o está vacía', async () => {
+  assert.equal((await verificarListaNegra(async () => ({ data: null, error: null }), '')).permitido, true)
+  assert.equal((await verificarListaNegra(async () => ({ data: { valor: '[]' }, error: null }), '')).permitido, true)
 })

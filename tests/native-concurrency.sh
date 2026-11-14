@@ -21,6 +21,11 @@ SQL
 
 psql "$TURNLY_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f tests/fixtures/schema.sql
 psql "$TURNLY_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261031015309_booking_security_and_intervals.sql
+for migration in supabase/migrations/202611*.sql; do
+  # This fixture intentionally excludes legacy plural tables and their helper.
+  [[ "$migration" == *legacy_sandbox_surface_lockdown.sql ]] && continue
+  psql "$TURNLY_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -f "$migration"
+done
 
 qa_date="$(date -u -d '+2 days' +%F)"
 psql "$TURNLY_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -v qa_date="$qa_date" <<'SQL'

@@ -2,8 +2,6 @@ name: CI - Lint y build
 
 on:
   pull_request:
-    branches:
-      - codex/revisar-informes-de-turnos-cancelados
   push:
     branches:
       - "codex/**"
@@ -103,7 +101,7 @@ jobs:
         run: npm ci
 
       - name: Compilar aplicación
-        run: npm run build
+        run: npm run typecheck && npm run build
         env:
           SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-not-a-real-key
           NEXT_PUBLIC_SITE_URL: http://localhost:3000

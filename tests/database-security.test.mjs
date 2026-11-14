@@ -34,6 +34,10 @@ async function database() {
   await db.exec(await readFile(notificationMigration, 'utf8'))
   await db.exec(await readFile(personalizationMigration, 'utf8'))
   await db.exec(await readFile(planLimitsMigration, 'utf8'))
+  try {
+    await db.exec(await readFile(new URL('../supabase/migrations/20261114040000_selective_mvp.sql', import.meta.url), 'utf8'))
+    await db.exec(await readFile(new URL('../supabase/migrations/20261114040100_reminder_delivery.sql', import.meta.url), 'utf8'))
+  } catch (error) { await db.close(); throw error }
   return db
 }
 
@@ -87,6 +91,39 @@ function tomorrow() {
   const date = new Date(Date.now() + 86400000)
   return date.toISOString().slice(0, 10)
 }
+
+test('historial privado filtra por identidad de sesión y no concede lectura general', async t => {
+  const db=await database(); t.after(()=>db.close()); const ids=await seed(db)
+  const booking=await book(db,ids,'10:00')
+  await db.query('update public.turno set cliente_id=$1 where id=$2',[ids.owner,booking.rows[0].turno_id])
+  await db.exec(`set role authenticated; set request.jwt.claim.sub='${ids.owner}'`)
+  const own=await db.query('select * from public.turnly_customer_history()')
+  assert.equal(own.rows.length,1)
+  assert.equal('cliente_email' in own.rows[0],false)
+  await db.exec("set request.jwt.claim.sub='10000000-0000-4000-8000-000000000002'")
+  assert.equal((await db.query('select * from public.turnly_customer_history()')).rows.length,0)
+  await db.exec('reset role; set role anon')
+  await assert.rejects(()=>db.query('select * from public.turnly_customer_history()'),/permission denied/i)
+})
+
+test('banner y bienvenida respetan RLS y validan contenido', async t => {
+  const db=await database(); t.after(()=>db.close()); const ids=await seed(db)
+  await db.exec(`set role authenticated; set request.jwt.claim.sub='${ids.owner}'`)
+  await db.query("update public.negocio set banner_url='https://example.com/banner.jpg',mensaje_bienvenida='Hola',recordatorios_activos=true where id=$1",[ids.negocio])
+  const foreign=await db.query("update public.negocio set mensaje_bienvenida='Ajeno' where id=$1 returning id",[ids.otherNegocio])
+  assert.equal(foreign.rows.length,0)
+  await assert.rejects(()=>db.query("update public.negocio set banner_url='javascript:alert(1)' where id=$1",[ids.negocio]),/negocio_banner_https/i)
+})
+
+test('recordatorios se reclaman una sola vez y roles públicos no pueden enviarlos', async t => {
+  const db=await database(); t.after(()=>db.close()); const ids=await seed(db)
+  const b=await book(db,ids,'10:00'); const id=b.rows[0].turno_id
+  const kind=`reminder:${tomorrow()}:10:00:00`
+  assert.equal((await db.query('select public.turnly_claim_notification($1,$2) as claimed',[id,kind])).rows[0].claimed,true)
+  assert.equal((await db.query('select public.turnly_claim_notification($1,$2) as claimed',[id,kind])).rows[0].claimed,false)
+  await db.exec(`set role authenticated; set request.jwt.claim.sub='${ids.owner}'`)
+  await assert.rejects(()=>db.query('select public.turnly_claim_notification($1,$2)',[id,kind]),/permission denied/i)
+})
 
 test('la personalización usa valores seguros y solo el negocio autenticado puede cambiarla', async (t) => {
   const db = await database()

@@ -12,6 +12,7 @@ type NegocioPublico = {
   id: string; nombre: string; descripcion: string | null; logo_url: string | null
   tema: string | null; dias_laborales: number[] | null
   rubro: string | null; estilo_visual: string | null; modo_visual: string | null
+  banner_url: string | null; mensaje_bienvenida: string | null
 }
 type ServicioPublico = {
   id: string; nombre: string; descripcion: string | null; precio: number
@@ -177,12 +178,15 @@ export default function ReservaPage() {
   return (
     <div className="min-h-screen pb-20 transition-colors" style={{ background: appearance.background, color: appearance.foreground }}>
       <div className="max-w-md mx-auto px-6">
+        {negocio.banner_url && <Image src={negocio.banner_url} alt={`Bienvenida a ${negocio.nombre}`} width={800} height={300} unoptimized className="mt-6 w-full h-40 object-cover rounded-2xl" />}
         <header className="py-8 flex items-center justify-between border-b mb-8" style={{ borderColor: appearance.border }}>
           <div className="flex items-center gap-4">
             {negocio.logo_url ? <Image src={negocio.logo_url} alt={`Logo de ${negocio.nombre}`} width={56} height={56} unoptimized className="w-14 h-14 rounded-2xl object-cover border border-white/10" /> : <div className="w-14 h-14 rounded-2xl flex items-center justify-center font-black text-2xl border border-white/10" style={{ background: colorP + '20', color: colorP }}>{negocio.nombre[0]}</div>}
             <div><h1 className="text-2xl font-black uppercase tracking-tighter" style={{ color: colorP, letterSpacing: appearance.tracking }}>{negocio.nombre}</h1><p className="text-[10px] font-black uppercase tracking-[0.2em] mt-1" style={{ color: appearance.muted }}>Reserva online</p></div>
           </div>
         </header>
+        {negocio.mensaje_bienvenida && <p className="mb-6 whitespace-pre-wrap">{negocio.mensaje_bienvenida}</p>}
+        {user && <a href="/mis-turnos" className="block mb-6 underline">Mis reservas</a>}
 
         {exito ? (
           <div className="pt-20 text-center animate-in zoom-in-95">

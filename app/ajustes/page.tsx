@@ -32,6 +32,7 @@ type NegocioAjustes = {
   hora_apertura: string | null; hora_cierre: string | null; dias_laborales: number[] | null
   logo_url: string | null; email_contacto: string | null
   rubro: string | null; estilo_visual: string | null; modo_visual: string | null
+  banner_url: string | null; mensaje_bienvenida: string | null; recordatorios_activos: boolean
 }
 
 export default function AjustesPage() {
@@ -49,6 +50,9 @@ export default function AjustesPage() {
   const [cierre, setCierre] = useState('20:00')
   const [diasLaborales, setDiasLaborales] = useState<number[]>([1, 2, 3, 4, 5, 6])
   const [logoUrl, setLogoUrl] = useState('')
+  const [bannerUrl, setBannerUrl] = useState('')
+  const [welcome, setWelcome] = useState('')
+  const [reminders, setReminders] = useState(false)
   const [mpConnected, setMpConnected] = useState(false)
   const [mpOauth, setMpOauth] = useState(false)
   const [mpAvailable, setMpAvailable] = useState(false)
@@ -75,7 +79,7 @@ export default function AjustesPage() {
       }
 
       if (nId) {
-        const { data: neg } = await supabase.from('negocio').select('id,nombre,slug,tema,whatsapp,hora_apertura,hora_cierre,dias_laborales,logo_url,email_contacto,rubro,estilo_visual,modo_visual').eq('id', nId).single()
+        const { data: neg } = await supabase.from('negocio').select('id,nombre,slug,tema,whatsapp,hora_apertura,hora_cierre,dias_laborales,logo_url,email_contacto,rubro,estilo_visual,modo_visual,banner_url,mensaje_bienvenida,recordatorios_activos').eq('id', nId).single()
         if (neg) {
           setNegocio(neg)
           setNombre(neg.nombre || '')
@@ -86,6 +90,9 @@ export default function AjustesPage() {
           setCierre(neg.hora_cierre?.slice(0, 5) || '20:00')
           setDiasLaborales(neg.dias_laborales || [1, 2, 3, 4, 5, 6])
           setLogoUrl(neg.logo_url || '')
+          setBannerUrl(neg.banner_url || '')
+          setWelcome(neg.mensaje_bienvenida || '')
+          setReminders(neg.recordatorios_activos)
           setRubro(neg.rubro || 'general')
           setEstiloVisual(neg.estilo_visual || 'sereno')
           setModoVisual(neg.modo_visual || 'oscuro')
@@ -143,7 +150,10 @@ export default function AjustesPage() {
     e.preventDefault()
     setGuardando(true)
 
-    const updatePayload: Record<string, string | number[]> = {
+    const updatePayload: Record<string, string | number[] | boolean> = {
+      banner_url: bannerUrl,
+      mensaje_bienvenida: welcome,
+      recordatorios_activos: reminders,
       nombre,
       slug,
       tema,
@@ -206,6 +216,12 @@ export default function AjustesPage() {
         </header>
 
         <form onSubmit={guardarAjustes} className="space-y-8">
+          <section className="rounded-3xl border border-white/10 p-6 space-y-4">
+            <h2 className="text-xl font-bold">Bienvenida y recordatorios</h2>
+            <label className="block">URL HTTPS del banner<input type="url" pattern="https://.*" maxLength={2048} value={bannerUrl} onChange={e=>setBannerUrl(e.target.value)} className="block w-full rounded-xl bg-slate-900 p-3" /></label>
+            <label className="block">Mensaje de bienvenida<textarea maxLength={500} value={welcome} onChange={e=>setWelcome(e.target.value)} className="block w-full rounded-xl bg-slate-900 p-3" /></label>
+            <label className="flex items-start gap-3"><input type="checkbox" checked={reminders} onChange={e=>setReminders(e.target.checked)} />Recordar por email los turnos de mañana a las 09:00 de la zona horaria del negocio. Requiere que el servicio de recordatorios esté habilitado.</label>
+          </section>
           <div className="bg-white/5 border border-white/10 p-8 rounded-[3rem]">
             <h2 className="text-xl font-black uppercase italic mb-6">1. Identidad de Marca</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -1,4 +1,5 @@
 'use client'
+import { OwnerTasks } from '@/components/dashboard/OwnerTasks'
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -29,6 +30,7 @@ export default function DashboardPrincipal() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [copiado, setCopiado] = useState(false)
+  const [copyError, setCopyError] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -133,8 +135,8 @@ export default function DashboardPrincipal() {
     { label: 'Clientes', desc: 'Ver base de clientes.', href: '/clientes', badge: null, proOnly: false }
   ] : [
     { label: 'Agenda', desc: 'Gestioná tus citas.', href: '/turnos', badge: null, proOnly: false },
-    { label: 'Caja', desc: 'Control financiero.', href: (esPro || esTrial || esSuperAdmin) ? '/caja' : '#', badge: (esPro || esTrial || esSuperAdmin) ? null : 'PRO', proOnly: true },
-    { label: 'Informes', desc: 'Estadísticas PRO', href: (esPro || esTrial || esSuperAdmin) ? '/informes' : '#', badge: (esPro || esTrial || esSuperAdmin) ? null : 'PRO', proOnly: true },
+    { label: 'Caja', desc: 'Control financiero.', href: (esPro || esTrial || esSuperAdmin) ? '/caja' : '/upgrade', badge: (esPro || esTrial || esSuperAdmin) ? null : 'PRO', proOnly: true },
+    { label: 'Informes', desc: 'Reservas, cancelaciones y equipo.', href: (esPro || esTrial || esSuperAdmin) ? '/informes' : '/upgrade', badge: (esPro || esTrial || esSuperAdmin) ? null : 'PRO', proOnly: true },
     { label: 'Clientes', desc: 'Historial y notas.', href: '/clientes', badge: null, proOnly: false },
     { label: 'Servicios', desc: (esPro || esTrial || esSuperAdmin) ? 'Sin límite' : serviciosCount + ' / ' + limites.maxServicios, href: '/servicios', badge: !esPro && !esTrial && !esSuperAdmin && serviciosCount >= limites.maxServicios ? 'LÍMITE' : null, proOnly: false },
     { label: 'Staff', desc: (esPro || esTrial || esSuperAdmin) ? 'Sin límite' : staffCount + ' / ' + limites.maxStaff, href: '/staff', badge: !esPro && !esTrial && !esSuperAdmin && staffCount >= limites.maxStaff ? 'LÍMITE' : null, proOnly: false },
@@ -173,6 +175,7 @@ export default function DashboardPrincipal() {
           </div>
         </header>
 
+        {!esStaff && negocio && <OwnerTasks business={negocio.id} />}
         {esTrial && diasTrial <= 7 && !esStaff && !esSuperAdmin && (
           <div className="mb-10 p-8 rounded-[3rem] border border-blue-500/30 bg-blue-500/10 flex flex-col md:flex-row items-center justify-between gap-6 cursor-pointer hover:bg-blue-500/15 transition-all">
             <div>
@@ -194,18 +197,25 @@ export default function DashboardPrincipal() {
           ))}
         </div>
 
-        {!esStaff && (
+        {!esStaff && negocio?.slug && (
           <div className="mt-12 p-7 sm:p-10 border flex flex-col md:flex-row justify-between items-stretch md:items-center gap-6 shadow-2xl relative overflow-hidden group" style={{ background: colorPrincipal + '10', borderColor: colorPrincipal + '30', borderRadius: appearance.radius }}>
             <div className="absolute -right-20 -top-20 w-64 h-64 blur-[100px] opacity-20 transition-opacity group-hover:opacity-40" style={{ backgroundColor: colorPrincipal }} />
             <div className="relative z-10">
               <h4 className="text-2xl font-black uppercase italic tracking-tighter mb-2">Tu enlace de reservas</h4>
               <p className="text-[10px] font-black uppercase tracking-[0.3em]" style={{ color: appearance.muted }}>Compartilo en Instagram, WhatsApp o tu sitio</p>
             </div>
-            <button onClick={() => {
-                if (!negocio?.slug) return
+            <a className="relative z-10 underline" href={'/reservar/' + encodeURIComponent(negocio.slug)} target="_blank" rel="noopener noreferrer">Abrir página de reservas</a>
+            <button onClick={async () => {
                 const url = window.location.origin + '/reservar/' + negocio.slug
-                navigator.clipboard.writeText(url)
-                setCopiado(true); setTimeout(() => setCopiado(false), 2000)
+                try {
+                  await navigator.clipboard.writeText(url)
+                  setCopyError(false)
+                  setCopiado(true)
+                  setTimeout(() => setCopiado(false), 2000)
+                } catch {
+                  setCopiado(false)
+                  setCopyError(true)
+                }
               }}
               className="relative z-10 px-5 sm:px-8 py-5 border font-mono text-xs sm:text-sm transition-all flex flex-wrap items-center justify-between gap-4 shadow-inner max-w-full" style={{ background: appearance.surface, borderColor: appearance.border, borderRadius: appearance.radius }}>
               <span className="break-all" style={{ color: colorPrincipal }}>{'/reservar/' + negocio?.slug}</span>
@@ -213,6 +223,7 @@ export default function DashboardPrincipal() {
                 {copiado ? "¡COPIADO!" : "COPIAR"}
               </span>
             </button>
+            {copyError && <p role="status">Abrí la página de reservas y copiá la dirección desde el navegador.</p>}
           </div>
         )}
       </div>

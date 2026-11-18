@@ -19,8 +19,9 @@ export async function POST(request: NextRequest) {
   const admin = createAdminClient()
   const { data: authorized } = await admin.rpc('turnly_verify_manage_token', { p_turno_id: turnoId, p_token: token })
   if (authorized !== true) return NextResponse.json({ error: 'Reserva inexistente' }, { status: 404 })
-  const { data: turno } = await admin.from('turno').select('cliente_nombre,cliente_email,fecha,hora,negocio_id,servicio_id').eq('id', turnoId).maybeSingle()
+  const { data: turno } = await admin.from('turno').select('politica_sena,sena_pagada,cliente_nombre,cliente_email,fecha,hora,negocio_id,servicio_id').eq('id', turnoId).maybeSingle()
   if (!turno) return NextResponse.json({ error: 'Reserva inexistente' }, { status: 404 })
+  if (turno.politica_sena === 'obligatoria' && !turno.sena_pagada) return NextResponse.json({ skipped: true })
   const [{ data: negocio }, { data: servicio }] = await Promise.all([
     admin.from('negocio').select('nombre,email_contacto').eq('id', turno.negocio_id).maybeSingle(),
     admin.from('servicio').select('nombre').eq('id', turno.servicio_id).maybeSingle(),

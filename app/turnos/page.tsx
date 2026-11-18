@@ -10,6 +10,7 @@ import { addDaysISO, mondayOfISOWeek, todayInTimeZone } from '@/lib/local-date.m
 type TurnoItem = {
   id: string
   hora: string
+  inicio_real?: string; precio_acordado?: number | null
   cliente_nombre: string
   estado: string
   fecha: string
@@ -21,7 +22,7 @@ type TurnoItem = {
 
 type Vista = 'dia' | 'semana'
 
-const ESTADOS_TURNO = ['pendiente', 'confirmado', 'completado', 'cancelado']
+const ESTADOS_TURNO = ['pendiente', 'confirmado', 'completado', 'cancelado','no_asistio']
 const TIPOS_PAGO = ['efectivo', 'mercadopago', 'transferencia', 'otro']
 
 function getTodayISO() {
@@ -60,7 +61,7 @@ export default function AgendaTurnos() {
   const router = useRouter()
 
   const totalCobrado = useMemo(
-    () => turnos.filter((t) => t.pago_estado === 'cobrado').reduce((a, t) => a + (t.servicio?.precio ?? 0), 0),
+    () => turnos.filter((t) => t.pago_estado === 'cobrado').reduce((a, t) => a + (t.precio_acordado ?? t.servicio?.precio ?? 0), 0),
     [turnos],
   )
 
@@ -80,6 +81,11 @@ export default function AgendaTurnos() {
 
       let nId = null
       let negData = null
+
+      const params = new URLSearchParams(window.location.search)
+      const day = params.get('fecha')
+      if (day && /^\d{4}-\d{2}-\d{2}$/.test(day)) setFechaFiltro(normalizeDateISO(day))
+      setTurnoEditando(params.get('turno'))
 
       const { data: adm } = await supabase.from('adminrol').select('negocio_id,role').eq('user_id', user.id).maybeSingle()
       if (adm?.negocio_id) {
@@ -279,11 +285,16 @@ export default function AgendaTurnos() {
       {turnoEditando === t.id && (
         <div className="border-t border-white/8 p-4 bg-black/20 space-y-3">
           <div>
+            {!t.inicio_real && ['pendiente','confirmado'].includes(t.estado) && <button onClick={async ()=>{
+              const {error}=await supabase.from('turno').update({inicio_real:new Date().toISOString()}).eq('id',t.id)
+              if(error) toast.error('No se pudo iniciar la atención')
+              else setReloadKey(k=>k+1)
+            }}>Iniciar atención</button>}
             <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-2">Estado</p>
             <div className="flex gap-2 flex-wrap">
               {ESTADOS_TURNO.map((e) => (
                 <button
-                  key={e}
+                  key={e==='no_asistio'?'No asistió': e==='cancelado'?'Cancelado por el negocio':e}
                   onClick={() => cambiarEstado(t.id, e)}
                   className={
                     'px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase border transition-all ' +
@@ -291,7 +302,7 @@ export default function AgendaTurnos() {
                   }
                   style={t.estado === e ? { backgroundColor: colorPrincipal } : {}}
                 >
-                  {e}
+                  {e==='no_asistio'?'No asistió': e==='cancelado'?'Cancelado por el negocio':e}
                 </button>
               ))}
             </div>
@@ -452,7 +463,7 @@ export default function AgendaTurnos() {
                   <div className="flex gap-2 flex-wrap">
                     {ESTADOS_TURNO.map((e) => (
                       <button
-                        key={e}
+                        key={e==='no_asistio'?'No asistió': e==='cancelado'?'Cancelado por el negocio':e}
                         onClick={() => setTurnoEditar({ ...turnoEditar, estado: e })}
                         className={
                           'px-3 py-1.5 rounded-lg text-[9px] font-black uppercase border transition-all ' +
@@ -460,7 +471,7 @@ export default function AgendaTurnos() {
                         }
                         style={turnoEditar.estado === e ? { backgroundColor: colorPrincipal } : {}}
                       >
-                        {e}
+                        {e==='no_asistio'?'No asistió': e==='cancelado'?'Cancelado por el negocio':e}
                       </button>
                     ))}
                   </div>

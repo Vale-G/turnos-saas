@@ -24,7 +24,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
   if (!authorized) return NextResponse.json({ error: 'Reserva inexistente' }, { status: 404 })
 
   const { data: turno } = await admin.from('turno')
-    .select('id,cliente_nombre,fecha,hora,estado,negocio_id,servicio_id,staff_id')
+    .select('id,politica_sena,sena_pagada,saldo_mp,cliente_nombre,fecha,hora,estado,negocio_id,servicio_id,staff_id')
     .eq('id', id).maybeSingle()
   if (!turno) return NextResponse.json({ error: 'Reserva inexistente' }, { status: 404 })
   const [{ data: negocio }, { data: servicio }, { data: staff }] = await Promise.all([
@@ -36,7 +36,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ id:
   return NextResponse.json({
     reserva: {
       id: turno.id, clienteNombre: turno.cliente_nombre, fecha: turno.fecha, hora: turno.hora,
-      estado: turno.estado, servicio: servicio.nombre, negocioId: turno.negocio_id,
+      señaPendiente: turno.politica_sena === 'obligatoria' && !turno.sena_pagada && turno.saldo_mp == null, estado: turno.estado, servicio: servicio.nombre, negocioId: turno.negocio_id,
       servicioId: turno.servicio_id, staffId: turno.staff_id,
     },
     negocio,

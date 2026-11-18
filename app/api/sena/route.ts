@@ -32,10 +32,10 @@ export async function POST(request: NextRequest) {
 
   const { data: turno, error } = await admin
     .from('turno')
-    .select('id,estado,cliente_email,negocio_id,servicio_id')
+    .select('id,estado,sena_acordada,saldo_mp,pago_estado,sena_pagada,precio_acordado,cliente_email,negocio_id,servicio_id')
     .eq('id', turnoId)
     .maybeSingle()
-  if (error || !turno || turno.estado === 'cancelado') return NextResponse.json({ error: 'Reserva inexistente' }, { status: 404 })
+  if (error || !turno || !['pendiente','confirmado'].includes(turno.estado) || turno.sena_pagada || turno.saldo_mp != null || turno.pago_estado==='cobrado') return NextResponse.json({ error: 'Reserva inexistente' }, { status: 404 })
 
   const [{ data: negocio }, { data: servicio }] = await Promise.all([
     admin.from('negocio').select('id,nombre,moneda,suscripcion_tipo,trial_hasta').eq('id', turno.negocio_id).maybeSingle(),
@@ -51,13 +51,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'El negocio no tiene señas configuradas' }, { status: 409 })
   }
 
-  const precio = Number(servicio.precio)
+  const precio = Number(turno.precio_acordado ?? servicio.precio)
   const valor = Number(servicio.seña_valor)
-  const monto = servicio.seña_tipo === 'fijo'
+  const monto = turno.sena_acordada ?? (servicio.seña_tipo === 'fijo'
     ? Math.min(precio, valor)
     : servicio.seña_tipo === 'porcentaje'
       ? Math.round(precio * Math.min(100, Math.max(0, valor)) / 100 * 100) / 100
-      : 0
+      : 0)
   if (!Number.isFinite(monto) || monto <= 0 || monto > precio) {
     return NextResponse.json({ error: 'La seña no está configurada correctamente' }, { status: 409 })
   }
@@ -79,9 +79,9 @@ export async function POST(request: NextRequest) {
       payer: { email: turno.cliente_email },
       external_reference: `${turnoId}|sena`,
       back_urls: {
-        success: `${origin}/reservar/sena-ok?turno=${turnoId}`,
-        failure: `${origin}/reservar/sena-error?turno=${turnoId}`,
-        pending: `${origin}/reservar/sena-pendiente?turno=${turnoId}`,
+        success: `${origin}/pago/retorno?turno=${turnoId}`,
+        failure: `${origin}/pago/retorno?turno=${turnoId}`,
+        pending: `${origin}/pago/retorno?turno=${turnoId}`,
       },
       auto_return: 'approved',
       notification_url: `${origin}/api/webhooks/mercadopago?negocio=${negocio.id}`,

@@ -9,12 +9,14 @@ import Image from 'next/image'
 import { getAppearance } from '@/lib/personalization.mjs'
 
 type NegocioPublico = {
+  politica_sena: string | null;
   id: string; nombre: string; descripcion: string | null; logo_url: string | null
-  tema: string | null; dias_laborales: number[] | null
+  horas_cancelacion: number; horas_reprogramacion: number; tema: string | null; dias_laborales: number[] | null
   rubro: string | null; estilo_visual: string | null; modo_visual: string | null
   banner_url: string | null; mensaje_bienvenida: string | null
 }
 type ServicioPublico = {
+  politica_sena: string | null;
   id: string; nombre: string; descripcion: string | null; precio: number
   duracion: number; seña_tipo: 'ninguno' | 'fijo' | 'porcentaje' | null; seña_valor: number | null
 }
@@ -111,14 +113,12 @@ export default function ReservaPage() {
   }, [negocio, sel.servicio, sel.barbero, sel.fecha, horariosReintento])
 
   // EL CEREBRO DE LAS SEÑAS FLEXIBLES
-  const montoSenaCalculado = useMemo(() => {
-    if (!sel.servicio) return 0
-    if (sel.servicio.seña_tipo === 'ninguno' || sel.servicio.precio <= 0) return 0
-    if (sel.servicio.seña_tipo === 'fijo') return Number(sel.servicio.seña_valor) || 0
-    // Porcentaje
-    const porcentaje = Number(sel.servicio.seña_valor) || 50
-    return Math.round(sel.servicio.precio * (porcentaje / 100))
-  }, [sel.servicio])
+  const policy = sel.servicio?.politica_sena ?? negocio?.politica_sena
+  const svc = sel.servicio
+  const montoSenaCalculado = !svc || policy === 'ninguna' ? 0 : svc.seña_tipo === 'fijo'
+    ? Math.min(svc.precio, Number(svc.seña_valor))
+    : svc.seña_tipo === 'porcentaje' ? Math.round(svc.precio * Math.min(100, Number(svc.seña_valor))) / 100 : 0
+  const [awaitingPayment,setAwaitingPayment] = useState(false)
 
   const handleFinal = async (nombre: string, tel: string, pagarSena: boolean, correoInvitado: string) => {
     // Protección de UI; el servidor todavía debe validar disponibilidad atómicamente.
@@ -141,7 +141,7 @@ export default function ReservaPage() {
         fecha: sel.fecha,
         hora: sel.hora,
         nombre,
-        telefono: tel,
+        pagarSena, telefono: tel,
         email: correoInvitado,
       }),
     })
@@ -152,21 +152,28 @@ export default function ReservaPage() {
       if (response.status === 409) setHorariosReintento((n) => n + 1)
       return
     }
-    void fetch('/api/notificar', {
+    if (!booking.obligatoria) void fetch('/api/notificar', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
       body: JSON.stringify({ turnoId: booking.id, manageToken: booking.manageToken }),
     })
 
     // 3. Pagar Seña Exacta a MercadoPago
     if (pagarSena && montoSenaCalculado > 0) {
-      const res = await fetch('/api/sena', {
+      try {
+        const res = await fetch('/api/sena', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ turno_id: booking.id, manage_token: booking.manageToken })
       })
-      const resData = await res.json()
-      if (resData.url) { window.location.href = resData.url; return } 
+      const resData = await res.json().catch(() => ({}))
+      if (res.ok && resData.url) {
+        sessionStorage.setItem('turnly-reserva-'+booking.id,booking.manageToken)
+        window.location.assign(resData.url); return
+      }
+      toast.error('No se pudo iniciar el pago de la seña.')
+      } catch { toast.error('No se pudo abrir el pago. Conservá el enlace de gestión.') }
     }
 
+    setAwaitingPayment(Boolean(booking.obligatoria))
     setGestionUrl(`/cancelar/${booking.id}?token=${booking.manageToken}`)
     setExito(true)
     setConfirmando(false)
@@ -191,7 +198,7 @@ export default function ReservaPage() {
         {exito ? (
           <div className="pt-20 text-center animate-in zoom-in-95">
             <div className="w-28 h-28 rounded-full border-4 mx-auto mb-8 flex items-center justify-center text-5xl" style={{ borderColor: colorP, color: colorP, boxShadow: `0 0 80px ${colorP}30` }}>✓</div>
-            <h2 className="text-5xl font-black uppercase italic tracking-tighter mb-4">¡Turno Listo!</h2>
+            <h2 className="text-5xl font-black uppercase italic tracking-tighter mb-4">{awaitingPayment ? 'Pendiente de seña' : '¡Turno Listo!'}</h2>
             <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.3em] mb-12">{sel.fecha} A LAS {sel.hora} HS</p>
             {gestionUrl && <a href={gestionUrl} className="block text-sm font-bold underline underline-offset-4 mb-8" style={{ color: colorP }}>Guardar enlace para gestionar o cancelar</a>}
             <button onClick={() => window.location.reload()} className="font-black uppercase italic text-lg px-12 py-5 rounded-[2rem] text-black shadow-xl" style={{ backgroundColor: colorP }}>Genial</button>
@@ -259,9 +266,10 @@ export default function ReservaPage() {
                 <p className="text-4xl font-black italic uppercase leading-none" style={{ color: colorP }}>{sel.servicio?.nombre}</p>
                 <p className="font-black uppercase text-xs tracking-[0.3em] text-white pt-2">{sel.fecha} · {sel.hora} HS</p>
                 <p className="text-4xl font-black pt-4">${sel.servicio?.precio}</p>
-                {montoSenaCalculado > 0 && <p className="text-[10px] font-black uppercase text-emerald-400 pt-2 tracking-widest">Requiere Seña: ${montoSenaCalculado}</p>}
+                {montoSenaCalculado > 0 && <p className="text-[10px] font-black uppercase text-emerald-400 pt-2 tracking-widest">{policy === 'obligatoria' ? 'Seña obligatoria' : 'Seña opcional'}: ${montoSenaCalculado}</p>}
               </div>
-              <AuthSelector key={user?.id ?? 'guest'} user={user} colorP={colorP} loading={confirmando} onConfirm={handleFinal} slug={slug} montoSena={montoSenaCalculado} />
+              <p className="mb-4 text-sm">Anticipación para cancelar: {negocio.horas_cancelacion} h · Reprogramar: {negocio.horas_reprogramacion} h</p>
+              <AuthSelector obligatoria={policy === 'obligatoria'} key={user?.id ?? 'guest'} user={user} colorP={colorP} loading={confirmando} onConfirm={handleFinal} slug={slug} montoSena={montoSenaCalculado} />
             </div>
           </div>
         )}
@@ -271,6 +279,7 @@ export default function ReservaPage() {
 }
 
 type AuthSelectorProps = {
+  obligatoria: boolean
   user: User | null
   colorP: string
   loading: boolean
@@ -279,7 +288,7 @@ type AuthSelectorProps = {
   montoSena: number
 }
 
-function AuthSelector({ user, colorP, loading, onConfirm, slug, montoSena }: AuthSelectorProps) {
+function AuthSelector({ user, colorP, loading, onConfirm, slug, montoSena, obligatoria }: AuthSelectorProps) {
   const [modo, setModo] = useState('invitado')
   const [nombre, setNombre] = useState(user?.user_metadata?.full_name ?? '')
   const [tel, setTel] = useState('')
@@ -296,9 +305,9 @@ function AuthSelector({ user, colorP, loading, onConfirm, slug, montoSena }: Aut
           </span>
         </button>
       )}
-      <button onClick={() => accion(false)} disabled={loading} className="w-full py-5 rounded-[2.5rem] font-black uppercase italic text-xs text-white bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-50 transition-all">
+      {!obligatoria && <button onClick={() => accion(false)} disabled={loading} className="w-full py-5 rounded-[2.5rem] font-black uppercase italic text-xs text-white bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-50 transition-all">
         {loading ? 'PROCESANDO...' : 'RESERVAR Y PAGAR EN LOCAL'}
-      </button>
+      </button>}
     </div>
   )
 

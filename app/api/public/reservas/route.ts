@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cleanText, validDate, validHour, validUuid } from '@/lib/server/public-booking'
 import { createAdminClient, createUserServerClient } from '@/lib/server/supabase'
 import { rateLimitByIp } from '@/lib/rate-limit'
+import { validarListaNegraServidor } from '@/lib/reserva-lista-negra.mjs'
 
 export const dynamic = 'force-dynamic'
 
@@ -42,20 +43,13 @@ export async function POST(request: NextRequest) {
   if (blacklistError) {
     return NextResponse.json({ error: 'No se pudo validar la reserva. Intentá nuevamente.' }, { status: 503 })
   }
-  if (blacklistData?.valor) {
-    let blacklist: unknown
-    try {
-      blacklist = JSON.parse(blacklistData.valor)
-    } catch {
-      return NextResponse.json({ error: 'No se pudo validar la reserva. Contactá al local.' }, { status: 503 })
-    }
-    if (!Array.isArray(blacklist) || !blacklist.every((item: unknown) => typeof item === 'string')) {
-      return NextResponse.json({ error: 'No se pudo validar la reserva. Contactá al local.' }, { status: 503 })
-    }
-    const normalizedPhone = telefono.replace(/[^0-9]/g, '')
-    if (blacklist.some((item: string) => item.replace(/[^0-9]/g, '') === normalizedPhone)) {
-      return NextResponse.json({ error: 'Este servicio no está disponible para tu número. Contactá al local.' }, { status: 403 })
-    }
+  const control = validarListaNegraServidor(blacklistData, telefono)
+  if (!control.permitido) {
+    const bloqueado = control.motivo === 'bloqueado'
+    return NextResponse.json(
+      { error: bloqueado ? 'Este servicio no está disponible para tu número. Contactá al local.' : 'No se pudo validar la reserva. Contactá al local.' },
+      { status: bloqueado ? 403 : 503 },
+    )
   }
   const { data, error } = await admin.rpc('turnly_create_public_booking', {
     p_negocio_id: negocioId,

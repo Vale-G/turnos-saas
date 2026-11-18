@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cleanText, validDate, validHour, validUuid } from '@/lib/server/public-booking'
 import { createAdminClient, createUserServerClient } from '@/lib/server/supabase'
+import { hasProAccess } from '@/lib/server/plan-access'
+import { getBusinessAccessToken } from '@/lib/server/mercadopago-oauth'
 import { rateLimitByIp } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
@@ -57,12 +59,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Este servicio no está disponible para tu número. Contactá al local.' }, { status: 403 })
     }
   }
-  const { data, error } = await admin.rpc('turnly_create_public_booking', {
+  if (body.pagarSena === true) {
+    const { data: plan } = await admin.from('negocio').select('suscripcion_tipo,trial_hasta').eq('id',negocioId).maybeSingle()
+    if (!plan || !hasProAccess(plan) || !await getBusinessAccessToken(admin,negocioId)) {
+      return NextResponse.json({ error: 'El negocio aún no tiene habilitados los cobros en línea.' }, { status: 409 })
+    }
+  }
+  const { data, error } = await admin.rpc('turnly_book_with_policy', {
     p_negocio_id: negocioId,
     p_servicio_id: servicioId,
     p_staff_id: staffId,
     p_fecha: fecha,
     p_hora: `${hora}:00`,
+    p_pagar_sena: body.pagarSena === true,
     p_cliente_id: user?.id ?? null,
     p_cliente_nombre: nombre,
     p_cliente_telefono: telefono,
@@ -82,7 +91,7 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json(
-    { id: result.turno_id, manageToken: result.manage_token },
+    { id: result.turno_id, manageToken: result.manage_token, obligatoria: result.obligatoria },
     { status: 201, headers: { 'Cache-Control': 'no-store' } },
   )
 }

@@ -1,3 +1,13 @@
 {
-  "crons": [{ "path": "/api/cron/reminders", "schedule": "0 12 * * *" }]
+  "crons": [
+    {
+      "path": "/api/cron/reminders",
+      "schedule": "0 12 * * *"
+    }
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "codex/turnly-owner-reports": false
+    }
+  }
 }

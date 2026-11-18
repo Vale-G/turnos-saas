@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
   const { data: { user } } = await userClient.auth.getUser()
   if (!user) return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
   const admin = createAdminClient()
-  const { data: turno } = await admin.from('turno').select('id,negocio_id,servicio_id').eq('id', body.turno_id).maybeSingle()
+  const { data: turno } = await admin.from('turno').select('id,negocio_id,servicio_id,precio_acordado,sena_pagada,monto_sena,saldo_mp,pago_estado').eq('id', body.turno_id).maybeSingle()
   if (!turno) return NextResponse.json({ error: 'Turno inexistente' }, { status: 404 })
   const [{ data: negocio }, { data: servicio }] = await Promise.all([
     admin.from('negocio').select('id,owner_id,nombre,moneda').eq('id', turno.negocio_id).maybeSingle(),
@@ -23,9 +23,10 @@ export async function POST(request: NextRequest) {
   if (!negocio || negocio.owner_id !== user.id) return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
   const accessToken = await getBusinessAccessToken(admin, negocio.id)
   if (!accessToken || !servicio) return NextResponse.json({ error: 'Mercado Pago no está configurado' }, { status: 409 })
-  const amount = Number(servicio.precio)
+  const amount = Number(turno.precio_acordado ?? servicio.precio) - (turno.sena_pagada ? Number(turno.monto_sena) : 0)
   if (!Number.isFinite(amount) || amount <= 0) return NextResponse.json({ error: 'Precio inválido' }, { status: 409 })
 
+  if (turno.saldo_mp != null || turno.pago_estado === 'cobrado') return NextResponse.json({ error: 'El saldo ya está registrado' }, { status: 409 })
   const origin = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? request.nextUrl.origin).origin
   const response = await fetch('https://api.mercadopago.com/checkout/preferences', {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },

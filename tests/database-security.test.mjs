@@ -13,7 +13,7 @@ const notificationMigration = new URL('../supabase/migrations/20261110103749_not
 const personalizationMigration = new URL('../supabase/migrations/20261112214500_business_personalization.sql', import.meta.url)
 const planLimitsMigration = new URL('../supabase/migrations/20261113190000_plan_limits_and_payment_access.sql', import.meta.url)
 
-async function database() {
+async function database(seedLegacy) {
   const db = new PGlite({ extensions: { pgcrypto } })
   await db.exec(`
     create role anon nologin;
@@ -27,6 +27,7 @@ async function database() {
     $$;
   `)
   await db.exec(await readFile(fixture, 'utf8'))
+  if (seedLegacy) await seedLegacy(db)
   await db.exec(await readFile(migration, 'utf8'))
   await db.exec(await readFile(hardeningMigration, 'utf8'))
   await db.exec(await readFile(rescheduleMigration, 'utf8'))
@@ -37,6 +38,7 @@ async function database() {
   try {
     await db.exec(await readFile(new URL('../supabase/migrations/20261114040000_selective_mvp.sql', import.meta.url), 'utf8'))
     await db.exec(await readFile(new URL('../supabase/migrations/20261114040100_reminder_delivery.sql', import.meta.url), 'utf8'))
+    for (const file of ["20261118000100_owner_operations.sql", "20261118000200_owner_insights.sql"]) await db.exec(await readFile(new URL("../supabase/migrations/" + file, import.meta.url), "utf8"))
   } catch (error) { await db.close(); throw error }
   return db
 }
@@ -440,4 +442,84 @@ test('reactivar recalcula un turno editado mientras estaba cancelado', async (t)
   const stored = await db.query('select duracion_minutos,hora_fin from public.turno where id=$1',
     [created.rows[0].turno_id])
   assert.deepEqual(stored.rows[0], { duracion_minutos: 30, hora_fin: '15:30:00' })
+})
+
+test('informes del dueño aplican permisos y usan precios acordados', async t => {
+  const db = await database(); t.after(()=>db.close())
+  const ids = await seed(db)
+  const booking = (await book(db,ids,'10:00')).rows[0]
+  await db.query("update public.servicio set precio=2000 where id=$1",[ids.servicio])
+  assert.equal(Number((await db.query("select precio_acordado from public.turno where id=$1",[booking.turno_id])).rows[0].precio_acordado),1000)
+  await db.query("update public.negocio set suscripcion_tipo='pro' where id=$1",[ids.negocio])
+  await db.exec(`set role authenticated; set request.jwt.claim.sub='${ids.owner}'`)
+  const query="select public.turnly_owner_insights($1,date_trunc('month',current_date)::date) report"
+  const report=(await db.query(query,[ids.negocio])).rows[0].report
+  assert.equal(report.periods.length,2)
+  assert.equal(report.cohorts.length,3)
+  assert.ok(report.heat.length>0)
+  await assert.rejects(()=>db.query(query,[ids.otherNegocio]),/Acceso denegado/)
+})
+
+test('seña obligatoria, excepción del servicio y plazos del enlace se validan en la base',async t=>{
+  const db=await database(); t.after(()=>db.close()); const ids=await seed(db)
+  await db.query("update public.negocio set politica_sena='obligatoria',horas_cancelacion=720,horas_reprogramacion=720 where id=$1",[ids.negocio])
+  const query="select * from public.turnly_book_with_policy($1,$2,$3,$4,$5,null,'QA prueba','1123456789','qa@example.invalid',$6)"
+  const args=[ids.negocio,ids.servicio,ids.staff,tomorrow(),'11:00']
+  await assert.rejects(()=>db.query(query,[...args,false]),/requiere seña/)
+  const {turno_id,manage_token,obligatoria}=(await db.query(query,[...args,true])).rows[0]
+  assert.equal(obligatoria,true)
+  await assert.rejects(()=>db.query("update public.turno set estado='confirmado' where id=$1",[turno_id]),/no está cobrada/)
+  assert.equal((await db.query('select public.turnly_cancel_public_booking($1,$2) ok',[turno_id,manage_token])).rows[0].ok,false)
+  assert.equal((await db.query("select public.turnly_reschedule_public_booking($1,$2,$3,'12:00',$4) ok",[turno_id,manage_token,tomorrow(),ids.staff])).rows[0].ok,false)
+  await db.query("update public.servicio set politica_sena='ninguna' where id=$1",[ids.servicio])
+  assert.equal((await db.query(query,[...args.slice(0,4),'13:00',false])).rows[0].obligatoria,false)
+  await db.query("update public.negocio set horas_cancelacion=0 where id=$1",[ids.negocio])
+  await db.query('select public.turnly_cancel_public_booking($1,$2)',[turno_id,manage_token])
+  const cancelled=(await db.query('select cancelado_por,cancelado_en from public.turno where id=$1',[turno_id])).rows[0]
+  assert.equal(cancelled.cancelado_por,'cliente');assert.ok(cancelled.cancelado_en)
+})
+
+test('reemplazos parciales, seña y saldo usan mediciones independientes',async t=>{
+  const db=await database(); t.after(()=>db.close()); const ids=await seed(db)
+  await db.query("update public.negocio set suscripcion_tipo='pro' where id=$1",[ids.negocio])
+  const original=(await book(db,ids,'14:00')).rows[0]
+  await db.query('select public.turnly_cancel_public_booking($1,$2)',[original.turno_id,original.manage_token])
+  await db.query("update public.servicio set duracion=30 where id=$1",[ids.servicio])
+  const replacement=(await book(db,ids,'14:00')).rows[0]
+  await db.query('update public.turno set monto_sena=300 where id=$1',[replacement.turno_id])
+  await db.query("select public.turnly_apply_booking_payment('qa:deposit','deposit',$1,'sena','approved',300,'ARS')",[replacement.turno_id])
+  await db.query("update public.servicio set precio=5000 where id=$1",[ids.servicio])
+  const full="select public.turnly_apply_booking_payment('qa:balance','balance',$1,'full','approved',$2,'ARS') ok"
+  assert.equal((await db.query(full,[replacement.turno_id,1000])).rows[0].ok,false)
+  assert.equal((await db.query(full,[replacement.turno_id,700])).rows[0].ok,true)
+  const row=(await db.query('select saldo_mp,monto_sena,sena_pagada from public.turno where id=$1',[replacement.turno_id])).rows[0]
+  assert.equal(Number(row.saldo_mp),700);assert.equal(row.sena_pagada,true)
+  await db.exec(`set role authenticated;set request.jwt.claim.sub='${ids.owner}'`)
+  const report=(await db.query("select public.turnly_owner_insights($1,date_trunc('month',$2::date)::date) result",[ids.negocio,tomorrow()])).rows[0].result
+  assert.equal(report.recovery.lost,60);assert.equal(report.recovery.recovered,30)
+})
+
+test('cohortes con ventanas maduras, bloqueos solapados y precios históricos desconocidos',async t=>{
+  let ids
+  const db=await database(async db=>{
+    ids=await seed(db)
+    await db.query("update public.negocio set suscripcion_tipo='pro' where id=$1",[ids.negocio])
+    await db.query(`insert into public.turno(negocio_id,staff_id,servicio_id,cliente_id,estado,fecha,hora)
+      select $1,$2,$3,$4,'completado',(date_trunc('month',current_date)-interval '5 months')::date + offset_days,'09:00'
+      from unnest(array[0,40]) offset_days`,[ids.negocio,ids.staff,ids.servicio,ids.owner])
+  });t.after(()=>db.close())
+  await db.exec(`set role authenticated;set request.jwt.claim.sub='${ids.owner}'`)
+  const report=(await db.query("select public.turnly_owner_insights($1,(date_trunc('month',current_date)-interval '5 months')::date) result",[ids.negocio])).rows[0].result
+  assert.deepEqual(report.cohorts.map(c=>[c.horizon,c.eligible,c.returned]),[[30,1,0],[60,1,1],[90,1,1]])
+  assert.equal(report.durations.length,0)
+  const historic=await db.query('select precio_acordado from public.turno where negocio_id=$1',[ids.negocio])
+  assert.ok(historic.rows.every(t=>t.precio_acordado===null))
+  const query="select public.turnly_owner_insights($1,date_trunc('month',current_date)::date) result"
+  const before=(await db.query(query,[ids.negocio])).rows[0].result
+  const insert="insert into public.bloqueo(negocio_id,staff_id,fecha,hora_inicio,hora_fin) values ($1,$2,(now() at time zone 'America/Argentina/Buenos_Aires')::date,$3,$4)"
+  await db.query(insert,[ids.negocio,ids.staff,'10:00','10:45'])
+  await db.query(insert,[ids.negocio,ids.staff,'10:30','11:00'])
+  const after=(await db.query(query,[ids.negocio])).rows[0].result
+  const hours=r=>r.heat.reduce((s,h)=>s+h.offered,0)
+  assert.equal(hours(before)-hours(after),60)
 })

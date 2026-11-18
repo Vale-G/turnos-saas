@@ -16,6 +16,7 @@ type Servicio = {
   nombre: string
   precio: number
   duracion: number
+  politica_sena: string | null
   seña_tipo: string | null
   seña_valor: number | null
   created_at?: string
@@ -29,6 +30,7 @@ export default function ServiciosConfig() {
   const router = useRouter()
 
   // Formulario
+  const [policy,setPolicy] = useState('')
   const [editId, setEditId] = useState<string | null>(null)
   const [nombre, setNombre] = useState('')
   const [precio, setPrecio] = useState('')
@@ -63,6 +65,7 @@ export default function ServiciosConfig() {
   }, [router])
 
   const abrirModal = (s: Servicio | null = null) => {
+    setPolicy(s?.politica_sena ?? '')
     if (s) {
       setEditId(s.id); setNombre(s.nombre); setPrecio(String(s.precio)); setDuracion(String(s.duracion));
       setSeñaTipo(s.seña_tipo || 'porcentaje'); setSeñaValor(String(s.seña_valor || '50'));
@@ -82,6 +85,7 @@ export default function ServiciosConfig() {
       nombre,
       precio: Number(precio),
       duracion: Number(duracion),
+      politica_sena: policy || null,
       seña_tipo: señaTipo,
       seña_valor: señaTipo === 'ninguno' ? 0 : Number(señaValor)
     }
@@ -143,6 +147,7 @@ export default function ServiciosConfig() {
 
                 <div className="bg-white/5 p-6 rounded-3xl border border-white/5">
                   <label className="text-[10px] font-black uppercase text-slate-400 mb-4 block tracking-widest">Configuración de Seña</label>
+                  <label>Política para este servicio <select className="bg-slate-900" value={policy} onChange={e=>setPolicy(e.target.value)}><option value="">Usar ajuste del negocio</option><option value="ninguna">Sin seña</option><option value="opcional">Opcional</option><option value="obligatoria">Obligatoria</option></select></label>
                   <div className="grid grid-cols-3 gap-2 mb-4">
                     {['porcentaje', 'fijo', 'ninguno'].map(t => (
                       <button type="button" key={t} onClick={() => setSeñaTipo(t)} className={`py-2 rounded-xl text-[9px] font-black uppercase border transition-all ${señaTipo === t ? 'bg-white text-black border-white' : 'border-white/10 text-slate-500'}`}>{t}</button>

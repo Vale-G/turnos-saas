@@ -52,6 +52,9 @@ export default function AjustesPage() {
   const [logoUrl, setLogoUrl] = useState('')
   const [bannerUrl, setBannerUrl] = useState('')
   const [welcome, setWelcome] = useState('')
+  const [policy,setPolicy] = useState('opcional')
+  const [cancelHours,setCancelHours] = useState(0)
+  const [moveHours,setMoveHours] = useState(0)
   const [reminders, setReminders] = useState(false)
   const [mpConnected, setMpConnected] = useState(false)
   const [mpOauth, setMpOauth] = useState(false)
@@ -79,7 +82,7 @@ export default function AjustesPage() {
       }
 
       if (nId) {
-        const { data: neg } = await supabase.from('negocio').select('id,nombre,slug,tema,whatsapp,hora_apertura,hora_cierre,dias_laborales,logo_url,email_contacto,rubro,estilo_visual,modo_visual,banner_url,mensaje_bienvenida,recordatorios_activos').eq('id', nId).single()
+        const { data: neg } = await supabase.from('negocio').select('id,nombre,slug,tema,whatsapp,hora_apertura,hora_cierre,dias_laborales,logo_url,email_contacto,rubro,estilo_visual,modo_visual,banner_url,mensaje_bienvenida,recordatorios_activos,politica_sena,horas_cancelacion,horas_reprogramacion').eq('id', nId).single()
         if (neg) {
           setNegocio(neg)
           setNombre(neg.nombre || '')
@@ -92,6 +95,7 @@ export default function AjustesPage() {
           setLogoUrl(neg.logo_url || '')
           setBannerUrl(neg.banner_url || '')
           setWelcome(neg.mensaje_bienvenida || '')
+          setPolicy(neg.politica_sena); setCancelHours(neg.horas_cancelacion); setMoveHours(neg.horas_reprogramacion)
           setReminders(neg.recordatorios_activos)
           setRubro(neg.rubro || 'general')
           setEstiloVisual(neg.estilo_visual || 'sereno')
@@ -150,9 +154,10 @@ export default function AjustesPage() {
     e.preventDefault()
     setGuardando(true)
 
-    const updatePayload: Record<string, string | number[] | boolean> = {
+    const updatePayload: Record<string, string | number | number[] | boolean> = {
       banner_url: bannerUrl,
       mensaje_bienvenida: welcome,
+      politica_sena: policy, horas_cancelacion: cancelHours, horas_reprogramacion: moveHours,
       recordatorios_activos: reminders,
       nombre,
       slug,
@@ -220,6 +225,12 @@ export default function AjustesPage() {
             <h2 className="text-xl font-bold">Bienvenida y recordatorios</h2>
             <label className="block">URL HTTPS del banner<input type="url" pattern="https://.*" maxLength={2048} value={bannerUrl} onChange={e=>setBannerUrl(e.target.value)} className="block w-full rounded-xl bg-slate-900 p-3" /></label>
             <label className="block">Mensaje de bienvenida<textarea maxLength={500} value={welcome} onChange={e=>setWelcome(e.target.value)} className="block w-full rounded-xl bg-slate-900 p-3" /></label>
+            <fieldset className="grid gap-4"><legend>Política de reservas</legend>
+              <label>Seña por defecto <select className="bg-slate-900" value={policy} onChange={e=>setPolicy(e.target.value)}><option value="ninguna">Sin seña</option><option value="opcional">Opcional</option><option value="obligatoria">Obligatoria</option></select></label>
+              <label>Anticipación para cancelar (horas) <input type="number" min="0" max="720" value={cancelHours} onChange={e=>setCancelHours(Number(e.target.value))}/></label>
+              <label>Anticipación para reprogramar (horas) <input type="number" min="0" max="720" value={moveHours} onChange={e=>setMoveHours(Number(e.target.value))}/></label>
+              <p>Con 0 horas no se agrega un plazo al enlace del cliente.</p>
+            </fieldset>
             <label className="flex items-start gap-3"><input type="checkbox" checked={reminders} onChange={e=>setReminders(e.target.checked)} />Recordar por email los turnos de mañana a las 09:00 de la zona horaria del negocio. Requiere que el servicio de recordatorios esté habilitado.</label>
           </section>
           <div className="bg-white/5 border border-white/10 p-8 rounded-[3rem]">

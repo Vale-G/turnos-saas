@@ -12,7 +12,7 @@ export async function GET(_request: Request, context: { params: Promise<{ slug: 
   const admin = createAdminClient()
   const { data: negocio, error } = await admin
     .from('negocio')
-    .select('id,nombre,slug,descripcion,logo_url,banner_url,mensaje_bienvenida,whatsapp,tema,rubro,estilo_visual,modo_visual,hora_apertura,hora_cierre,dias_laborales,activo,email_contacto,moneda,zona_horaria')
+    .select('id,nombre,slug,descripcion,logo_url,banner_url,mensaje_bienvenida,whatsapp,tema,rubro,estilo_visual,modo_visual,hora_apertura,hora_cierre,dias_laborales,activo,email_contacto,moneda,zona_horaria,politica_sena,horas_cancelacion,horas_reprogramacion')
     .eq('slug', slug)
     .eq('activo', true)
     .maybeSingle()
@@ -20,7 +20,7 @@ export async function GET(_request: Request, context: { params: Promise<{ slug: 
   if (error || !negocio) return NextResponse.json({ error: 'Negocio inexistente' }, { status: 404 })
 
   const [{ data: servicios, error: serviceError }, { data: staff, error: staffError }] = await Promise.all([
-    admin.from('servicio').select('id,nombre,descripcion,precio,duracion,seña_tipo,seña_valor').eq('negocio_id', negocio.id).order('nombre'),
+    admin.from('servicio').select('id,nombre,descripcion,precio,duracion,seña_tipo,seña_valor,politica_sena').eq('negocio_id', negocio.id).order('nombre'),
     admin.from('staff').select('id,nombre,avatar_url').eq('negocio_id', negocio.id).eq('activo', true).order('nombre'),
   ])
 

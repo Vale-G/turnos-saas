@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
 
     const { data: turno, error: turnoError } = await supabase
       .from('turno')
-      .select('id, negocio_id, servicio_id, cliente_id')
+      .select('id, negocio_id, servicio_id, cliente_id,precio_acordado,sena_pagada,monto_sena,saldo_mp,pago_estado')
       .eq('id', turnoId)
       .single()
 
@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Servicio no corresponde al negocio del turno' }, { status: 400 })
     }
 
-    const precioReal = Number(servicio.precio)
+    const precioReal = Number(turno.precio_acordado ?? servicio.precio) - (turno.sena_pagada ? Number(turno.monto_sena) : 0)
     if (!Number.isFinite(precioReal) || precioReal <= 0) {
       return NextResponse.json({ error: 'Precio de servicio inválido' }, { status: 400 })
     }
@@ -111,7 +111,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'El precio enviado no coincide con el valor real del servicio' }, { status: 400 })
     }
 
-    const origin = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? req.nextUrl.origin).origin
+    if (turno.saldo_mp != null || turno.pago_estado === 'cobrado') return NextResponse.json({ error: 'El saldo ya está registrado' }, { status: 409 })
+  const origin = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? req.nextUrl.origin).origin
 
     const preferencia = await crearPreferenciaMercadoPago({
       titulo: servicio.nombre,

@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 import Image from 'next/image'
 
 type ReservaPublica = {
+  señaPendiente:boolean
   id: string; clienteNombre: string; fecha: string; hora: string; estado: string; servicio: string
   negocioId: string; servicioId: string; staffId: string
 }
@@ -121,8 +122,20 @@ export default function CancelarTurnoPage() {
           <a href={`/reservar/${negocio.slug}`} className="inline-block px-6 py-3 rounded-xl font-bold text-black" style={{ background: color }}>Reservar otro turno</a>
         </> : <>
           <h1 className="text-2xl font-black mb-2">Gestionar reserva</h1>
+          {reserva.señaPendiente && reserva.estado==='pendiente' && <button className="underline" disabled={guardando} onClick={async()=>{
+            setGuardando(true)
+            try {
+              const response=await fetch('/api/sena',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({turno_id:id,manage_token:token})})
+              const result=await response.json()
+              if(!response.ok || !result.url) throw new Error()
+              sessionStorage.setItem('turnly-reserva-'+id,token)
+              window.location.assign(result.url)
+            } catch { toast.error('No se pudo iniciar el pago. Tu turno sigue pendiente de seña.') }
+            finally { setGuardando(false) }
+          }}>Pagar seña pendiente</button>}
           <p className="mb-7" style={{ color: muted }}>Hola, {reserva.clienteNombre}</p>
           <dl className="border p-6 text-left space-y-4 mb-7" style={panelStyle}>
+            <div><dt>Estado</dt><dd>{reserva.estado}</dd></div>
             <div><dt className="text-xs uppercase" style={{ color: muted }}>Servicio</dt><dd className="font-bold">{reserva.servicio}</dd></div>
             <div className="grid grid-cols-2 gap-4"><div><dt className="text-xs uppercase" style={{ color: muted }}>Fecha</dt><dd className="font-bold">{reserva.fecha}</dd></div><div><dt className="text-xs uppercase" style={{ color: muted }}>Hora</dt><dd className="font-bold">{reserva.hora.slice(0, 5)}</dd></div></div>
           </dl>

@@ -16,13 +16,13 @@ function getMonthRange(monthIso: string) {
 }
 
 type NegocioCaja = { id: string; tema: string | null; suscripcion_tipo: string }
-type Ingreso = { estado: string; pago_estado: string | null; servicio: { precio: number } | Array<{ precio: number }> | null }
+type Ingreso = { precio_acordado:number|null; sena_pagada:boolean; monto_sena:number|null; saldo_mp:number|null; estado: string; pago_estado: string | null; servicio: { precio: number } | Array<{ precio: number }> | null }
 type Gasto = { id: string; concepto: string; monto: number | string; fecha: string }
 
 async function fetchCaja(negocioId: string, month: string) {
   const { start, next } = getMonthRange(month)
   const [{ data: turnos }, { data: gastos }] = await Promise.all([
-    supabase.from('turno').select('fecha, estado, pago_estado, servicio(precio)').eq('negocio_id', negocioId).gte('fecha', start).lt('fecha', next),
+    supabase.from('turno').select('fecha, estado, pago_estado,precio_acordado,sena_pagada,monto_sena,saldo_mp, servicio(precio)').eq('negocio_id', negocioId).gte('fecha', start).lt('fecha', next),
     supabase.from('gasto').select('*').eq('negocio_id', negocioId).gte('fecha', start).lt('fecha', next).order('fecha', { ascending: false }),
   ])
   return { ingresos: (turnos ?? []) as Ingreso[], gastos: (gastos ?? []) as Gasto[] }
@@ -44,13 +44,17 @@ export default function CajaElite() {
 
   // REGLA DE REACT: Todos los Hooks van ARRIBA de los 'if'
   const colorP = getThemeColor(negocio?.tema)
-  const totalIngresos = useMemo(
-    () => ingresos.filter((t) => t.estado === 'completado' || t.pago_estado === 'cobrado').reduce((acc, t) => {
-      const servicio = Array.isArray(t.servicio) ? t.servicio[0] : t.servicio
-      return acc + Number(servicio?.precio ?? 0)
-    }, 0),
-    [ingresos],
-  )
+  const caja = useMemo(()=> ingresos.reduce((totals,t)=>{
+    const svc=Array.isArray(t.servicio)?t.servicio[0]:t.servicio
+    const price=Number(t.precio_acordado ?? svc?.precio ?? 0)
+    const deposit=t.sena_pagada?Number(t.monto_sena ?? 0):0
+    const balance=t.saldo_mp ?? (t.pago_estado==='cobrado' || (t.precio_acordado===null && t.pago_estado==='approved' && !t.sena_pagada) ? Math.max(0,price-deposit):0)
+    if(t.estado!=='cancelado' && t.precio_acordado!=null) totals.agreed+=Number(t.precio_acordado)
+    totals.deposits+=deposit
+    totals.balances+=Number(balance)
+    return totals
+  },{agreed:0,deposits:0,balances:0}),[ingresos])
+  const totalIngresos=caja.deposits+caja.balances
   const totalGastos = useMemo(() => gastos.reduce((acc, g) => acc + Number(g.monto), 0), [gastos])
   const gananciaNeta = totalIngresos - totalGastos
 
@@ -153,6 +157,7 @@ export default function CajaElite() {
           </div>
         </header>
 
+        <p className="mb-5">Turnos del mes · Importe pactado registrado en reservas vigentes: ${caja.agreed.toLocaleString('es-AR')} · Señas cobradas: ${caja.deposits.toLocaleString('es-AR')} · Saldos cobrados: ${caja.balances.toLocaleString('es-AR')}</p>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           <div className="bg-white/5 border border-white/10 p-10 rounded-[3rem]">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-2">Ingresos Cobrados</p>

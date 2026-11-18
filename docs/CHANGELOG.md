@@ -1,3 +1,11 @@
+## 2026-11-18 — Endpoint público: lista negra con configuración inválida
+
+- Rama: `codex/fix-public-blacklist-config-20261118`, derivada del head `f1e10e424b786a4c4fa45f2784119addd2e488e6` del PR #18 (apilado sobre #17). Rama estable intacta.
+- `app/api/public/reservas/route.ts`: valida una fila de configuración existente aunque `valor` sea vacío o nulo; rechaza configuraciones inválidas antes de llamar a la RPC de reserva.
+- `lib/reserva-lista-negra.mjs` y `.d.mts`: helper compartido y declaración de tipos. `tests/public-booking-blacklist.test.mjs`: seis regresiones para ausencia, datos corruptos, lista vacía, teléfono bloqueado y teléfono ausente.
+- Validación de CI y QA del nuevo commit: pendiente de resultado; no afirmar aprobación. No se ejecutaron pruebas E2E ni escrituras en Supabase. El Preview anterior puede seguir conectado a producción: prohibido usarlo para pruebas con escrituras.
+- Riesgos pendientes: aislamiento efectivo de Tunero 2, RLS, migraciones QA y flujos E2E. Sin merge, deployment de producción ni cambios de secretos.
+
 ## 2026-11-06 — Lista negra: helper verificable y regresiones
 
 - Base estable: `codex/revisar-informes-de-turnos-cancelados` @ `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf` (sin cambios); trabajo en `codex/ci-automatico-lint-build`, PR #11 borrador.

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cleanText, validDate, validHour, validUuid } from '@/lib/server/public-booking'
 import { createAdminClient, createUserServerClient } from '@/lib/server/supabase'
 import { rateLimitByIp } from '@/lib/rate-limit'
-import { validarListaNegraServidor } from '@/lib/reserva-lista-negra.mjs'
+import { consultarListaNegraServidor } from '@/lib/reserva-lista-negra.mjs'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,15 +35,10 @@ export async function POST(request: NextRequest) {
   const userClient = await createUserServerClient()
   const { data: { user } } = await userClient.auth.getUser()
   const admin = createAdminClient()
-  const { data: blacklistData, error: blacklistError } = await admin
-    .from('config')
-    .select('valor')
-    .eq('clave', `blacklist_${negocioId}`)
-    .maybeSingle()
-  if (blacklistError) {
-    return NextResponse.json({ error: 'No se pudo validar la reserva. Intentá nuevamente.' }, { status: 503 })
-  }
-  const control = validarListaNegraServidor(blacklistData, telefono)
+  const control = await consultarListaNegraServidor(
+    () => admin.from('config').select('valor').eq('clave', `blacklist_${negocioId}`).maybeSingle(),
+    telefono,
+  )
   if (!control.permitido) {
     const bloqueado = control.motivo === 'bloqueado'
     return NextResponse.json(

@@ -4,6 +4,7 @@ import { createAdminClient, createUserServerClient } from '@/lib/server/supabase
 import { hasProAccess } from '@/lib/server/plan-access'
 import { getBusinessAccessToken } from '@/lib/server/mercadopago-oauth'
 import { rateLimitByIp } from '@/lib/rate-limit'
+import { validarListaNegraServidor } from '@/lib/reserva-lista-negra.mjs'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,6 +21,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Solicitud inválida' }, { status: 400 })
   }
 
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return NextResponse.json({ error: 'Solicitud inválida' }, { status: 400 })
+  }
   const negocioId = body.negocioId
   const servicioId = body.servicioId
   const staffId = body.staffId
@@ -44,20 +48,13 @@ export async function POST(request: NextRequest) {
   if (blacklistError) {
     return NextResponse.json({ error: 'No se pudo validar la reserva. Intentá nuevamente.' }, { status: 503 })
   }
-  if (blacklistData?.valor) {
-    let blacklist: unknown
-    try {
-      blacklist = JSON.parse(blacklistData.valor)
-    } catch {
-      return NextResponse.json({ error: 'No se pudo validar la reserva. Contactá al local.' }, { status: 503 })
-    }
-    if (!Array.isArray(blacklist) || !blacklist.every((item: unknown) => typeof item === 'string')) {
-      return NextResponse.json({ error: 'No se pudo validar la reserva. Contactá al local.' }, { status: 503 })
-    }
-    const normalizedPhone = telefono.replace(/[^0-9]/g, '')
-    if (blacklist.some((item: string) => item.replace(/[^0-9]/g, '') === normalizedPhone)) {
-      return NextResponse.json({ error: 'Este servicio no está disponible para tu número. Contactá al local.' }, { status: 403 })
-    }
+  const control = validarListaNegraServidor(blacklistData, telefono)
+  if (!control.permitido) {
+    const bloqueado = control.motivo === 'bloqueado'
+    return NextResponse.json(
+      { error: bloqueado ? 'Este servicio no está disponible para tu número. Contactá al local.' : 'No se pudo validar la reserva. Contactá al local.' },
+      { status: bloqueado ? 403 : 503 },
+    )
   }
   if (body.pagarSena === true) {
     const { data: plan } = await admin.from('negocio').select('suscripcion_tipo,trial_hasta').eq('id',negocioId).maybeSingle()
@@ -81,7 +78,7 @@ export async function POST(request: NextRequest) {
   if (error) {
     const conflict = error.code === '23P01' || /disponible|bloqueado/i.test(error.message)
     return NextResponse.json(
-      { error: conflict ? 'Ese horario acaba de ocuparse. Elegí otro.' : 'No se pudo crear la reserva con esos datos.' },
+      { code: conflict ? 'slot_conflict' : 'invalid_booking', error: conflict ? 'Ese horario acaba de ocuparse. Elegí otro.' : 'No se pudo crear la reserva con esos datos.' },
       { status: conflict ? 409 : 400 },
     )
   }

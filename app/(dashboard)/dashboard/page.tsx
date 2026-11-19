@@ -1,4 +1,5 @@
 'use client'
+import { TodayAgenda } from '@/components/dashboard/TodayAgenda'
 import { OwnerTasks } from '@/components/dashboard/OwnerTasks'
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
@@ -23,6 +24,7 @@ const ICONS: Record<string, string> = {
 
 export default function DashboardPrincipal() {
   const [negocio, setNegocio] = useState<NegocioDashboard | null>(null)
+  const [privateMode, setPrivateMode] = useState<string | null>(null)
   const [rol, setRol] = useState<string>('owner')
   const [esSuperAdmin, setEsSuperAdmin] = useState(false)
   const [staffCount, setStaffCount] = useState(0)
@@ -86,6 +88,7 @@ export default function DashboardPrincipal() {
             }
           }
 
+          try { setPrivateMode(localStorage.getItem('turnly-panel-mode-' + user.id)) } catch {}
           setNegocio(neg)
           
           if (currentRol === 'owner' || currentRol === 'superadmin') {
@@ -117,12 +120,13 @@ export default function DashboardPrincipal() {
   if (loading) return <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black italic text-white text-3xl uppercase tracking-tighter animate-pulse">CARGANDO PANEL...</div>
   if (loadError) return <div className="min-h-screen bg-[#020617] text-white grid place-items-center p-6 text-center"><div><h1 className="text-3xl font-black mb-3">No pudimos abrir el panel</h1><p className="text-slate-400 mb-6">{loadError}</p><button type="button" onClick={() => window.location.reload()} className="rounded-2xl bg-white px-6 py-3 font-black text-slate-950">Reintentar</button></div></div>
 
-  const colorPrincipal = getThemeColor(negocio?.tema)
+  const brand = getThemeColor(negocio?.tema)
   const appearance = getAppearance({
     businessType: negocio?.rubro,
     visualStyle: negocio?.estilo_visual,
-    visualMode: negocio?.modo_visual,
+    visualMode: privateMode ?? negocio?.modo_visual,
   })
+  const colorPrincipal = appearance.visualMode === 'claro' ? '#204c3a' : brand
   const plan = (negocio?.suscripcion_tipo ?? 'normal') as keyof typeof LIMITES
   const limites = LIMITES[plan] ?? LIMITES.normal
   const esPro = plan === 'pro'
@@ -164,6 +168,14 @@ export default function DashboardPrincipal() {
           </div>
           
           <div className="flex flex-wrap gap-3">
+            <button type="button" className="rounded-xl border px-4 py-2" onClick={async () => {
+              const mode = appearance.visualMode === 'claro' ? 'oscuro' : 'claro'
+              setPrivateMode(mode)
+              const { data } = await supabase.auth.getUser()
+              if (data.user) {
+                try { localStorage.setItem('turnly-panel-mode-' + data.user.id, mode) } catch {}
+              }
+            }}>Usar modo {appearance.visualMode === 'claro' ? 'oscuro' : 'claro'}</button>
             {esSuperAdmin && (
               <button onClick={() => router.push('/superadmin')} className="text-[10px] font-black uppercase tracking-widest text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-colors px-6 py-3 rounded-2xl">
                 Administración
@@ -175,6 +187,7 @@ export default function DashboardPrincipal() {
           </div>
         </header>
 
+        {negocio && <TodayAgenda key={negocio.id} business={negocio.id} />}
         {!esStaff && negocio && <OwnerTasks business={negocio.id} />}
         {esTrial && diasTrial <= 7 && !esStaff && !esSuperAdmin && (
           <div className="mb-10 p-8 rounded-[3rem] border border-blue-500/30 bg-blue-500/10 flex flex-col md:flex-row items-center justify-between gap-6 cursor-pointer hover:bg-blue-500/15 transition-all">
@@ -219,7 +232,7 @@ export default function DashboardPrincipal() {
               }}
               className="relative z-10 px-5 sm:px-8 py-5 border font-mono text-xs sm:text-sm transition-all flex flex-wrap items-center justify-between gap-4 shadow-inner max-w-full" style={{ background: appearance.surface, borderColor: appearance.border, borderRadius: appearance.radius }}>
               <span className="break-all" style={{ color: colorPrincipal }}>{'/reservar/' + negocio?.slug}</span>
-              <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl transition-all ${copiado ? "bg-emerald-500/20 text-emerald-400" : "bg-white/10 text-white"}`}>
+              <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-xl transition-all ${copiado ? "bg-emerald-500/20 text-emerald-400" : "border"}`}>
                 {copiado ? "¡COPIADO!" : "COPIAR"}
               </span>
             </button>

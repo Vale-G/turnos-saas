@@ -54,6 +54,7 @@ export default function AgendaTurnos() {
   const [fechaFiltro, setFechaFiltro] = useState(normalizeDateISO(getTodayISO()))
   const [vista, setVista] = useState<Vista>('dia')
   const [loading, setLoading] = useState(true)
+  const [agendaError, setAgendaError] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const [busqueda, setBusqueda] = useState('')
   const [turnoEditando, setTurnoEditando] = useState<string | null>(null)
@@ -147,8 +148,9 @@ export default function AgendaTurnos() {
         query = query.gte('fecha', lunes).lte('fecha', addDaysISO(lunes, 6))
       }
 
-      const { data } = await query
+      const { data, error } = await query
       if (mounted) {
+        setAgendaError(Boolean(error))
         setTurnos((data as TurnoItem[]) ?? [])
         setLoading(false)
       }
@@ -346,6 +348,12 @@ export default function AgendaTurnos() {
       )}
     </div>
   )
+
+  if (agendaError && !loading) {
+    return <main className="p-6"><h1>Agenda</h1><p role="alert">No pudimos cargar los turnos.</p>
+      <button className="my-4 underline" onClick={() => { setLoading(true); setReloadKey(k => k + 1) }}>Reintentar</button>
+    </main>
+  }
 
   return (
     <div className="min-h-screen bg-[#020617] text-white p-6">

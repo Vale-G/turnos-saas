@@ -38,7 +38,7 @@ async function database(seedLegacy) {
   try {
     await db.exec(await readFile(new URL('../supabase/migrations/20261114040000_selective_mvp.sql', import.meta.url), 'utf8'))
     await db.exec(await readFile(new URL('../supabase/migrations/20261114040100_reminder_delivery.sql', import.meta.url), 'utf8'))
-    for (const file of ["20261118000100_owner_operations.sql", "20261118000200_owner_insights.sql"]) await db.exec(await readFile(new URL("../supabase/migrations/" + file, import.meta.url), "utf8"))
+    for (const file of ["20261118000100_owner_operations.sql", "20261118000200_owner_insights.sql", "20261119000100_atomic_onboarding.sql"]) await db.exec(await readFile(new URL("../supabase/migrations/" + file, import.meta.url), "utf8"))
   } catch (error) { await db.close(); throw error }
   return db
 }
@@ -522,4 +522,25 @@ test('cohortes con ventanas maduras, bloqueos solapados y precios históricos de
   const after=(await db.query(query,[ids.negocio])).rows[0].result
   const hours=r=>r.heat.reduce((s,h)=>s+h.offered,0)
   assert.equal(hours(before)-hours(after),60)
+})
+
+test('alta atómica conserva roles existentes y revierte el negocio si la asignación falla', async t => {
+  const db = await database()
+  t.after(() => db.close())
+  const { negocio } = await seed(db)
+  const user = '10000000-0000-4000-8000-000000000003'
+  await db.query('insert into auth.users(id) values ($1)', [user])
+  await db.query("insert into public.adminrol(user_id,role,negocio_id) values ($1,'staff',$2)", [user,negocio])
+  const open = () => db.query("select public.turnly_open_business($1,'Local','local-test','','emerald','general','sereno','claro','09:00','18:00',now())", [user])
+  await db.exec('set role service_role')
+  await assert.rejects(open, /rol asignado/)
+  assert.equal((await db.query("select count(*)::int as n from public.negocio where owner_id=$1", [user])).rows[0].n, 0)
+  await db.exec('reset role')
+  await db.query("update public.adminrol set role='superadmin',negocio_id=null where user_id=$1", [user])
+  await db.exec('set role service_role')
+  await open()
+  await assert.rejects(open, /ya tiene un negocio/)
+  assert.equal((await db.query('select role from public.adminrol where user_id=$1', [user])).rows[0].role, 'superadmin')
+  await db.exec('set role authenticated')
+  await assert.rejects(open, /permission denied/)
 })

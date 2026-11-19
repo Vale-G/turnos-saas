@@ -92,3 +92,8 @@ test('rechaza segundos no nulos en bloqueos y turnos para evitar solapamientos i
     bloqueos: [{ hora_inicio: '09:30:00', hora_fin: '10:00:00' }],
   }), ['10:00', '11:00'])
 })
+
+test('cierre legado con segundos conserva franjas completas dentro de la jornada', () => {
+  const horarios = generarHorariosDisponibles({ apertura: '22:00', cierre: '23:59:59', duracion: 60 })
+  assert.deepEqual(horarios, ['22:00'])
+})

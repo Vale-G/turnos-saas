@@ -67,3 +67,30 @@ input[type="time"]::-webkit-calendar-picker-indicator:hover {
 input[type="date"], input[type="time"] {
   color-scheme: dark;
 }
+.booking {
+  --booking-bg: #101b2b;
+  --booking-card: #19283b;
+  --booking-ink: #eef6f2;
+  --booking-muted: #b5c5cf;
+  --booking-line: #617383;
+  background: var(--booking-bg);
+  color: var(--booking-ink);
+}
+.booking[data-mode="claro"] {
+  --booking-bg: #faf7ef;
+  --booking-card: #fffdf8;
+  --booking-ink: #163e31;
+  --booking-muted: #455c52;
+  --booking-line: #78857a;
+}
+.booking header { border-top: 4px solid var(--brand); }
+.booking[data-mode="claro"] h1 { font-family: Georgia, serif; }
+.booking :is(.text-slate-400, .text-slate-500, .text-slate-600) { color: var(--booking-muted); }
+.booking input, .booking button:not([style*="background-color"]) { border-color: var(--booking-line); }
+.booking input { background: var(--booking-card); color: var(--booking-ink); }
+.booking :focus-visible { outline: 3px solid currentColor; outline-offset: 2px; }
+.booking button { overflow-wrap: anywhere; }
+.booking [aria-pressed="true"] { outline: 2px solid var(--booking-ink); outline-offset: -2px; }
+@media (prefers-reduced-motion: reduce) {
+  .booking *, .booking *::before, .booking *::after { transition: none !important; animation: none !important; }
+}

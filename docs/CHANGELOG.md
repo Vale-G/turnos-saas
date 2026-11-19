@@ -1,3 +1,11 @@
+## 2026-11-19 — Consulta de lista negra: excepciones de Supabase
+
+- Rama: `codex/fix-blacklist-query-exception-20261119`, derivada del PR #19 @ `2e7b0ca568391b250d69c831fc1b336b3792421d`; éste deriva del PR #18, apilado sobre #17. Rama estable `codex/revisar-informes-de-turnos-cancelados` @ `07bd2ee75b16e91a3d31f63b60cf7d8796d614cf` intacta.
+- `app/api/public/reservas/route.ts` usa `consultarListaNegraServidor` antes de llamar a la RPC. La consulta que devuelve error o lanza una excepción produce rechazo conservador (503); no se registra información sensible.
+- `lib/reserva-lista-negra.mjs` y `.d.mts`: helper asíncrono tipado; `tests/public-booking-blacklist.test.mjs`: tres pruebas adicionales para excepción, error explícito y teléfono bloqueado.
+- Evidencia previa: CI PR #19 run [44297572674](https://github.com/Vale-G/turnos-saas/actions/runs/44297572674) aprobó lint, unitarias, PostgreSQL 17 y build. La CI de esta nueva rama aún requiere verificación; no se ejecutaron pruebas E2E ni RLS reales.
+- Bloqueo: no usar Preview para escrituras hasta verificar aislamiento de Tunero 2. Sin migraciones, cambios RLS, merge ni despliegue a producción.
+
 ## 2026-11-18 — Endpoint público: lista negra con configuración inválida
 
 - Rama: `codex/fix-public-blacklist-config-20261118`, derivada del head `f1e10e424b786a4c4fa45f2784119addd2e488e6` del PR #18 (apilado sobre #17). Rama estable intacta.

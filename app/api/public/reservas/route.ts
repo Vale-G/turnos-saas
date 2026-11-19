@@ -21,6 +21,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Solicitud inválida' }, { status: 400 })
   }
 
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return NextResponse.json({ error: 'Solicitud inválida' }, { status: 400 })
+  }
   const negocioId = body.negocioId
   const servicioId = body.servicioId
   const staffId = body.staffId
@@ -75,7 +78,7 @@ export async function POST(request: NextRequest) {
   if (error) {
     const conflict = error.code === '23P01' || /disponible|bloqueado/i.test(error.message)
     return NextResponse.json(
-      { error: conflict ? 'Ese horario acaba de ocuparse. Elegí otro.' : 'No se pudo crear la reserva con esos datos.' },
+      { code: conflict ? 'slot_conflict' : 'invalid_booking', error: conflict ? 'Ese horario acaba de ocuparse. Elegí otro.' : 'No se pudo crear la reserva con esos datos.' },
       { status: conflict ? 409 : 400 },
     )
   }

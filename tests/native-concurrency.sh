@@ -39,11 +39,11 @@ insert into public.staff(id, negocio_id, nombre)
 values ('40000000-0000-4000-8000-000000000001', '20000000-0000-4000-8000-000000000001', 'Profesional QA');
 SQL
 
-query="select pg_backend_pid(), * from public.turnly_create_public_booking(
+query="select turno_id from public.turnly_book_with_policy(
   '20000000-0000-4000-8000-000000000001',
   '30000000-0000-4000-8000-000000000001',
   '40000000-0000-4000-8000-000000000001',
-  '$qa_date', '10:00', null, 'Cliente QA', '+5491112345678', 'qa@example.com');"
+  '$qa_date', '10:00', null, 'Cliente QA', '+5491112345678', 'qa@example.com',false);"
 
 set +e
 psql "$TURNLY_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -Atc "$query" > /tmp/turnly-booking-a.log 2>&1 &

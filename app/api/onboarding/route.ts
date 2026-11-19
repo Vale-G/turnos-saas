@@ -11,6 +11,7 @@ export async function POST(request: NextRequest) {
 
   let body: Record<string, unknown>
   try { body = await request.json() } catch { return NextResponse.json({ error: 'Solicitud inválida' }, { status: 400 }) }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return NextResponse.json({ error: 'Solicitud inválida' }, { status: 400 })
   const nombre = cleanText(body.nombre, 100)
   const slug = cleanText(body.slug, 80).toLowerCase()
   const whatsapp = cleanText(body.whatsapp, 30)
@@ -28,38 +29,20 @@ export async function POST(request: NextRequest) {
   }
 
   const admin = createAdminClient()
-  const [{ data: existingOwner }, { data: existingSlug }, { data: trialConfig }] = await Promise.all([
-    admin.from('negocio').select('id').eq('owner_id', user.id).maybeSingle(),
-    admin.from('negocio').select('id').eq('slug', slug).maybeSingle(),
-    admin.from('config').select('valor').eq('clave', 'dias_trial').maybeSingle(),
-  ])
-  if (existingOwner) return NextResponse.json({ error: 'La cuenta ya tiene un negocio' }, { status: 409 })
-  if (existingSlug) return NextResponse.json({ error: 'Ese enlace ya está en uso' }, { status: 409 })
+  const { data: trialConfig, error: configError } = await admin.from('config').select('valor').eq('clave', 'dias_trial').maybeSingle()
+  if (configError) return NextResponse.json({ error: 'No pudimos verificar el período de prueba' }, { status: 503 })
   const configuredDays = Number(trialConfig?.valor)
   const trialDays = Number.isInteger(configuredDays) && configuredDays >= 1 && configuredDays <= 60 ? configuredDays : 14
   const trialUntil = new Date(Date.now() + trialDays * 86400000).toISOString()
 
-  const { data: negocio, error } = await admin.from('negocio').insert({
-    owner_id: user.id,
-    nombre,
-    slug,
-    whatsapp,
-    tema,
-    rubro,
-    estilo_visual: estiloVisual,
-    modo_visual: modoVisual,
-    hora_apertura: `${apertura}:00`,
-    hora_cierre: `${cierre}:00`,
-    suscripcion_tipo: 'trial',
-    trial_hasta: trialUntil,
-    onboarding_completo: true,
-  }).select('id').single()
-  if (error || !negocio) return NextResponse.json({ error: 'No se pudo crear el negocio' }, { status: 500 })
-
-  const { error: roleError } = await admin.from('adminrol').upsert({ user_id: user.id, role: 'owner', negocio_id: negocio.id })
-  if (roleError) {
-    await admin.from('negocio').delete().eq('id', negocio.id)
-    return NextResponse.json({ error: 'No se pudo asignar el propietario' }, { status: 500 })
+  const { data: id, error } = await admin.rpc('turnly_open_business', {
+    p_owner: user.id, p_nombre: nombre, p_slug: slug, p_whatsapp: whatsapp, p_tema: tema,
+    p_rubro: rubro, p_estilo: estiloVisual, p_modo: modoVisual, p_apertura: apertura,
+    p_cierre: cierre, p_trial_hasta: trialUntil,
+  })
+  if (error?.code === '23505') {
+    return NextResponse.json({ error: 'La cuenta ya está asignada a un negocio o el enlace está en uso' }, { status: 409 })
   }
-  return NextResponse.json({ id: negocio.id }, { status: 201 })
+  if (error || !id) return NextResponse.json({ error: 'No se pudo crear el negocio' }, { status: 500 })
+  return NextResponse.json({ id }, { status: 201 })
 }

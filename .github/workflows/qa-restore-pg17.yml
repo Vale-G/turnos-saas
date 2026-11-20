@@ -1,0 +1,112 @@
+name: Turnly QA - PostgreSQL 17 restore (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type RESTORE-ISOLATED to run isolated recovery'
+        required: true
+        type: string
+
+permissions: {}
+concurrency:
+  group: turnly-qa-pg17-restore
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm == 'RESTORE-ISOLATED' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Prepare trusted Docker image before accessing backup
+        env:
+          IMAGE: ${{ vars.TURNLY_QA_PG17_IMAGE_DIGEST }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${IMAGE:?Missing image digest variable}"
+          [[ "$IMAGE" =~ ^supabase/postgres@sha256:[a-f0-9]{64}$ ]] || exit 1
+          docker info >/dev/null
+          docker pull "$IMAGE" >/dev/null
+          docker image inspect "$IMAGE" >/dev/null
+      - name: Download encrypted kit
+        env:
+          PACKAGE_URL: ${{ secrets.TURNLY_QA_ENCRYPTED_PACKAGE_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          : "${PACKAGE_URL:?Missing encrypted kit URL}"
+          [[ "$PACKAGE_URL" == https://* ]] || exit 1
+          mkdir -m 700 -p "$RUNNER_TEMP/turnly-qa-restore"
+          curl -fsSL --proto '=https' --proto-redir '=https' --max-time 120 \
+            -o "$RUNNER_TEMP/turnly-qa-restore/kit.zip.gpg" "$PACKAGE_URL" \
+            2>"$RUNNER_TEMP/turnly-qa-restore/download-errors.txt" || {
+              echo 'Encrypted kit download failed (details withheld)'; exit 1;
+            }
+      - name: Verify and restore, withholding private report
+        env:
+          PASSPHRASE: ${{ secrets.TURNLY_QA_PACKAGE_PASSPHRASE }}
+          IMAGE: ${{ vars.TURNLY_QA_PG17_IMAGE_DIGEST }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          : "${PASSPHRASE:?Missing decryption passphrase}"
+          cd "$RUNNER_TEMP/turnly-qa-restore"
+          printf '%s' "$PASSPHRASE" | gpg --batch --quiet --yes --pinentry-mode loopback \
+            --passphrase-fd 0 --decrypt --output kit.zip kit.zip.gpg \
+            2>gpg-errors.txt || { echo 'Decrypt failed (details withheld)'; exit 1; }
+          unset PASSPHRASE
+          echo '96808016502a4ee502fbd3bea6c07b6130c74fbb2dbba016d8739cc272a7a42c  kit.zip' \
+            | sha256sum -c --status || { echo 'Kit checksum mismatch'; exit 1; }
+          mkdir -m 700 work
+          python3 - <<'PY'
+          import os, pathlib, stat, zipfile
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'turnly-qa-restore'
+          expected={'LEEME.md','SHA256SUMS','Turnly_QA_20261119_161937.zip',
+                    'ensayar.py','probar_controles.py','roles_y_membresias.sql','verificacion_archivo.json'}
+          with zipfile.ZipFile(root/'kit.zip') as z:
+              if {i.filename for i in z.infolist()}!=expected or z.testzip() is not None:
+                  raise SystemExit('Unexpected or corrupt kit')
+              for i in z.infolist():
+                  p=pathlib.PurePosixPath(i.filename)
+                  if p.is_absolute() or '..' in p.parts or '\\' in i.filename or stat.S_ISLNK(i.external_attr>>16):
+                      raise SystemExit('Unsafe ZIP entry')
+              z.extractall(root/'work')
+          PY
+          cd work
+          sha256sum --check --status SHA256SUMS
+          python3 probar_controles.py >../tests.log 2>&1 || {
+            echo 'Preflight failed; private output withheld'; exit 1;
+          }
+          python3 ensayar.py --solo-archivo >../archivo.json 2>../archivo.err || {
+            echo 'Archive verification failed; details withheld'; exit 1;
+          }
+          python3 - <<'PY'
+          import json
+          r=json.load(open('../archivo.json'))
+          assert (r.get('resultado'),r.get('alcance'),r.get('restauracion'))==('PASS','archivo','pendiente')
+          PY
+          python3 ensayar.py --imagen "$IMAGE" >../resultado_restauracion.json 2>../restore.err || {
+            echo 'PG17 restoration failed; private report withheld'; exit 1;
+          }
+          python3 - <<'PY'
+          import json
+          r=json.load(open('../resultado_restauracion.json'))
+          assert (r.get('resultado'),r.get('alcance'),r.get('restauracion'))==('PASS','restauracion_pg17','verificada')
+          assert r.get('componentes_restaurados')==84 and r.get('relaciones')==64 and r.get('filas')==303
+          assert r.get('public.turno')==2 and r.get('supabase_migrations.schema_migrations')==11
+          assert not r.get('diferencias') and not r.get('indices_invalidos')
+          fk=r.get('claves_foraneas') or {}
+          assert fk.get('total')==52 and not fk.get('huerfanas')
+          print('PASS: isolated PG17 restore; 84 components, 64 relations, 303 rows, 52 FKs.')
+          PY
+      - name: Delete temporary data
+        if: always()
+        shell: bash
+        run: |
+          set +x
+          rm -rf -- "$RUNNER_TEMP/turnly-qa-restore"
+          echo 'Temporary files cleanup attempted; no artifacts uploaded.'

@@ -117,10 +117,18 @@ jobs:
           curl --fail --silent --retry 10 --retry-connrefused http://127.0.0.1:3100/login > /dev/null
           node tests/local-booking-http.mjs
           if browser=$(command -v google-chrome || command -v chromium); then
-            TURNLY_BROWSER="$browser" node tests/browser-launch-smoke.mjs
+            TURNLY_EVIDENCE_DIR="$RUNNER_TEMP/turnly-ui-evidence" TURNLY_BROWSER="$browser" node tests/browser-launch-smoke.mjs
           else
             echo "::notice::Prueba de navegador pendiente: el runner no ofrece Chromium"
           fi
+
+      - name: Guardar capturas sintéticas de la portada
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: turnly-ui-evidence
+          path: ${{ runner.temp }}/turnly-ui-evidence
+          retention-days: 7
+          if-no-files-found: ignore
 
   baseline-lint:
     name: ESLint en base (informativo)

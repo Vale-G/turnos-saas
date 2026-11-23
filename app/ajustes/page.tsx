@@ -185,7 +185,7 @@ export default function AjustesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black animate-pulse text-white uppercase tracking-widest text-2xl">
+      <div className="min-h-screen bg-product-bg flex items-center justify-center font-black animate-pulse text-product-ink uppercase tracking-widest text-2xl">
         CARGANDO...
       </div>
     )
@@ -206,42 +206,42 @@ export default function AjustesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white p-6 md:p-12">
+    <div className="min-h-screen bg-product-bg text-product-ink p-6 md:p-12">
       <div className="max-w-4xl mx-auto">
         <header className="mb-12">
           <button
             onClick={() => router.push('/dashboard')}
-            className="text-slate-600 text-[10px] font-black uppercase tracking-[0.4em] mb-4 hover:text-white transition-colors"
+            className="text-product-muted text-[10px] font-black uppercase tracking-[0.4em] mb-4 hover:text-product-ink transition-colors"
           >
             ← Volver al Dashboard
           </button>
-          <h1 className="text-6xl font-black uppercase italic tracking-tighter leading-none">
-            Ajustes del <span style={{ color: colorP }}>Local</span>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-5xl">
+            Ajustes del <span className="text-product-accent">Local</span>
           </h1>
         </header>
 
         <form onSubmit={guardarAjustes} className="space-y-8">
-          <section className="rounded-3xl border border-white/10 p-6 space-y-4">
+          <section className="rounded-3xl border border-product-line p-6 space-y-4">
             <h2 className="text-xl font-bold">Bienvenida y recordatorios</h2>
-            <label className="block">URL HTTPS del banner<input type="url" pattern="https://.*" maxLength={2048} value={bannerUrl} onChange={e=>setBannerUrl(e.target.value)} className="block w-full rounded-xl bg-slate-900 p-3" /></label>
-            <label className="block">Mensaje de bienvenida<textarea maxLength={500} value={welcome} onChange={e=>setWelcome(e.target.value)} className="block w-full rounded-xl bg-slate-900 p-3" /></label>
+            <label className="block">URL HTTPS del banner<input type="url" pattern="https://.*" maxLength={2048} value={bannerUrl} onChange={e=>setBannerUrl(e.target.value)} className="block w-full rounded-xl bg-product-surface p-3" /></label>
+            <label className="block">Mensaje de bienvenida<textarea maxLength={500} value={welcome} onChange={e=>setWelcome(e.target.value)} className="block w-full rounded-xl bg-product-surface p-3" /></label>
             <fieldset className="grid gap-4"><legend>Política de reservas</legend>
-              <label>Seña por defecto <select className="bg-slate-900" value={policy} onChange={e=>setPolicy(e.target.value)}><option value="ninguna">Sin seña</option><option value="opcional">Opcional</option><option value="obligatoria">Obligatoria</option></select></label>
+              <label>Seña por defecto <select className="bg-product-surface" value={policy} onChange={e=>setPolicy(e.target.value)}><option value="ninguna">Sin seña</option><option value="opcional">Opcional</option><option value="obligatoria">Obligatoria</option></select></label>
               <label>Anticipación para cancelar (horas) <input type="number" min="0" max="720" value={cancelHours} onChange={e=>setCancelHours(Number(e.target.value))}/></label>
               <label>Anticipación para reprogramar (horas) <input type="number" min="0" max="720" value={moveHours} onChange={e=>setMoveHours(Number(e.target.value))}/></label>
               <p>Con 0 horas no se agrega un plazo al enlace del cliente.</p>
             </fieldset>
             <label className="flex items-start gap-3"><input type="checkbox" checked={reminders} onChange={e=>setReminders(e.target.checked)} />Recordar por email los turnos de mañana a las 09:00 de la zona horaria del negocio. Requiere que el servicio de recordatorios esté habilitado.</label>
           </section>
-          <div className="bg-white/5 border border-white/10 p-8 rounded-[3rem]">
+          <div className="bg-product-subtle border border-product-line p-8 rounded-[3rem]">
             <h2 className="text-xl font-black uppercase italic mb-6">1. Identidad de Marca</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2 flex items-center gap-6 bg-black/50 border border-white/10 p-6 rounded-3xl">
-                <div className="w-24 h-24 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center overflow-hidden shrink-0">
+              <div className="md:col-span-2 flex items-center gap-6 bg-product-subtle border border-product-line p-6 rounded-3xl">
+                <div className="w-24 h-24 rounded-2xl bg-product-subtle border border-product-line flex items-center justify-center overflow-hidden shrink-0">
                   {logoUrl ? <Image src={logoUrl} alt="Logo del negocio" width={96} height={96} unoptimized className="w-full h-full object-cover" /> : <span className="text-3xl">🖼️</span>}
                 </div>
                 <div className="flex-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Logo del Local</label>
+                  <label className="text-[10px] font-black uppercase text-product-muted mb-2 block">Logo del Local</label>
                   <input
                     type="file"
                     accept="image/*"
@@ -252,7 +252,7 @@ export default function AjustesPage() {
                   />
                   <label
                     htmlFor="logo-upload"
-                    className="bg-white/10 hover:bg-white/20 text-white text-xs font-black uppercase px-6 py-3 rounded-xl cursor-pointer transition-all inline-block border border-white/10"
+                    className="bg-product-subtle hover:bg-product-subtle text-product-ink text-xs font-black uppercase px-6 py-3 rounded-xl cursor-pointer transition-all inline-block border border-product-line"
                   >
                     {subiendoLogo ? 'SUBIENDO...' : 'SELECCIONAR FOTO'}
                   </label>
@@ -260,28 +260,28 @@ export default function AjustesPage() {
               </div>
 
               <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Nombre del Local</label>
+                <label className="text-[10px] font-black uppercase text-product-muted mb-2 block">Nombre del Local</label>
                 <input
                   type="text"
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
                   required
-                  className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black uppercase outline-none focus:border-white/30"
+                  className="w-full bg-product-subtle border border-product-line p-5 rounded-2xl text-xs font-black uppercase outline-none focus:border-product-accent"
                 />
               </div>
               <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Link de Reservas (/reservar/...)</label>
+                <label className="text-[10px] font-black uppercase text-product-muted mb-2 block">Link de Reservas (/reservar/...)</label>
                 <input
                   type="text"
                   value={slug}
                   onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
                   required
-                  className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black outline-none focus:border-white/30"
+                  className="w-full bg-product-subtle border border-product-line p-5 rounded-2xl text-xs font-black outline-none focus:border-product-accent"
                 />
               </div>
 
               <div className="md:col-span-2">
-                <label className="text-[10px] font-black uppercase text-slate-400 mb-4 block">Color Principal</label>
+                <label className="text-[10px] font-black uppercase text-product-muted mb-4 block">Color Principal</label>
                 <div className="flex flex-wrap gap-4">
                   {TEMAS_DISPONIBLES.map((t) => (
                     <button
@@ -300,26 +300,26 @@ export default function AjustesPage() {
             </div>
           </div>
 
-          <div className="bg-white/5 border border-white/10 p-8 rounded-[3rem]">
+          <div className="bg-product-subtle border border-product-line p-8 rounded-[3rem]">
             <h2 className="text-xl font-black uppercase italic mb-2">2. Experiencia de reservas</h2>
-            <p className="text-sm text-slate-400 mb-8">Adaptá la página pública al rubro y la personalidad de tu marca.</p>
+            <p className="text-sm text-product-muted mb-8">Adaptá la página pública al rubro y la personalidad de tu marca.</p>
             <div className="space-y-7">
               <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 mb-3 block">Rubro</label>
+                <label className="text-[10px] font-black uppercase text-product-muted mb-3 block">Rubro</label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {BUSINESS_TYPES.map((item) => (
                     <button type="button" key={item.id} onClick={() => setRubro(item.id)}
                       className="rounded-2xl border p-4 text-left transition-all"
                       style={{ borderColor: rubro === item.id ? colorP : 'rgba(255,255,255,.1)', background: rubro === item.id ? colorP + '15' : 'rgba(0,0,0,.25)' }}>
                       <span className="block text-sm font-black">{item.name}</span>
-                      <span className="mt-1 block text-xs text-slate-500">{item.description}</span>
+                      <span className="mt-1 block text-xs text-product-muted">{item.description}</span>
                     </button>
                   ))}
                 </div>
               </div>
               <div className="grid gap-6 md:grid-cols-2">
                 <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 mb-3 block">Estilo</label>
+                  <label className="text-[10px] font-black uppercase text-product-muted mb-3 block">Estilo</label>
                   <div className="grid grid-cols-2 gap-2">
                     {VISUAL_STYLES.map((item) => <button type="button" key={item.id} onClick={() => setEstiloVisual(item.id)}
                       className="border px-4 py-3 text-xs font-black transition-all"
@@ -327,7 +327,7 @@ export default function AjustesPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 mb-3 block">Apariencia</label>
+                  <label className="text-[10px] font-black uppercase text-product-muted mb-3 block">Apariencia</label>
                   <div className="grid grid-cols-2 gap-2">
                     {VISUAL_MODES.map((item) => <button type="button" key={item.id} onClick={() => setModoVisual(item.id)}
                       className="rounded-2xl border px-4 py-3 text-xs font-black transition-all"
@@ -337,7 +337,7 @@ export default function AjustesPage() {
               </div>
               <div className="overflow-hidden border p-5 transition-all" style={{ background: preview.background, color: preview.foreground, borderColor: preview.border, borderRadius: preview.radius }}>
                 <div className="flex items-center gap-3">
-                  <div className="grid h-12 w-12 place-items-center font-black text-black" style={{ background: colorP, borderRadius: preview.radius }}>{nombre?.[0] || 'T'}</div>
+                  <div className="grid h-12 w-12 place-items-center font-black text-product-button-ink" style={{ background: colorP, borderRadius: preview.radius }}>{nombre?.[0] || 'T'}</div>
                   <div><p className="font-black" style={{ letterSpacing: preview.tracking }}>{nombre || 'Tu negocio'}</p><p className="text-xs" style={{ color: preview.muted }}>Vista previa de la reserva</p></div>
                 </div>
                 <div className="mt-5 grid grid-cols-2 gap-3">
@@ -347,11 +347,11 @@ export default function AjustesPage() {
             </div>
           </div>
 
-          <div className="bg-white/5 border border-white/10 p-8 rounded-[3rem]">
+          <div className="bg-product-subtle border border-product-line p-8 rounded-[3rem]">
             <h2 className="text-xl font-black uppercase italic mb-6">3. Horarios y Días Laborales</h2>
 
             <div className="mb-8">
-              <label className="text-[10px] font-black uppercase text-slate-400 mb-4 block">¿Qué días abrís?</label>
+              <label className="text-[10px] font-black uppercase text-product-muted mb-4 block">¿Qué días abrís?</label>
               <div className="flex flex-wrap gap-3">
                 {DIAS_SEMANA.map((d) => (
                   <button
@@ -360,8 +360,8 @@ export default function AjustesPage() {
                     onClick={() => toggleDia(d.id)}
                     className={`w-14 h-14 rounded-2xl font-black text-lg transition-all ${
                       diasLaborales.includes(d.id)
-                        ? 'bg-white text-black shadow-lg scale-105'
-                        : 'bg-black/50 border border-white/10 text-slate-500 hover:bg-white/5'
+                        ? 'bg-white text-product-button-ink shadow-lg scale-105'
+                        : 'bg-product-subtle border border-product-line text-product-muted hover:bg-product-subtle'
                     }`}
                   >
                     {d.letra}
@@ -372,58 +372,58 @@ export default function AjustesPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Apertura</label>
+                <label className="text-[10px] font-black uppercase text-product-muted mb-2 block">Apertura</label>
                 <input
                   type="time"
                   value={apertura}
                   onChange={(e) => setApertura(e.target.value)}
-                  className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black outline-none focus:border-white/30 [&::-webkit-calendar-picker-indicator]:invert"
+                  className="w-full bg-product-subtle border border-product-line p-5 rounded-2xl text-xs font-black outline-none focus:border-product-accent [&::-webkit-calendar-picker-indicator]:invert"
                 />
               </div>
               <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Cierre</label>
+                <label className="text-[10px] font-black uppercase text-product-muted mb-2 block">Cierre</label>
                 <input
                   type="time"
                   value={cierre}
                   onChange={(e) => setCierre(e.target.value)}
-                  className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black outline-none focus:border-white/30 [&::-webkit-calendar-picker-indicator]:invert"
+                  className="w-full bg-product-subtle border border-product-line p-5 rounded-2xl text-xs font-black outline-none focus:border-product-accent [&::-webkit-calendar-picker-indicator]:invert"
                 />
               </div>
             </div>
           </div>
 
-          <div className="bg-white/5 border border-white/10 p-8 rounded-[3rem]">
+          <div className="bg-product-subtle border border-product-line p-8 rounded-[3rem]">
             <h2 className="text-xl font-black uppercase italic mb-6">4. Contacto y Pagos</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
               <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">WhatsApp de Contacto</label>
+                <label className="text-[10px] font-black uppercase text-product-muted mb-2 block">WhatsApp de Contacto</label>
                 <input
                   type="tel"
                   value={whatsapp}
                   onChange={(e) => setWhatsapp(e.target.value)}
-                  className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black uppercase outline-none focus:border-white/30"
+                  className="w-full bg-product-subtle border border-product-line p-5 rounded-2xl text-xs font-black uppercase outline-none focus:border-product-accent"
                 />
               </div>
               <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 mb-2 block">Email para Avisos</label>
+                <label className="text-[10px] font-black uppercase text-product-muted mb-2 block">Email para Avisos</label>
                 <input
                   type="email"
                   value={emailContacto}
                   onChange={(e) => setEmailContacto(e.target.value)}
-                  className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black uppercase outline-none focus:border-white/30"
+                  className="w-full bg-product-subtle border border-product-line p-5 rounded-2xl text-xs font-black uppercase outline-none focus:border-product-accent"
                 />
               </div>
             </div>
             <div className="relative overflow-hidden bg-blue-500/10 border border-blue-500/20 p-6 rounded-3xl mt-4">
               <h3 className="text-sm font-black uppercase italic mb-2 text-blue-400">Mercado Pago</h3>
-              <p className="text-sm text-slate-300 mb-5">
+              <p className="text-sm text-product-muted mb-5">
                 Vinculá tu cuenta para recibir directamente las señas y cobros de tus clientes. Turnly no recibe ni almacena datos de tarjetas.
               </p>
               {mpConnected ? (
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                   <div className="flex-1 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 p-4">
-                    <p className="text-xs font-black uppercase text-emerald-400">✓ Cuenta conectada</p>
-                    <p className="mt-1 text-xs text-slate-400">
+                    <p className="text-xs font-black uppercase text-product-accent">✓ Cuenta conectada</p>
+                    <p className="mt-1 text-xs text-product-muted">
                       {mpAccountId ? `Cuenta ${mpAccountId}` : 'Credencial existente'}
                       {!mpOauth && ' · reconectala para activar renovación automática'}
                     </p>
@@ -437,7 +437,7 @@ export default function AjustesPage() {
                 <div className="flex flex-col gap-4 rounded-2xl border border-indigo-500/20 bg-indigo-500/10 p-5 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-xs font-black uppercase text-indigo-300">Disponible con Turnly Pro</p>
-                    <p className="mt-1 text-xs text-slate-400">Activá Pro para conectar la cuenta del negocio y cobrar señas.</p>
+                    <p className="mt-1 text-xs text-product-muted">Activá Pro para conectar la cuenta del negocio y cobrar señas.</p>
                   </div>
                   <button type="button" onClick={() => router.push('/upgrade?feature=mercadopago')}
                     className="rounded-2xl bg-white px-5 py-3 text-xs font-black uppercase text-slate-950">
@@ -446,7 +446,7 @@ export default function AjustesPage() {
                 </div>
               ) : mpAvailable ? (
                 <a href="/api/ajustes/mercadopago/connect"
-                  className="inline-flex rounded-2xl bg-[#009ee3] px-6 py-4 text-sm font-black uppercase text-white hover:bg-[#008ed0]">
+                  className="inline-flex rounded-2xl bg-[#009ee3] px-6 py-4 text-sm font-black uppercase text-product-ink hover:bg-[#008ed0]">
                   Conectar Mercado Pago
                 </a>
               ) : (
@@ -460,8 +460,8 @@ export default function AjustesPage() {
           <button
             type="submit"
             disabled={guardando}
-            className="w-full py-6 rounded-[2.5rem] font-black uppercase italic text-xl text-black shadow-2xl active:scale-95 transition-all"
-            style={{ backgroundColor: colorP }}
+            className="w-full py-6 rounded-[2.5rem] font-black uppercase italic text-xl text-product-button-ink shadow-2xl active:scale-95 transition-all"
+            style={{ backgroundColor: 'var(--product-accent)' }}
           >
             {guardando ? 'GUARDANDO...' : 'GUARDAR AJUSTES'}
           </button>

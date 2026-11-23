@@ -4,9 +4,7 @@ import { OwnerTasks } from '@/components/dashboard/OwnerTasks'
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { getThemeColor } from '@/lib/theme'
 import { daysLeft, type SubscriptionSummary } from '@/lib/commercial-subscription'
-import { getAppearance } from '@/lib/personalization.mjs'
 import { useRouter } from 'next/navigation'
 
 type NegocioDashboard = {
@@ -23,7 +21,6 @@ const ICONS: Record<string, string> = {
 
 export default function DashboardPrincipal() {
   const [negocio, setNegocio] = useState<NegocioDashboard | null>(null)
-  const [privateMode, setPrivateMode] = useState<string | null>(null)
   const [rol, setRol] = useState<string>('owner')
   const [esSuperAdmin, setEsSuperAdmin] = useState(false)
   const [subscription, setSubscription] = useState<SubscriptionSummary | null>(null)
@@ -69,11 +66,10 @@ export default function DashboardPrincipal() {
       if (negocioId) {
         const { data: neg, error: negocioError } = await supabase
           .from('negocio')
-          .select('id,nombre,tema,logo_url,suscripcion_tipo,slug,trial_hasta,rubro,estilo_visual,modo_visual')
+          .select('id,nombre,logo_url,slug')
           .eq('id', negocioId)
           .maybeSingle()
         if (neg) {
-          try { setPrivateMode(localStorage.getItem('turnly-panel-mode-' + user.id)) } catch {}
           setNegocio(neg)
           
           if (currentRol !== 'staff') {
@@ -101,13 +97,11 @@ export default function DashboardPrincipal() {
   if (loading) return <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black italic text-white text-3xl uppercase tracking-tighter animate-pulse">CARGANDO PANEL...</div>
   if (loadError) return <div className="min-h-screen bg-[#020617] text-white grid place-items-center p-6 text-center"><div><h1 className="text-3xl font-black mb-3">No pudimos abrir el panel</h1><p className="text-slate-400 mb-6">{loadError}</p><button type="button" onClick={() => window.location.reload()} className="rounded-2xl bg-white px-6 py-3 font-black text-slate-950">Reintentar</button></div></div>
 
-  const brand = getThemeColor(negocio?.tema)
-  const appearance = getAppearance({
-    businessType: negocio?.rubro,
-    visualStyle: negocio?.estilo_visual,
-    visualMode: privateMode ?? negocio?.modo_visual,
-  })
-  const colorPrincipal = appearance.visualMode === 'claro' ? '#204c3a' : brand
+  const appearance = {
+    background: 'var(--product-bg)', foreground: 'var(--product-ink)', surface: 'var(--product-surface)',
+    border: 'var(--product-line)', muted: 'var(--product-muted)', radius: 'var(--product-radius)', tracking: '-.035em',
+  }
+  const colorPrincipal = 'var(--product-accent)'
   const advanced = subscription?.limits.advanced === true
   const esTrial = subscription?.effectivePlan === 'trial'
   const diasTrial = daysLeft(subscription?.trialEnd ?? null)
@@ -144,21 +138,13 @@ export default function DashboardPrincipal() {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-2">
                 <h1 className="text-3xl sm:text-5xl font-black uppercase italic leading-none break-words" style={{ color: colorPrincipal, letterSpacing: appearance.tracking }}>{negocio?.nombre}</h1>
-                {esSuperAdmin ? <span className="bg-rose-500 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full shadow-lg shadow-rose-500/20">SUPERADMIN</span> : esStaff ? <span className="bg-slate-500/20 text-slate-500 text-[10px] font-black uppercase px-3 py-1 rounded-full">STAFF</span> : subscription?.effectivePlan === 'pro' ? <span className="bg-amber-400 text-black text-[10px] font-black uppercase px-3 py-1 rounded-full">PRO</span> : esTrial ? <span className="bg-blue-500 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full">TRIAL · {diasTrial}D</span> : <span className="bg-slate-500/10 text-slate-500 text-[10px] font-black uppercase px-3 py-1 rounded-full">NORMAL</span>}
+                {esSuperAdmin ? <span className="bg-rose-500 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full shadow-lg shadow-rose-500/20">SUPERADMIN</span> : esStaff ? <span className="bg-slate-500/20 text-slate-500 text-[10px] font-black uppercase px-3 py-1 rounded-full">STAFF</span> : subscription?.effectivePlan === 'pro' ? <span className="bg-amber-400 text-black text-[10px] font-black uppercase px-3 py-1 rounded-full">PRO</span> : esTrial ? <span className="bg-blue-500 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full">TRIAL · {diasTrial}D</span> : <span className="bg-slate-500/10 text-slate-500 text-[10px] font-black uppercase px-3 py-1 rounded-full">{subscription?.effectivePlan === 'basico' ? 'Básico' : subscription ? 'Sin período vigente' : 'Estado sin verificar'}</span>}
               </div>
               <p className="text-[10px] font-black uppercase tracking-[0.25em]" style={{ color: appearance.muted }}>Panel de gestión</p>
             </div>
           </div>
           
           <div className="flex flex-wrap gap-3">
-            <button type="button" className="rounded-xl border px-4 py-2" onClick={async () => {
-              const mode = appearance.visualMode === 'claro' ? 'oscuro' : 'claro'
-              setPrivateMode(mode)
-              const { data } = await supabase.auth.getUser()
-              if (data.user) {
-                try { localStorage.setItem('turnly-panel-mode-' + data.user.id, mode) } catch {}
-              }
-            }}>Usar modo {appearance.visualMode === 'claro' ? 'oscuro' : 'claro'}</button>
             {esSuperAdmin && (
               <button onClick={() => router.push('/superadmin')} className="text-[10px] font-black uppercase tracking-widest text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition-colors px-6 py-3 rounded-2xl">
                 Administración
@@ -194,7 +180,7 @@ export default function DashboardPrincipal() {
         </div>
 
         {!esStaff && negocio?.slug && (
-          <div className="mt-12 p-7 sm:p-10 border flex flex-col md:flex-row justify-between items-stretch md:items-center gap-6 shadow-2xl relative overflow-hidden group" style={{ background: colorPrincipal + '10', borderColor: colorPrincipal + '30', borderRadius: appearance.radius }}>
+          <div className="mt-12 p-7 sm:p-10 border flex flex-col md:flex-row justify-between items-stretch md:items-center gap-6 shadow-2xl relative overflow-hidden group" style={{ background: 'var(--product-subtle)', borderColor: 'var(--product-line)', borderRadius: appearance.radius }}>
             <div className="absolute -right-20 -top-20 w-64 h-64 blur-[100px] opacity-20 transition-opacity group-hover:opacity-40" style={{ backgroundColor: colorPrincipal }} />
             <div className="relative z-10">
               <h4 className="text-2xl font-black uppercase italic tracking-tighter mb-2">Tu enlace de reservas</h4>

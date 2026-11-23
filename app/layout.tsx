@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
+import ProductAppearance from "@/components/ProductAppearance"
 import { Toaster } from 'sonner'
 
-const inter = Inter({ subsets: ["latin"] })
+const inter = Inter({ subsets: ["latin"], variable: "--turnly-font" })
 
 export const metadata: Metadata = {
   title: "Turnly | Reservas y gestión para tu negocio",
@@ -23,8 +24,8 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body className={`${inter.className} bg-[#020617] text-white min-h-screen selection:bg-emerald-500/30`}>
-        {children}
+      <body className={`${inter.className} ${inter.variable} bg-[#020617] text-white min-h-screen selection:bg-emerald-500/30`}>
+        <ProductAppearance>{children}</ProductAppearance>
         <Toaster theme="dark" position="top-center" richColors toastOptions={{ style: { borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.1)' } }} />
       </body>
     </html>

@@ -1,7 +1,7 @@
 // Loopback only. The browser exercises public UI without credentials or external messages.
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { once } from 'node:events'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -62,8 +62,34 @@ try {
   }
 
   const origin = 'http://127.0.0.1:3100'
-  for (const width of [360, 1280]) {
+  async function evaluate(expression) {
+    const response = await command('Runtime.evaluate', { expression, returnByValue: true })
+    assert.ok(!response.exceptionDetails, expression)
+    return response.result.value
+  }
+  const evidence = process.env.TURNLY_EVIDENCE_DIR
+  if (evidence) await mkdir(evidence, { recursive: true })
+  for (const width of [360, 768, 1280]) {
     await command('Emulation.setDeviceMetricsOverride', { width, height: 820, deviceScaleFactor: 1, mobile: width < 500 })
+    await command('Page.navigate', { url: origin + '/' })
+    await until(() => evaluate("location.pathname === '/' && document.readyState === 'complete' && !!document.querySelector('#planes') && !!document.documentElement.dataset.productTheme"), 'No cargó la portada con selector de apariencia')
+    assert.equal(await evaluate(`document.documentElement.scrollWidth <= ${width}`), true, 'Desborde en portada a ' + width)
+    if (width === 1280) {
+      await evaluate(`(() => {
+        const select = document.querySelector('nav select');
+        select.focus();
+        if (document.activeElement !== select) throw new Error('Selector sin foco');
+        select.value = 'dark';
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      })()`)
+      await until(() => evaluate("document.documentElement.dataset.productTheme === 'dark'"), 'No se aplicó el tema oscuro')
+      await command('Page.reload')
+      await until(() => evaluate("document.readyState === 'complete' && document.documentElement.dataset.productTheme === 'dark'"), 'No se conservó la preferencia al recargar')
+    }
+    if (evidence) {
+      const { data } = await command('Page.captureScreenshot', { format: 'png' })
+      await writeFile(join(evidence, `turnly-portada-${width}.png`), Buffer.from(data, 'base64'))
+    }
     for (const [path, label] of [['/recuperar', 'recovery-email'], ['/recuperar/restablecer', 'new-password']]) {
       await command('Page.navigate', { url: origin + path })
       const ready = await until(async () => {
@@ -85,7 +111,7 @@ try {
       assert.deepEqual(result.result.value, { fits: true, focused: true, required: true })
     }
   }
-  console.log('Chromium: formularios accesibles y sin desborde a 360 y 1280 px.')
+  console.log('Chromium: portada y formularios sin desborde a 360, 768 y 1280 px. Preferencia oscura persistente.')
 } finally {
   connection?.close()
   if (!exited) {

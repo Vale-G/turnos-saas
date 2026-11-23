@@ -21,7 +21,7 @@ async function database(seedLegacy) {
     create role service_role nologin bypassrls;
     create schema auth;
     create schema extensions;
-    create table auth.users (id uuid primary key);
+    create table auth.users (id uuid primary key, email text);
     create or replace function auth.uid() returns uuid language sql stable as $$
       select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
     $$;
@@ -803,4 +803,22 @@ test('privacidad registra una solicitud por tipo y aísla la revisión', async t
   await assert.rejects(db.query('select * from turnly_private.privacy_request'),/permission denied/)
   await db.exec('reset role')
   assert.equal((await db.query('select count(*)::int n from turnly_private.privacy_request_audit')).rows[0].n,1)
+})
+
+test('directorio administrativo exige rol y filtra sin devolver correos', async t => {
+  const db = await commercialDatabase(t)
+  await db.exec(await readFile(new URL('../supabase/migrations/20261123000500_superadmin_directory.sql', import.meta.url), 'utf8'))
+  const { owner, negocio } = await seed(db)
+  const support = '10000000-0000-4000-8000-000000000010'
+  await db.query("update auth.users set email='titular@example.test' where id=$1", [owner])
+  await db.query('insert into auth.users(id) values($1)', [support])
+  await db.query("insert into public.adminrol(user_id,role) values($1,'superadmin')", [support])
+  await db.exec('set role authenticated')
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [owner])
+  await assert.rejects(db.query('select public.turnly_superadmin_directory()'), /Acceso denegado/)
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [support])
+  const { rows: [{ directory }] } = await db.query("select public.turnly_superadmin_directory('titular@example.test','trialing',true,0) directory")
+  assert.equal(directory.rows.length, 1)
+  assert.equal(directory.rows[0].id, negocio)
+  assert.doesNotMatch(JSON.stringify(directory), /@example/)
 })

@@ -1,4 +1,5 @@
 'use client'
+import { downloadFile, reportCsv } from '@/lib/downloads'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
@@ -29,12 +30,29 @@ export function OwnerInsights({business,month,worker,service}:{business:string;m
   if(!data) return <p role="status">Cargando estadísticas…</p>
   const hours=[...new Set(data.heat.map(h=>h.hour))].sort((a,b)=>a-b)
   const recovery=data.recovery
+  const cellByTime = new Map(data.heat.map(cell => [cell.hour + ':' + cell.weekday, cell]))
+  function exportSummary() {
+    if (!data) return
+    const rows: (string | number | null)[][] = [
+      ['Período', month], ['Alcance', worker || service ? 'Filtros activos' : 'Negocio completo'],
+      ['Ocupación', 'Día de semana (0 es domingo)', 'Hora', 'Minutos ofrecidos', 'Minutos reservados'],
+      ...data.heat.map(cell => ['Ocupación', cell.weekday, cell.hour, cell.offered, cell.occupied]),
+      ['Retención', 'Días', 'Clientes elegibles', 'Clientes que volvieron'],
+      ...data.cohorts.map(cohort => ['Retención', cohort.horizon, cohort.eligible, cohort.returned]),
+      ['Duración', 'Servicio', 'Muestras', 'Mediana (min)', 'Percentil 80 (min)'],
+      ...data.durations.map(duration => ['Duración', duration.nombre, duration.samples, duration.median, duration.p80]),
+    ]
+    downloadFile('turnly-insights-' + month + '.csv', reportCsv(rows), 'text/csv;charset=utf-8')
+  }
   return <section className="my-8 space-y-6">
-    <h2 className="text-2xl font-semibold">Ocupación por día y hora</h2>
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <h2 className="text-2xl font-semibold">Ocupación por día y hora</h2>
+      <button type="button" onClick={exportSummary} className="product-action">Exportar resumen CSV</button>
+    </div>
     <p>Minutos reservados sobre minutos ofrecidos hasta hoy, descontando bloqueos y usando el horario y el equipo actuales. Elegí una celda para ver los minutos.</p>
     {hours.length===0 ? <p>Sin horas ofrecidas para el período.</p> : <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr><th>Hora</th>{weekdays.map(d=><th key={d}>{d}</th>)}</tr></thead>
       <tbody>{hours.map(hour=><tr key={hour}><th>{hour}:00</th>{weekdays.map((d,i)=>{
-        const cell=data.heat.find(h=>h.weekday===i && h.hour===hour)
+        const cell=cellByTime.get(hour + ':' + i)
         if(!cell) return <td key={d} className="text-center">—</td>
         const ratio=cell.occupied/cell.offered
         return <td key={d} className="p-1 text-center" style={{backgroundColor:'rgba(16,185,129,'+(0.08+0.5*ratio)+')'}}><details><summary>{format(ratio*100)}%</summary>{format(cell.occupied)} de {format(cell.offered)} min</details></td>
@@ -49,6 +67,6 @@ export function OwnerInsights({business,month,worker,service}:{business:string;m
     <h2 className="text-xl font-semibold">Duración medida por servicio</h2>
     {data.durations.length===0 && <p>Sin atenciones con inicio y fin registrados.</p>}
     {data.durations.map((d,i)=><p key={i}>{d.nombre} · {d.samples} mediciones · mediana {format(d.median)} min · percentil 80 {format(d.p80)} min</p>)}
-    {data.forecast && <p>Estimación para la próxima semana completa: {format(data.forecast.expected)} reservas. Error medio en ocho semanas de validación: {format(data.forecast.error)} reservas.</p>}
+    {data.forecast ? <p>Estimación para la próxima semana completa: {format(data.forecast.expected)} reservas. Error medio en ocho semanas de validación: {format(data.forecast.error)} reservas.</p> : <p>El historial aún no alcanza para estimar reservas semanales.</p>}
   </section>
 }

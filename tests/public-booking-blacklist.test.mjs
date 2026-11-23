@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { validarListaNegraServidor } from '../lib/reserva-lista-negra.mjs'
+import { validarListaNegraServidor, verificarListaNegra } from '../lib/reserva-lista-negra.mjs'
 
 test('ausencia de fila permite continuar sin lista negra', () => {
   assert.deepEqual(validarListaNegraServidor(null, '1123456789'), { permitido: true, motivo: null })
@@ -23,4 +23,12 @@ test('teléfono bloqueado se normaliza y rechaza', () => {
 })
 test('lista no vacía exige teléfono', () => {
   assert.equal(validarListaNegraServidor({ valor: '["1123456789"]' }, '').motivo, 'telefono')
+})
+
+test('la consulta de reservas rechaza excepciones y filas vacías', async () => {
+  assert.equal((await verificarListaNegra(async () => { throw new Error('offline') }, '1123456789')).motivo, 'consulta')
+  assert.equal((await verificarListaNegra(async () => ({ data: null, error: new Error('offline') }), '1123456789')).motivo, 'consulta')
+  for (const valor of ['', null, undefined]) {
+    assert.equal((await verificarListaNegra(async () => ({ data: { valor }, error: null }), '1123456789')).motivo, 'configuracion')
+  }
 })

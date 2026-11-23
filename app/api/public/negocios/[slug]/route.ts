@@ -17,7 +17,8 @@ export async function GET(_request: Request, context: { params: Promise<{ slug: 
     .eq('activo', true)
     .maybeSingle()
 
-  if (error || !negocio) return NextResponse.json({ error: 'Negocio inexistente' }, { status: 404 })
+  if (error) return NextResponse.json({ error: 'No se pudo cargar el comercio' }, { status: 503 })
+  if (!negocio) return NextResponse.json({ error: 'Negocio inexistente' }, { status: 404 })
 
   const [{ data: servicios, error: serviceError }, { data: staff, error: staffError }] = await Promise.all([
     admin.from('servicio').select('id,nombre,descripcion,precio,duracion,seña_tipo,seña_valor,politica_sena').eq('negocio_id', negocio.id).order('nombre'),

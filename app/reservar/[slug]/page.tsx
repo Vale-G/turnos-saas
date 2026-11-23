@@ -276,7 +276,14 @@ export default function ReservaPage() {
             {sel.fecha && (
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500 mb-6">Horarios Libres</p>
-                {horariosCargando ? <div className="text-center py-10 text-slate-400 text-xs">Verificando disponibilidad...</div> : horariosError ? <div role="alert" className="text-center py-10 text-amber-300 text-xs">No se pudieron verificar los horarios. Volvé a elegir la fecha para reintentar.</div> : horas.length === 0 ? <div className="text-center py-10 bg-white/4 rounded-[3rem] border border-dashed border-white/10"><p className="text-slate-500 text-[10px] font-black uppercase">Sin Cupos</p></div> : (
+                {horariosCargando ? <div role="status" className="text-center py-10 text-slate-400 text-xs">Verificando disponibilidad...</div> : horariosError ? <div className="text-center py-6 text-slate-600 dark:text-amber-300">
+                  <p role="alert" className="text-sm">No se pudieron verificar los horarios.</p>
+                  <button type="button" className="mt-2 min-h-11 px-4 text-sm underline" onClick={() => {
+                    setHorariosError(false)
+                    setHorariosCargando(true)
+                    setHorariosReintento(n => n + 1)
+                  }}>Reintentar</button>
+                </div> : horas.length === 0 ? <div className="text-center py-10 bg-white/4 rounded-[3rem] border border-dashed border-white/10"><p className="text-slate-500 text-[10px] font-black uppercase">Sin Cupos</p></div> : (
                   <div className="grid grid-cols-4 gap-3">
                     {horas.map(h => <button type="button" aria-pressed={sel.hora === h} key={h} onClick={() => setSel({ ...sel, hora: h })} className={`py-5 rounded-2xl text-[11px] font-black text-center cursor-pointer border ${sel.hora === h ? 'border-transparent shadow-lg' : 'bg-white/4 border-white/5'}`} style={sel.hora === h ? { backgroundColor: colorP, color: 'black' } : {}}>{h}</button>)}
                   </div>

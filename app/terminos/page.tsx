@@ -30,7 +30,7 @@ export default function TerminosYCondiciones() {
 
           <section className="bg-white/5 border border-white/10 p-8 rounded-[2rem]">
             <h2 className="text-xl font-black uppercase italic text-white mb-4">4. Disponibilidad (SLA)</h2>
-            <p>Garantizamos un esfuerzo razonable para mantener un uptime del 99%. Sin embargo, Turnly no se hace responsable por pérdidas económicas derivadas de caídas temporales del servidor, cortes de internet, o interrupciones en la API de MercadoPago.</p>
+            <p>Trabajamos para mantener Turnly disponible. El servicio puede sufrir interrupciones temporales. Sin embargo, Turnly no se hace responsable por pérdidas económicas derivadas de caídas temporales del servidor, cortes de internet, o interrupciones en la API de MercadoPago.</p>
           </section>
         </div>
       </div>

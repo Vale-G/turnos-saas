@@ -544,3 +544,25 @@ test('alta atómica conserva roles existentes y revierte el negocio si la asigna
   await db.exec('set role authenticated')
   await assert.rejects(open, /permission denied/)
 })
+
+test('el cierre de TRUNCATE preserva operaciones por fila y detecta grants heredados', async (t) => {
+  const db = await database()
+  t.after(() => db.close())
+  const migration = await readFile(new URL('../supabase/migrations/20261123000100_restrict_public_truncate.sql', import.meta.url), 'utf8')
+  await db.exec(`
+    grant truncate on public.turno to public, anon, authenticated;
+    create role tenant_truncate_legacy;
+    grant tenant_truncate_legacy to authenticated;
+    grant truncate on public.turno to tenant_truncate_legacy;
+  `)
+  await assert.rejects(() => db.exec(migration), /Persisten privilegios efectivos TRUNCATE/)
+  await db.exec('rollback; revoke tenant_truncate_legacy from authenticated;')
+  await db.exec(migration)
+
+  const { rows: [grants] } = await db.query(`
+    select has_table_privilege('anon','public.turno','TRUNCATE') as anon_truncate,
+           has_table_privilege('authenticated','public.turno','TRUNCATE') as auth_truncate,
+           has_column_privilege('authenticated','public.turno','estado','UPDATE') as auth_update
+  `)
+  assert.deepEqual(grants, { anon_truncate: false, auth_truncate: false, auth_update: true })
+})

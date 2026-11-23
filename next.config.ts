@@ -1,4 +1,7 @@
 import type { NextConfig } from "next";
+import { assertPreviewIsolation } from "./lib/preview-isolation";
+
+assertPreviewIsolation(process.env);
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,

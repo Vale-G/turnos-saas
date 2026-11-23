@@ -671,3 +671,136 @@ test('facturas conciliadas, renovación, cambio de plan y cancelación auditada'
   await assert.rejects(stage('new','1 month'), /no admite/)
   assert.equal((await db.query("select count(*)::int n from turnly_private.commercial_audit where business_id=$1 and event='renewal_stopped'", [negocio])).rows[0].n, 1)
 })
+
+test('Mercado Pago recurrente simulado usa facturas verificadas y conserva historial al revertir un pago', async t => {
+  const { subscriptionClient } = await import('../lib/server/mercadopago-saas.ts')
+  const db = await commercialDatabase(t)
+  await db.exec(await readFile(new URL('../supabase/migrations/20261123000300_mercadopago_saas_adapter.sql', import.meta.url), 'utf8'))
+  const { owner, negocio, otherNegocio } = await seed(db)
+  const rpc = async (name, args = {}) => {
+    const entries = Object.entries(args)
+    const sql = entries.map(([key], i) => key + '=>$' + (i + 1)).join(',')
+    return (await db.query('select public.' + name + '(' + sql + ') val', entries.map(([,value]) => value))).rows[0].val
+  }
+
+  const provider = new Map()
+  let createCalls = 0
+  const client = subscriptionClient({ token:'TEST-fixture', secret:'fixture', application:'100', collector:'200', returnUrl:'https://qa.example.test/upgrade', sandbox:true }, rpc,
+    async (url, request) => {
+      assert.equal(new URL(url).origin, 'https://api.mercadopago.com')
+      const path = new URL(url).pathname
+      if (request.method === 'POST') {
+        assert.equal(path, '/preapproval')
+        createCalls++
+        const payload = JSON.parse(request.body)
+        assert.equal(payload.status,'pending')
+        assert.equal(payload.auto_recurring.frequency_type,'months')
+        const id = 'provider-' + createCalls
+        const result = { ...payload, id, application_id:100, collector_id:200,
+          init_point:'https://www.mercadopago.com.ar/subscriptions/checkout?preapproval_id='+id }
+        provider.set(path+'/'+id,result)
+        return Response.json(result)
+      }
+      const resource = provider.get(path)
+      assert.ok(resource,path)
+      if (request.method === 'PUT') resource.status = JSON.parse(request.body).status
+      return Response.json(resource)
+    })
+
+  assert.equal((await client.start(owner,'payer@example.test','pro')).status,'price')
+  await db.exec("insert into turnly_private.commercial_price values ('basico',10,'ARS'),('pro',20,'ARS')")
+  assert.equal((await client.start(owner,'payer@example.test','pro')).status,'checkout')
+  assert.equal((await client.start(owner,'payer@example.test','pro')).status,'checkout')
+  assert.equal(createCalls,1)
+  assert.equal((await client.start(owner,'payer@example.test','basico')).status,'open_mandate')
+
+  const m = provider.get('/preapproval/provider-1')
+  m.status='authorized'
+  assert.equal(await client.process('subscription_preapproval','provider-1'),'done')
+  const { rows:[{ today }] } = await db.query("select (current_date::timestamp at time zone 'UTC')::text today")
+  const day = new Date(today).toISOString()
+  const invoice = { id: 51,type:'scheduled',preapproval_id:m.id,external_reference:m.external_reference,
+    currency_id:'ARS',transaction_amount:'20.00',debit_date:m.auto_recurring.start_date,payment:{id:61} }
+  const payment = { id:61,collector_id:200,live_mode:false,status:'approved',currency_id:'ARS',transaction_amount:20 }
+  provider.set('/authorized_payments/51',invoice)
+  provider.set('/v1/payments/61',payment)
+  assert.equal(await client.process('subscription_authorized_payment','51'),'pending') // Aprobación anticipada.
+  assert.equal((await db.query('select effective_plan from turnly_private.commercial_effective($1)',[negocio])).rows[0].effective_plan,'trial')
+
+  // Advance the fixture to the debit day without changing the PostgreSQL clock.
+  await db.query("update turnly_private.saas_mandate set anchor=$1 where id=$2",[day,m.external_reference])
+  await db.query("update turnly_private.commercial_invoice set starts_at=$1,ends_at=(($1::timestamptz at time zone 'UTC')+interval '1 month') at time zone 'UTC' where provider_invoice='51'",[day])
+  invoice.debit_date=day
+  payment.transaction_amount=21
+  assert.equal(await client.process('subscription_authorized_payment','51'),'review')
+  payment.transaction_amount=20; payment.currency_id='USD'
+  assert.equal(await client.process('subscription_authorized_payment','51'),'review')
+  payment.currency_id='ARS'; payment.live_mode=true
+  assert.equal(await client.process('subscription_authorized_payment','51'),'review')
+  payment.live_mode=false; invoice.external_reference=otherNegocio
+  assert.equal(await client.process('subscription_authorized_payment','51'),'review')
+  invoice.external_reference=m.external_reference
+  invoice.debit_date=new Date(Date.now()+86_400_000).toISOString()
+  assert.equal(await client.process('subscription_authorized_payment','51'),'review')
+  invoice.debit_date=day
+  payment.status='pending'
+  assert.equal(await client.process('subscription_authorized_payment','51'),'pending')
+  payment.status='rejected'
+  assert.equal(await client.process('subscription_authorized_payment','51'),'done')
+  payment.status='approved'
+  assert.equal(await client.process('subscription_authorized_payment','51'),'done')
+  assert.equal(await client.process('subscription_authorized_payment','51'),'done')
+  const effective = async () => (await db.query('select effective_plan from turnly_private.commercial_effective($1)',[negocio])).rows[0].effective_plan
+  assert.equal(await effective(),'pro')
+  assert.equal((await db.query("select count(*)::int n from turnly_private.commercial_audit where event='payment_approved'")).rows[0].n,1)
+
+  const rev = await rpc('turnly_saas_enqueue',{event_topic:'payment',resource:'61'})
+  const next = await rpc('turnly_saas_enqueue',{event_topic:'payment',resource:'61'})
+  await rpc('turnly_saas_finish',{event_topic:'payment',resource:'61',generation:rev,result:'done'})
+  assert.equal((await rpc('turnly_saas_pending'))[0].revision,next)
+
+  // Roll the fixture's paid window forward to a renewal boundary.
+  await db.query(`update turnly_private.commercial_subscription
+    set period_start=($1::timestamptz-interval '1 month'), period_end=$1 where business_id=$2`,[day,negocio])
+  const renewal = { ...invoice, id:52, payment:{id:62} }
+  const renewalPayment = { ...payment, id:62 }
+  provider.set('/authorized_payments/52',renewal)
+  provider.set('/v1/payments/62',renewalPayment)
+  const pastDebit = new Date(new Date(day).getTime() - 31 * 86400000).toISOString()
+  await db.query("update turnly_private.commercial_invoice set starts_at=$1,ends_at=$2 where provider_invoice='51'",[pastDebit,day])
+  invoice.debit_date=pastDebit
+  assert.equal(await client.process('subscription_authorized_payment','52'),'done')
+  assert.equal(await effective(),'pro')
+  assert.equal(await client.cancelOwner(owner),'canceled')
+  assert.equal(await effective(),'pro')
+  payment.status='charged_back'
+  assert.equal(await client.process('payment','61'),'done')
+  assert.equal(await effective(),'pro') // Un período posterior ya pagado sigue vigente.
+  renewalPayment.status='refunded'
+  assert.equal(await client.process('payment','62'),'done')
+  renewalPayment.status='approved'
+  assert.equal(await client.process('payment','62'),'done')
+  assert.equal(await effective(),null)
+  assert.equal((await db.query("select status from turnly_private.commercial_payment where payment_id='62'")).rows[0].status,'refunded')
+  assert.equal((await client.start(owner,'payer@example.test','basico')).status,'paid_period')
+  await db.query("update turnly_private.commercial_subscription set period_start=current_date-interval '1 month',period_end=current_date where business_id=$1",[negocio])
+  assert.equal((await client.start(owner,'payer@example.test','basico')).status,'checkout')
+  assert.equal(createCalls,2)
+  assert.equal(provider.get('/preapproval/provider-2').auto_recurring.transaction_amount,10)
+})
+
+test('privacidad registra una solicitud por tipo y aísla la revisión', async t => {
+  const db = await commercialDatabase(t)
+  await db.exec(await readFile(new URL('../supabase/migrations/20261123000400_privacy_requests.sql', import.meta.url), 'utf8'))
+  const { owner } = await seed(db)
+  await db.exec('set role authenticated')
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)",[owner])
+  const read = async () => (await db.query("select public.turnly_privacy_request('deletion') as requests")).rows[0].requests
+  const requests = await read()
+  assert.equal(requests.length,1)
+  assert.equal((await read())[0].id,requests[0].id)
+  await assert.rejects(db.query('select public.turnly_privacy_support()'),/Acceso denegado/)
+  await assert.rejects(db.query('select * from turnly_private.privacy_request'),/permission denied/)
+  await db.exec('reset role')
+  assert.equal((await db.query('select count(*)::int n from turnly_private.privacy_request_audit')).rows[0].n,1)
+})

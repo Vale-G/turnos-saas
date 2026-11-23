@@ -64,13 +64,13 @@ export default function Login() {
         </h1>
         <div className="space-y-4 text-left">
           <input 
-            type="email" placeholder="Tu Email" 
+            type="email" aria-label="Correo electrónico" autoComplete="email" placeholder="Tu Email"
             className="w-full bg-black border border-slate-800 p-4 rounded-2xl outline-none focus:border-emerald-500 transition-colors"
             onChange={(e) => setEmail(e.target.value)}
             required
           />
           <input 
-            type="password" placeholder="Tu Contraseña" 
+            type="password" aria-label="Contraseña" autoComplete="current-password" placeholder="Tu Contraseña"
             className="w-full bg-black border border-slate-800 p-4 rounded-2xl outline-none focus:border-emerald-500 transition-colors"
             onChange={(e) => setPassword(e.target.value)}
             required
@@ -95,6 +95,7 @@ export default function Login() {
         >
           Continuar con Google
         </button>
+        <Link href="/recuperar" className="inline-block py-3 text-sm underline">Olvidé mi contraseña</Link>
         <p className="text-slate-500 text-sm">
           ¿No tenés cuenta?{' '}
           <a href="/registro-negocio" className="text-emerald-500 font-black hover:underline">

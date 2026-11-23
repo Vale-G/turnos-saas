@@ -121,3 +121,25 @@ wait "$payment_b"
 [[ "$(cat "$fixture_payments/a")" = t && "$(cat "$fixture_payments/b")" = t ]]
 [[ "$(psql "$TURNLY_TEST_DATABASE_URL" -Atc "select count(*) from turnly_private.commercial_audit where event='payment_approved'")" = 1 ]]
 echo "Native commercial payment PASS: replay recorded one approval"
+
+psql "$TURNLY_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+insert into auth.users(id) values ('10000000-0000-4000-8000-000000000002');
+insert into public.negocio(id,owner_id,nombre,slug)
+values ('20000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000002','SaaS fixture','saas-native-fixture');
+select public.turnly_saas_owner('10000000-0000-4000-8000-000000000002','pro');
+update turnly_private.saas_mandate set anchor=current_date::timestamp at time zone 'UTC'
+where business_id='20000000-0000-4000-8000-000000000002';
+select public.turnly_saas_bind(id,'adapter-native','authorized')
+from turnly_private.saas_mandate where business_id='20000000-0000-4000-8000-000000000002';
+SQL
+adapter_payment="select public.turnly_saas_apply_invoice(id,'adapter-invoice','adapter-native',anchor,'adapter-payment','approved',42,'ARS')
+from turnly_private.saas_mandate where provider_ref='adapter-native'"
+psql "$TURNLY_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -Atc "$adapter_payment" >"$fixture_payments/adapter-a" &
+adapter_a=$!
+psql "$TURNLY_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -Atc "$adapter_payment" >"$fixture_payments/adapter-b" &
+adapter_b=$!
+wait "$adapter_a"
+wait "$adapter_b"
+[[ "$(cat "$fixture_payments/adapter-a")" = done && "$(cat "$fixture_payments/adapter-b")" = done ]]
+[[ "$(psql "$TURNLY_TEST_DATABASE_URL" -Atc "select count(*) from turnly_private.commercial_payment where payment_id='adapter-payment' and status='approved'")" = 1 ]]
+echo "Native SaaS adapter PASS: concurrent invoice reconciliation applied one payment"

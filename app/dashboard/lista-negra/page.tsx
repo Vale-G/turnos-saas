@@ -1,160 +1,69 @@
 'use client'
 
-import { supabase } from '@/lib/supabase'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { toast } from 'sonner'
 
-type Bloqueado = {
-  id: string
-  nombre: string | null
-  email: string | null
-  telefono: string | null
-  motivo: string | null
-  creado_en: string
-}
+const endpoint = '/api/clientes/config'
 
 export default function ListaNegraPage() {
-  const router = useRouter()
-  const [negocioId, setNegocioId] = useState<string | null>(null)
-  const [items, setItems] = useState<Bloqueado[]>([])
-  const [loading, setLoading] = useState(true)
-
-  const cargar = async (nId: string) => {
-    const { data } = await supabase
-      .from('lista_negra')
-      .select('id, nombre, email, telefono, motivo, creado_en')
-      .eq('negocio_id', nId)
-      .order('creado_en', { ascending: false })
-    setItems((data as Bloqueado[]) ?? [])
-    setLoading(false)
-  }
+  const [items, setItems] = useState<string[] | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    async function init() {
-      const { data: auth } = await supabase.auth.getUser()
-      const user = auth.user
-      if (!user) {
-        router.push('/login')
+    const controller = new AbortController()
+    fetch(endpoint + '?kind=blacklist', { cache: 'no-store', signal: controller.signal })
+      .then(async response => {
+        if (!response.ok) throw new Error()
+        const { value } = await response.json()
+        setItems(value)
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setError('No se pudo cargar la lista de números bloqueados.')
+      })
+    return () => controller.abort()
+  }, [])
+
+  async function unblock(phone: string) {
+    if (!items || saving) return
+    setSaving(true)
+    setError(null)
+    const next = items.filter(item => item !== phone)
+    try {
+      const response = await fetch(endpoint, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'blacklist', value: next, previous: items }),
+      })
+      if (response.status === 409) {
+        setError('La lista cambió. Recargá la página antes de editarla.')
         return
       }
-
-      let nId: string | null = null
-      const { data: adm } = await supabase
-        .from('adminrol')
-        .select('negocio_id')
-        .eq('user_id', user.id)
-        .maybeSingle()
-      if (adm?.negocio_id) {
-        nId = adm.negocio_id
-      } else {
-        const { data: neg } = await supabase
-          .from('negocio')
-          .select('id')
-          .eq('owner_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single()
-        nId = neg?.id ?? null
-      }
-
-      if (!nId) {
-        router.push('/onboarding')
-        return
-      }
-
-      setNegocioId(nId)
-      await cargar(nId)
+      if (!response.ok) throw new Error()
+      setItems(next)
+    } catch {
+      setError('No se pudo desbloquear el número. Intentá nuevamente.')
+    } finally {
+      setSaving(false)
     }
-
-    init()
-  }, [router])
-
-  const desbloquear = async (id: string) => {
-    if (!negocioId) return
-    const { error } = await supabase
-      .from('lista_negra')
-      .delete()
-      .eq('id', id)
-      .eq('negocio_id', negocioId)
-    if (error) {
-      toast.error('No se pudo procesar la solicitud')
-      return
-    }
-    toast.success('Cliente desbloqueado')
-    await cargar(negocioId)
   }
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white p-6 md:p-10">
-      <div className="mx-auto max-w-6xl">
-        <h1 className="text-4xl font-black uppercase italic tracking-tight mb-2">
-          Lista Negra
-        </h1>
-        <p className="text-slate-400 text-sm mb-8">
-          Clientes bloqueados para nuevas reservas online.
-        </p>
-
-        <div className="overflow-hidden rounded-3xl border border-white/10 bg-white/5">
-          <table className="w-full text-sm">
-            <thead className="bg-black/30 text-slate-300 uppercase text-[11px] tracking-widest">
-              <tr>
-                <th className="text-left px-4 py-3">Cliente</th>
-                <th className="text-left px-4 py-3">Contacto</th>
-                <th className="text-left px-4 py-3">Motivo</th>
-                <th className="text-left px-4 py-3">Fecha</th>
-                <th className="text-right px-4 py-3">Acción</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="px-4 py-8 text-center text-slate-500"
-                  >
-                    Cargando...
-                  </td>
-                </tr>
-              ) : items.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="px-4 py-8 text-center text-slate-500"
-                  >
-                    No hay clientes bloqueados.
-                  </td>
-                </tr>
-              ) : (
-                items.map((item) => (
-                  <tr key={item.id} className="border-t border-white/5">
-                    <td className="px-4 py-3 font-semibold">
-                      {item.nombre || 'Cliente'}
-                    </td>
-                    <td className="px-4 py-3 text-slate-300">
-                      {item.telefono || item.email || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-slate-400">
-                      {item.motivo || '-'}
-                    </td>
-                    <td className="px-4 py-3 text-slate-400">
-                      {new Date(item.creado_en).toLocaleDateString('es-AR')}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => desbloquear(item.id)}
-                        className="rounded-xl border border-emerald-500/40 px-3 py-2 text-[11px] font-black uppercase tracking-wider text-emerald-400 hover:bg-emerald-500 hover:text-black transition-colors"
-                      >
-                        Desbloquear
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
+    <main className="mx-auto max-w-2xl space-y-6 p-6 text-white">
+      <Link href="/clientes" className="underline">Volver a clientes</Link>
+      <h1 className="text-3xl font-bold">Lista negra</h1>
+      {error && <p role="alert">{error}</p>}
+      {!items && !error && <p role="status">Cargando lista…</p>}
+      {items?.length === 0 && <p>No hay números bloqueados.</p>}
+      {items && <ul className="space-y-3">
+        {Array.from(new Set(items)).map(phone => (
+          <li key={phone} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-600 p-3">
+            <span>{phone}</span>
+            <button type="button" disabled={saving} aria-label={`Desbloquear ${phone}`}
+              className="min-h-11 px-3 underline disabled:opacity-50" onClick={() => void unblock(phone)}>Desbloquear</button>
+          </li>
+        ))}
+      </ul>}
+    </main>
   )
 }

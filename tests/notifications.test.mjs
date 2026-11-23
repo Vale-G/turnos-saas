@@ -1,0 +1,6 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { businessNewBookingEmail, customerConfirmationEmail, escapeHtml, formatBookingDate } from '../lib/notifications.mjs'
+test('escapa contenido no confiable en los correos',()=>{ assert.equal(escapeHtml(`<script>alert('x')</script>`),'&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;'); const email=businessNewBookingEmail({clientName:'<img>',serviceName:'Corte & color',date:'2026-11-10',hour:'10:30'}); assert.doesNotMatch(email.html,/<img>/); assert.match(email.html,/Corte &amp; color/) })
+test('el correo del cliente incluye un único enlace privado de gestión',()=>{ const email=customerConfirmationEmail({clientName:'Ada',businessName:'Demo',serviceName:'Consulta',date:'2026-11-10',hour:'09:00',manageUrl:'https://qa.invalid/cancelar/abc?token=a&source=email'}); assert.match(email.subject,/Demo/); assert.match(email.html,/Gestionar o cancelar turno/); assert.match(email.html,/token=a&amp;source=email/); assert.equal((email.html.match(/token=a/g)??[]).length,1) })
+test('presenta la fecha de la reserva en español',()=>{ assert.match(formatBookingDate('2026-11-10'),/10 de noviembre de 2026/i); assert.equal(formatBookingDate('fecha-invalida'),'fecha-invalida') })

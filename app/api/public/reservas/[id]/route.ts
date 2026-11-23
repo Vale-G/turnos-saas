@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/server/supabase'
-import { validDate, validHour, validUuid } from '@/lib/server/public-booking'
+import { isRescheduleRequest, validUuid } from '@/lib/server/public-booking'
 import { rateLimitByIp } from '@/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
@@ -49,8 +49,8 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
   if (!rate.success) return NextResponse.json({ error: 'Demasiadas solicitudes' }, { status: 429 })
   const { id } = await context.params
   const token = tokenFrom(request)
-  const body = await request.json().catch(() => ({}))
-  if (!validUuid(id) || !token || !validDate(body.fecha) || !validHour(body.hora) || !validUuid(body.staffId)) {
+  const body: unknown = await request.json().catch(() => null)
+  if (!validUuid(id) || !token || !isRescheduleRequest(body)) {
     return NextResponse.json({ error: 'Datos de reprogramación inválidos' }, { status: 400 })
   }
   const admin = createAdminClient()
@@ -58,7 +58,7 @@ export async function PUT(request: NextRequest, context: { params: Promise<{ id:
     p_turno_id: id, p_token: token, p_fecha: body.fecha, p_hora: `${body.hora}:00`, p_staff_id: body.staffId,
   })
   if (error || data !== true) {
-    return NextResponse.json({ error: error?.message || 'El horario ya no está disponible' }, { status: 409 })
+    return NextResponse.json({ error: 'No se pudo reprogramar. Verificá el enlace y elegí otro horario disponible.' }, { status: 409 })
   }
   return NextResponse.json({ rescheduled: true }, { headers: { 'Cache-Control': 'no-store' } })
 }

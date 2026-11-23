@@ -106,6 +106,17 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-not-a-real-key
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
 
+      - name: Probar rutas de reserva sobre el build aislado
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-not-a-real-key
+          NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3100
+        run: |
+          npm run start -- --hostname 127.0.0.1 --port 3100 > next-http.log 2>&1 &
+          next_pid=$!
+          trap 'kill "$next_pid" 2>/dev/null || true' EXIT
+          curl --fail --silent --retry 10 --retry-connrefused http://127.0.0.1:3100/login > /dev/null
+          node tests/local-booking-http.mjs
+
   baseline-lint:
     name: ESLint en base (informativo)
     if: github.event_name == 'pull_request'

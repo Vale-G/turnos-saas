@@ -22,17 +22,7 @@ export function weekday(date: string) {
   return new Date(`${date}T12:00:00-03:00`).getUTCDay()
 }
 
-export function validDate(value: unknown): value is string {
-  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T12:00:00-03:00`))
-}
-
-export function validUuid(value: unknown): value is string {
-  return typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
-}
-
-export function validHour(value: unknown): value is string {
-  return typeof value === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(value)
-}
+export { validDate, validHour, validUuid, isRescheduleRequest } from './public-booking-validation.mjs'
 
 export function cleanText(value: unknown, max: number) {
   if (typeof value !== 'string') return ''

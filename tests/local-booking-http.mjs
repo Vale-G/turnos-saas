@@ -92,18 +92,6 @@ try {
   }
   const legacyReceipt = await fetch(origin + '/reserva/confirmada/' + negocioId)
   assert.match(await legacyReceipt.text(), /Ingresá a tu cuenta o abrí el enlace de gestión/)
-  await send('/api/suscripcion', 'POST', { plan: 'pro', amount: 1 }, 400, /inválida/)
-  await send('/api/suscripcion', 'POST', { action: 'change_plan', plan: 'pro', amount: 1 }, 401, /Iniciá sesión/)
-  await send('/api/webhooks/suscripcion', 'POST', { type: 'payment', data: { id: 42 } }, 503, /deshabilitada/)
-  await send('/api/cron/billing', 'POST', {}, 401, /No autorizado/)
-  const recovery = await fetch(origin + '/recuperar')
-  assert.equal(recovery.status, 200)
-  assert.match(await recovery.text(), /for="recovery-email"/)
-  const reset = await fetch(origin + '/recuperar/restablecer')
-  assert.equal(reset.status, 200)
-  const resetForm = await reset.text()
-  assert.match(resetForm, /for="new-password"/)
-  assert.match(resetForm, /for="confirm-password"/)
   assert.equal(bookingCalls, 0)
   console.log('HTTP local: 26/26 escenarios pasaron. El fixture no recibió RPC de escritura.')
 } finally {

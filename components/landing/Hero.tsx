@@ -10,7 +10,7 @@ export default function Hero({ onPrimaryClick, onSecondaryClick }: HeroProps) {
     <section className="max-w-5xl mx-auto px-6 pt-16 pb-24 text-center">
       <div className="inline-flex items-center gap-2 bg-[#6366F1]/10 border border-[#6366F1]/20 rounded-full px-4 py-1.5 mb-6">
         <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-        <span className="text-xs font-bold text-[#6366F1]">30 días gratis · Sin tarjeta de crédito</span>
+        <span className="text-xs font-bold text-[#6366F1]">14 días gratis · Sin tarjeta de crédito</span>
       </div>
       <h1 className="text-5xl md:text-7xl font-black italic uppercase tracking-tighter leading-none mb-6">
         Tus clientes reservan solos.

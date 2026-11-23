@@ -1,3 +1,5 @@
+import { createAdminClient } from '@/lib/server/supabase'
+import { hasProAccess } from '@/lib/server/plan-access'
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
@@ -114,6 +116,7 @@ export async function POST(req: NextRequest) {
     if (turno.saldo_mp != null || turno.pago_estado === 'cobrado') return NextResponse.json({ error: 'El saldo ya está registrado' }, { status: 409 })
   const origin = new URL(process.env.NEXT_PUBLIC_SITE_URL ?? req.nextUrl.origin).origin
 
+    if (!await hasProAccess(createAdminClient(), turno.negocio_id)) return NextResponse.json({ error: 'Cobros en línea fuera del plan vigente' }, { status: 403 })
     const preferencia = await crearPreferenciaMercadoPago({
       titulo: servicio.nombre,
       precio: precioReal,

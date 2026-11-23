@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     // This table contains only public service configuration, so selecting its row is safe.
     admin.from('servicio').select('*').eq('id', turno.servicio_id).maybeSingle(),
   ])
-  if (!negocio || !hasProAccess(negocio)) {
+  if (!negocio || !await hasProAccess(admin, turno.negocio_id)) {
     return NextResponse.json({ error: 'El negocio no tiene habilitado el cobro de señas' }, { status: 409 })
   }
   const accessToken = negocio ? await getBusinessAccessToken(admin, negocio.id) : null

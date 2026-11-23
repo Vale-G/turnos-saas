@@ -65,3 +65,59 @@ count="$(psql "$TURNLY_TEST_DATABASE_URL" -Atc "select count(*) from public.turn
 [[ "$count" = "1" ]] || { echo "Expected one persisted booking, got $count" >&2; exit 1; }
 
 echo "Native concurrency PASS: one of two simultaneous requests persisted"
+
+# The trial starts with one professional. Add three so both writers compete for the fifth.
+psql "$TURNLY_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+insert into public.staff(negocio_id,nombre)
+select '20000000-0000-4000-8000-000000000001','Fixture '||n from generate_series(1,3) n;
+SQL
+if psql "$TURNLY_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -c "
+  begin;
+  insert into public.staff(negocio_id,nombre) values ('20000000-0000-4000-8000-000000000001','Competidor A');
+  select pg_sleep(1);
+  commit" >/tmp/turnly-commercial-staff-a.log 2>&1 &
+  commercial_a=$!
+  psql "$TURNLY_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -c "
+  insert into public.staff(negocio_id,nombre) values ('20000000-0000-4000-8000-000000000001','Competidor B')"     >/tmp/turnly-commercial-staff-b.log 2>&1 &
+  commercial_b=$!
+  a_result=0; b_result=0
+  wait "$commercial_a" || a_result=$?
+  wait "$commercial_b" || b_result=$?
+  [[ "$a_result" -eq 0 && "$b_result" -ne 0 || "$a_result" -ne 0 && "$b_result" -eq 0 ]]
+then
+  grep -q 'Límite de profesionales alcanzado' /tmp/turnly-commercial-staff-{a,b}.log
+else
+  cat /tmp/turnly-commercial-staff-{a,b}.log >&2
+  exit 1
+fi
+psql "$TURNLY_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+do $$ begin
+  if (select count(*) from public.staff where negocio_id='20000000-0000-4000-8000-000000000001')<>5 then
+    raise exception 'Límite concurrente de profesionales incumplido';
+  end if;
+end $$;
+SQL
+echo "Native commercial concurrency PASS: only one writer got the last trial seat"
+
+psql "$TURNLY_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 <<'SQL'
+insert into turnly_private.commercial_price values ('pro',42,'ARS');
+select set_config('request.jwt.claim.sub','10000000-0000-4000-8000-000000000001',false);
+select public.turnly_commercial_request('change_plan','pro');
+select public.turnly_commercial_stage_invoice(
+  '20000000-0000-4000-8000-000000000001','fixture-subscription','fixture-invoice',
+  current_date::timestamp at time zone 'UTC',
+  (current_date+interval '1 month') at time zone 'UTC'
+);
+SQL
+payment_sql="select public.turnly_commercial_record_payment('fixture-invoice','fixture-subscription','fixture-payment','approved',42,'ARS')"
+fixture_payments=$(mktemp -d)
+trap 'rm -rf "$fixture_payments"' EXIT
+psql "$TURNLY_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -Atc "$payment_sql" >"$fixture_payments/a" &
+payment_a=$!
+psql "$TURNLY_TEST_DATABASE_URL" -v ON_ERROR_STOP=1 -Atc "$payment_sql" >"$fixture_payments/b" &
+payment_b=$!
+wait "$payment_a"
+wait "$payment_b"
+[[ "$(cat "$fixture_payments/a")" = t && "$(cat "$fixture_payments/b")" = t ]]
+[[ "$(psql "$TURNLY_TEST_DATABASE_URL" -Atc "select count(*) from turnly_private.commercial_audit where event='payment_approved'")" = 1 ]]
+echo "Native commercial payment PASS: replay recorded one approval"

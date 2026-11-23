@@ -29,16 +29,11 @@ export async function POST(request: NextRequest) {
   }
 
   const admin = createAdminClient()
-  const { data: trialConfig, error: configError } = await admin.from('config').select('valor').eq('clave', 'dias_trial').maybeSingle()
-  if (configError) return NextResponse.json({ error: 'No pudimos verificar el período de prueba' }, { status: 503 })
-  const configuredDays = Number(trialConfig?.valor)
-  const trialDays = Number.isInteger(configuredDays) && configuredDays >= 1 && configuredDays <= 60 ? configuredDays : 14
-  const trialUntil = new Date(Date.now() + trialDays * 86400000).toISOString()
 
   const { data: id, error } = await admin.rpc('turnly_open_business', {
     p_owner: user.id, p_nombre: nombre, p_slug: slug, p_whatsapp: whatsapp, p_tema: tema,
     p_rubro: rubro, p_estilo: estiloVisual, p_modo: modoVisual, p_apertura: apertura,
-    p_cierre: cierre, p_trial_hasta: trialUntil,
+    p_cierre: cierre, p_trial_hasta: null,
   })
   if (error?.code === '23505') {
     return NextResponse.json({ error: 'La cuenta ya está asignada a un negocio o el enlace está en uso' }, { status: 409 })

@@ -74,12 +74,9 @@ export default function CajaElite() {
         const { data: neg } = await supabase.from('negocio').select('id,tema,suscripcion_tipo').eq('id', negId).single()
         if (neg) {
           setNegocio(neg)
-          if (neg.suscripcion_tipo === 'pro' || neg.suscripcion_tipo === 'trial' || adm?.role === 'superadmin') {
-            setTieneAcceso(true)
-          }
+          const { data } = await supabase.rpc('turnly_commercial_summary', { business: neg.id })
+          setTieneAcceso(data?.limits?.advanced === true)
         }
-      } else if (adm?.role === 'superadmin') {
-         setTieneAcceso(true)
       }
       setLoading(false)
     }
@@ -125,7 +122,8 @@ export default function CajaElite() {
 
   const eliminarGasto = async (id: string) => {
     if (!confirm('¿Eliminar este gasto?')) return
-    await supabase.from('gasto').delete().eq('id', id)
+    const { error } = await supabase.from('gasto').delete().eq('id', id)
+    if (error) return toast.error('No se pudo eliminar el gasto')
     setGastos(gastos.filter(g => g.id !== id))
     toast.success('Gasto eliminado')
   }

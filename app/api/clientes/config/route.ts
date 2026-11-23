@@ -1,3 +1,4 @@
+import { hasProAccess } from '@/lib/server/plan-access'
 import { parsearListaNegra } from '@/lib/reserva-lista-negra.mjs'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient, createUserServerClient } from '@/lib/server/supabase'
@@ -42,6 +43,9 @@ export async function PUT(request: NextRequest) {
   if (!key || !Array.isArray(body.value) || body.value.length > 200) return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 })
   if (body.kind === 'blacklist' && body.value.some((item: unknown) => typeof item !== 'string' || item.length > 30)) {
     return NextResponse.json({ error: 'Lista inválida' }, { status: 400 })
+  }
+  if (body.kind === 'notes' && !await hasProAccess(context.admin, context.negocioId)) {
+    return NextResponse.json({ error: 'La edición de notas está incluida en Pro y en la prueba vigente' }, { status: 403 })
   }
   if (body.kind === 'notes' && body.value.some((item: unknown) => {
     if (!item || typeof item !== 'object') return true

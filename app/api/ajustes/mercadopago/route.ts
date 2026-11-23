@@ -9,7 +9,7 @@ async function ownedBusiness() {
   if (!user) return null
   const admin = createAdminClient()
   const { data } = await admin.from('negocio').select('id,suscripcion_tipo,trial_hasta').eq('owner_id', user.id).maybeSingle()
-  return data ? { admin, id: data.id, proAccess: hasProAccess(data) } : null
+  return data ? { admin, id: data.id, proAccess: await hasProAccess(admin, data.id) } : null
 }
 
 export async function GET() {

@@ -2,7 +2,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { getThemeColor } from '@/lib/theme'
 import { toast } from 'sonner'
 import { esRangoHorarioValido, getStaffNombre } from '@/lib/bloqueos-helpers.mjs'
 import { todayInTimeZone } from '@/lib/local-date.mjs'
@@ -81,42 +80,42 @@ export default function BloqueosPage() {
     toast.success('Bloqueo eliminado')
   }
 
-  if (loading) return <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black animate-pulse text-white">CARGANDO...</div>
-  const colorP = getThemeColor(negocio?.tema)
+  if (loading) return <div className="min-h-screen bg-product-bg flex items-center justify-center font-black animate-pulse text-product-ink">CARGANDO...</div>
+  const colorP = 'var(--product-accent)'
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white p-6 md:p-12">
+    <div className="min-h-screen bg-product-bg text-product-ink p-6 md:p-12">
       <div className="max-w-4xl mx-auto">
         <header className="mb-12">
-          <button onClick={() => router.push('/dashboard')} className="text-slate-600 text-[10px] font-black uppercase mb-4 hover:text-white transition-colors">← Dashboard</button>
-          <h1 className="text-6xl font-black uppercase italic tracking-tighter leading-none">Bloqueos de <span style={{ color: colorP }}>Agenda</span></h1>
+          <button onClick={() => router.push('/dashboard')} className="text-product-muted text-[10px] font-black uppercase mb-4 hover:text-product-ink transition-colors">← Dashboard</button>
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-5xl">Bloqueos de <span style={{ color: colorP }}>Agenda</span></h1>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          <form onSubmit={crearBloqueo} className="bg-white/5 border border-white/10 p-10 rounded-[3rem] h-fit">
-            <p className="text-[10px] font-black uppercase text-slate-500 mb-8 tracking-widest">Nuevo Bloqueo Manual</p>
+          <form onSubmit={crearBloqueo} className="bg-product-subtle border border-product-line p-10 rounded-[3rem] h-fit">
+            <p className="text-[10px] font-black uppercase text-product-muted mb-8 tracking-widest">Nuevo Bloqueo Manual</p>
             <div className="space-y-4">
-              <select value={selStaff} onChange={e => setSelStaff(e.target.value)} className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black uppercase outline-none">
+              <select value={selStaff} onChange={e => setSelStaff(e.target.value)} className="w-full bg-product-subtle border border-product-line p-5 rounded-2xl text-xs font-black uppercase outline-none">
                 <option value="">ELEGIR PROFESIONAL</option>
                 {staff.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
               </select>
-              <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black uppercase outline-none [&::-webkit-calendar-picker-indicator]:invert" />
+              <input type="date" value={fecha} onChange={e => setFecha(e.target.value)} className="w-full bg-product-subtle border border-product-line p-5 rounded-2xl text-xs font-black uppercase outline-none [&::-webkit-calendar-picker-indicator]:invert" />
               <div className="grid grid-cols-2 gap-4">
-                <input type="time" value={hInicio} onChange={e => setHInicio(e.target.value)} className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black outline-none [&::-webkit-calendar-picker-indicator]:invert" />
-                <input type="time" value={hFin} onChange={e => setHFin(e.target.value)} className="w-full bg-black/50 border border-white/10 p-5 rounded-2xl text-xs font-black outline-none [&::-webkit-calendar-picker-indicator]:invert" />
+                <input type="time" value={hInicio} onChange={e => setHInicio(e.target.value)} className="w-full bg-product-subtle border border-product-line p-5 rounded-2xl text-xs font-black outline-none [&::-webkit-calendar-picker-indicator]:invert" />
+                <input type="time" value={hFin} onChange={e => setHFin(e.target.value)} className="w-full bg-product-subtle border border-product-line p-5 rounded-2xl text-xs font-black outline-none [&::-webkit-calendar-picker-indicator]:invert" />
               </div>
-              <button type="submit" className="w-full py-5 rounded-2xl font-black uppercase italic text-black" style={{ backgroundColor: colorP }}>Bloquear Horario</button>
+              <button type="submit" className="w-full py-5 rounded-2xl font-black uppercase italic text-product-button-ink" style={{ backgroundColor: colorP }}>Bloquear Horario</button>
             </div>
           </form>
 
           <div>
-            <p className="text-[10px] font-black uppercase text-slate-500 mb-6 tracking-widest px-4">Bloqueos Activos</p>
+            <p className="text-[10px] font-black uppercase text-product-muted mb-6 tracking-widest px-4">Bloqueos Activos</p>
             <div className="space-y-3">
-              {bloqueos.length === 0 ? <p className="text-slate-600 text-xs font-black uppercase p-6">No hay bloqueos futuros</p> : bloqueos.map(b => (
-                <div key={b.id} className="bg-white/5 border border-white/10 p-6 rounded-3xl flex justify-between items-center">
+              {bloqueos.length === 0 ? <p className="text-product-muted text-xs font-black uppercase p-6">No hay bloqueos futuros</p> : bloqueos.map(b => (
+                <div key={b.id} className="bg-product-subtle border border-product-line p-6 rounded-3xl flex justify-between items-center">
                   <div>
                     <p className="text-sm font-black uppercase italic">{getStaffNombre(b.staff)}</p>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase">{b.fecha} · {b.hora_inicio.slice(0,5)} a {b.hora_fin.slice(0,5)}</p>
+                    <p className="text-[10px] text-product-muted font-bold uppercase">{b.fecha} · {b.hora_inicio.slice(0,5)} a {b.hora_fin.slice(0,5)}</p>
                   </div>
                   <button onClick={() => eliminarBloqueo(b.id)} className="text-rose-500 font-black text-[10px] uppercase bg-rose-500/10 px-4 py-2 rounded-xl">Quitar</button>
                 </div>

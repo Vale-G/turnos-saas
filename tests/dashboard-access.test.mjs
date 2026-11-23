@@ -16,12 +16,17 @@ const tenantPages = [
 test('el dashboard no solicita columnas sensibles mediante select wildcard', async () => {
   const source = await readFile(dashboard, 'utf8')
   assert.doesNotMatch(source, /from\(['"]negocio['"]\)\.select\(['"]\*['"]\)/)
-  assert.match(source, /select\(['"]id,nombre,tema,logo_url,suscripcion_tipo,slug,trial_hasta,rubro,estilo_visual,modo_visual['"]\)/)
+  assert.match(source, /select\(['"]id,nombre,logo_url,slug['"]\)/)
 })
 
-test('el panel usa la identidad del negocio y lenguaje profesional', async () => {
+test('el panel conserva el logo del comercio y toma la apariencia de Turnly', async () => {
   const source = await readFile(dashboard, 'utf8')
-  assert.match(source, /getAppearance/)
+  const reserva = await readFile(new URL('../app/reservar/[slug]/page.tsx', import.meta.url), 'utf8')
+  assert.match(source, /--product-bg/)
+  assert.match(source, /negocio\.logo_url/)
+  assert.doesNotMatch(source, /getAppearance|getThemeColor/)
+  assert.match(reserva, /getAppearance/)
+  assert.match(reserva, /data-mode=\{appearance\.visualMode\}/)
   assert.match(source, /Panel de gestión/)
   assert.doesNotMatch(source, /Elite Dashboard|Modo Dios|>DIOS</)
   assert.doesNotMatch(source, /wa\.me\/5491123456789/)

@@ -1,4 +1,5 @@
 'use client'
+import { downloadFile, reservationCalendar } from '@/lib/downloads'
 import { useEffect, useState, useMemo, type CSSProperties } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase, getOAuthRedirectUrl } from '@/lib/supabase'
@@ -51,6 +52,7 @@ export default function ReservaPage() {
   const [confirmando, setConfirmando] = useState(false)
   const [exito, setExito] = useState(false)
   const [gestionUrl, setGestionUrl] = useState('')
+  const [reservationId, setReservationId] = useState('')
   const [user, setUser] = useState<User | null>(null)
 
   const colorP = getThemeColor(negocio?.tema)
@@ -199,6 +201,7 @@ export default function ReservaPage() {
     }
 
     setAwaitingPayment(Boolean(booking.obligatoria))
+    setReservationId(booking.id)
     setGestionUrl(`/cancelar/${booking.id}?token=${booking.manageToken}`)
     setExito(true)
     setConfirmando(false)
@@ -228,6 +231,13 @@ export default function ReservaPage() {
             <h2 className="text-5xl font-black uppercase italic tracking-tighter mb-4">{awaitingPayment ? 'Pendiente de seña' : '¡Turno Listo!'}</h2>
             <p className="text-slate-400 text-xs font-bold uppercase tracking-[0.3em] mb-12">{sel.fecha} A LAS {sel.hora} HS</p>
             {gestionUrl && <a href={gestionUrl} className="block text-sm font-bold underline underline-offset-4 mb-8" style={{ color: "var(--booking-ink)" }}>Guardar enlace para gestionar o cancelar</a>}
+            {!awaitingPayment && sel.servicio && <button type="button" className="mb-3 min-h-11 w-full rounded-xl border px-4"
+              onClick={() => {
+                if (!sel.servicio) return
+                const calendar = reservationCalendar({ id: reservationId, day: sel.fecha, time: sel.hora,
+                  duration: sel.servicio.duracion, business: negocio.nombre, service: sel.servicio.nombre })
+                if (calendar) downloadFile('turno-turnly.ics', calendar, 'text/calendar;charset=utf-8')
+              }}>Agregar a mi calendario</button>}
             <button onClick={() => window.location.reload()} className="font-black uppercase italic text-lg px-12 py-5 rounded-[2rem] text-black shadow-xl" style={{ backgroundColor: colorP }}>Genial</button>
           </div>
         ) : paso === 1 ? (

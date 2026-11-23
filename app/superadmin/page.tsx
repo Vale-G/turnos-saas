@@ -1,7 +1,9 @@
 'use client'
 
+import { AppearancePicker } from '@/components/ProductAppearance'
+import SuperadminDirectory from '@/components/SuperadminDirectory'
 import Link from 'next/link'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { planNames, stateNames, type SubscriptionSummary } from '@/lib/commercial-subscription'
 
 type Support = SubscriptionSummary & { audit: { id: number; event: string; at: string; detail: { note?: string } }[] }
@@ -12,29 +14,37 @@ export default function SubscriptionSupport() {
   const [summary, setSummary] = useState<Support | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const requestId = useRef(0)
 
-  async function submit(note?: string) {
+  async function submit(note?: string, target = business.trim()) {
+    const current = ++requestId.current
     setBusy(true)
     setError('')
     setSummary(null)
     try {
       const response = note ? await fetch('/api/superadmin/plan', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ negocioId: business.trim(), incident: note }),
-      }) : await fetch('/api/superadmin/plan?negocioId=' + encodeURIComponent(business.trim()), { cache: 'no-store' })
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ negocioId: target, incident: note }),
+      }) : await fetch('/api/superadmin/plan?negocioId=' + encodeURIComponent(target), { cache: 'no-store' })
       if (!response.ok) throw new Error()
-      setSummary(await response.json())
+      const next = await response.json()
+      if (current !== requestId.current) return
+      setSummary(next)
       if (note) setIncident('')
-    } catch { setError('Verificá el ID del comercio y el permiso de soporte.') }
-    finally { setBusy(false) }
+    } catch {
+      if (current === requestId.current) setError('Verificá el ID del comercio y el permiso de soporte.')
+    } finally {
+      if (current === requestId.current) setBusy(false)
+    }
   }
 
-  return <main className="mx-auto max-w-3xl space-y-5 p-6 text-white">
-    <h1 className="text-3xl font-bold">Soporte de suscripciones</h1>
+  return <main className="product-shell mx-auto min-h-screen max-w-5xl space-y-6 p-6">
+    <header className="flex flex-wrap items-center justify-between gap-3"><h1 className="text-3xl font-bold">Soporte de suscripciones</h1><AppearancePicker /></header>
     <Link href="/superadmin/privacidad" className="underline">Solicitudes de privacidad</Link>
+    <SuperadminDirectory onSelect={id => { setBusiness(id); setIncident(''); void submit(undefined, id) }} />
     <form className="space-y-3" onSubmit={event => { event.preventDefault(); void submit() }}>
       <label htmlFor="commercial-business">ID del comercio</label>
       <input id="commercial-business" className="block w-full rounded border p-2" value={business}
-        onChange={event => { setBusiness(event.target.value); setSummary(null) }} required />
+        onChange={event => { requestId.current += 1; setBusy(false); setBusiness(event.target.value); setSummary(null); setIncident(''); setError('') }} required />
       <button className="min-h-11 underline" disabled={busy}>Consultar</button>
     </form>
     {error && <p role="alert">{error}</p>}

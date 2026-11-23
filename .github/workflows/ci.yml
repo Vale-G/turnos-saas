@@ -106,21 +106,38 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-not-a-real-key
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
 
-      - name: Probar reservas, suscripciones y recuperación sobre el build aislado
+      - name: Probar por HTTP reservas, suscripciones y recuperación sobre el build aislado
         env:
           SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-not-a-real-key
           NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3100
         run: |
-          npm run start -- --hostname 127.0.0.1 --port 3100 > next-http.log 2>&1 &
+          node_modules/.bin/next start --hostname 127.0.0.1 --port 3100 > next-http.log 2>&1 &
           next_pid=$!
           trap 'kill "$next_pid" 2>/dev/null || true' EXIT
           curl --fail --silent --retry 10 --retry-connrefused http://127.0.0.1:3100/login > /dev/null
           node tests/local-booking-http.mjs
-          if browser=$(command -v google-chrome || command -v chromium); then
-            TURNLY_BROWSER="$browser" node tests/browser-launch-smoke.mjs
-          else
-            echo "::notice::Prueba de navegador pendiente: el runner no ofrece Chromium"
-          fi
+
+      - name: Preparar Chromium headless para pruebas de interfaz
+        run: npx --no-install playwright install --with-deps --only-shell chromium
+
+      - name: Probar interfaz responsive con Chromium
+        env:
+          NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3100
+          TURNLY_EVIDENCE_DIR: ${{ runner.temp }}/turnly-ui-evidence
+        run: |
+          node_modules/.bin/next start --hostname 127.0.0.1 --port 3100 > next-browser.log 2>&1 &
+          next_pid=$!
+          trap 'kill "$next_pid" 2>/dev/null || true' EXIT
+          curl --fail --silent --retry 10 --retry-connrefused http://127.0.0.1:3100/login > /dev/null
+          node tests/browser-launch-smoke.mjs
+
+      - name: Guardar capturas sintéticas de la portada
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: turnly-ui-evidence
+          path: ${{ runner.temp }}/turnly-ui-evidence
+          retention-days: 7
+          if-no-files-found: ignore
 
   baseline-lint:
     name: ESLint en base (informativo)

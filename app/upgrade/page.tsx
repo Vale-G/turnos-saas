@@ -52,13 +52,13 @@ export default function SubscriptionPage() {
   }
 
   return (
-    <main className="mx-auto max-w-4xl space-y-7 p-6 text-white">
+    <main className="mx-auto max-w-4xl space-y-7 p-6 text-product-ink">
       <Link className="underline" href="/dashboard">Volver al panel</Link>
       <h1 className="text-3xl font-bold">Mi suscripción</h1>
       {message && <p role="status">{message}</p>}
       {!summary && !message && <p role="status">Cargando suscripción…</p>}
       {summary && <>
-        <section className="space-y-3 rounded-2xl border border-slate-700 p-5">
+        <section className="space-y-3 rounded-2xl border border-product-line p-5">
           <h2 className="text-xl font-semibold">Estado y consumo</h2>
           <dl className="grid gap-3 sm:grid-cols-2">
             <div><dt>Estado</dt><dd>{stateNames[summary.state]}</dd></div>
@@ -89,7 +89,7 @@ export default function SubscriptionPage() {
           {summary.requestedPlan && <p>Plan solicitado: {planNames[summary.requestedPlan]}</p>}
           <div className="grid gap-3 sm:grid-cols-2">
             {summary.catalog.filter(item => item.id !== 'trial').map(item => (
-              <div key={item.id} className="space-y-2 rounded-xl border border-slate-700 p-4">
+              <div key={item.id} className="space-y-2 rounded-xl border border-product-line p-4">
                 <h3 className="font-bold">{planNames[item.id]}</h3>
                 <p>{item.staff_limit} profesionales y {item.service_limit} servicios.</p>
                 <p>{item.advanced ? 'Agenda, Informes avanzados, Control de caja y notas de clientes.' : 'Agenda, reservas y gestión esencial.'}</p>
@@ -103,7 +103,7 @@ export default function SubscriptionPage() {
           <h2 className="text-xl font-semibold">Historial de pagos</h2>
           {!summary.payments.length && <p>Todavía no hay pagos registrados.</p>}
           <ul className="space-y-2">
-            {summary.payments.map((payment, index) => <li key={index} className="rounded-lg border border-slate-700 p-3">
+            {summary.payments.map((payment, index) => <li key={index} className="rounded-lg border border-product-line p-3">
               {date(payment.at)} · {payment.plan} · {payment.amount} {payment.currency ?? '(moneda histórica sin verificar)'} · {({ pending: 'Pendiente', rejected: 'Rechazado', approved: 'Aprobado' } as Record<string, string>)[payment.status] ?? payment.status}
             </li>)}
           </ul>

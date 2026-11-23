@@ -1,16 +1,17 @@
 'use client'
 
+import { Suspense, useEffect, useMemo, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
-import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
+import { addDaysISO, mondayOfISOWeek, todayInTimeZone } from '@/lib/local-date.mjs'
 
 type TurnoItem = {
   id: string
   hora: string
+  inicio_real?: string; precio_acordado?: number | null
   cliente_nombre: string
-  cliente_id?: string | null
   estado: string
   fecha: string
   pago_tipo: string | null
@@ -21,11 +22,11 @@ type TurnoItem = {
 
 type Vista = 'dia' | 'semana'
 
-const ESTADOS_TURNO = ['pendiente', 'confirmado', 'completado', 'cancelado']
+const ESTADOS_TURNO = ['pendiente', 'confirmado', 'completado', 'cancelado','no_asistio']
 const TIPOS_PAGO = ['efectivo', 'mercadopago', 'transferencia', 'otro']
 
 function getTodayISO() {
-  return new Date().toISOString().split('T')[0]
+  return todayInTimeZone()
 }
 
 function normalizeDateISO(input: string) {
@@ -36,14 +37,7 @@ function normalizeDateISO(input: string) {
   const month = Number(match[2])
   const day = Number(match[3])
 
-  if (
-    !Number.isInteger(year) ||
-    !Number.isInteger(month) ||
-    !Number.isInteger(day) ||
-    month < 1 ||
-    month > 12 ||
-    day < 1
-  ) {
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day) || month < 1 || month > 12 || day < 1) {
     return getTodayISO()
   }
 
@@ -53,41 +47,28 @@ function normalizeDateISO(input: string) {
   return `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}-${String(safeDay).padStart(2, '0')}`
 }
 
-export default function AgendaTurnos() {
+function AgendaTurnos() {
   const [turnos, setTurnos] = useState<TurnoItem[]>([])
   const [negocioId, setNegocioId] = useState<string | null>(null)
   const [colorPrincipal, setColorPrincipal] = useState(getThemeColor())
-  const [fechaFiltro, setFechaFiltro] = useState(
-    normalizeDateISO(getTodayISO())
-  )
-  const [vista, setVista] = useState<Vista>('dia')
+  const [fechaFiltro, setFechaFiltro] = useState(normalizeDateISO(getTodayISO()))
+  const [vista, setVista] = useState<Vista>(useSearchParams().get('vista') === 'semana' ? 'semana' : 'dia')
   const [loading, setLoading] = useState(true)
+  const [agendaError, setAgendaError] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
   const [busqueda, setBusqueda] = useState('')
   const [turnoEditando, setTurnoEditando] = useState<string | null>(null)
   const [turnoEditar, setTurnoEditar] = useState<TurnoItem | null>(null)
-  const [_staffList, _setStaffList] = useState<
-    { id: string; nombre: string }[]
-  >([])
-  const [_serviciosList, _setServiciosList] = useState<
-    { id: string; nombre: string; precio: number; duracion: number }[]
-  >([])
   const router = useRouter()
 
   const totalCobrado = useMemo(
-    () =>
-      turnos
-        .filter((t) => t.pago_estado === 'cobrado')
-        .reduce((a, t) => a + (t.servicio?.precio ?? 0), 0),
-    [turnos]
+    () => turnos.filter((t) => t.pago_estado === 'cobrado').reduce((a, t) => a + (t.precio_acordado ?? t.servicio?.precio ?? 0), 0),
+    [turnos],
   )
 
   const estadoColor = (e: string) =>
-    ({
-      confirmado: 'bg-emerald-500',
-      pendiente: 'bg-amber-500',
-      cancelado: 'bg-rose-500',
-      completado: 'bg-slate-400',
-    })[e] ?? 'bg-slate-500'
+    ({ confirmado: 'bg-emerald-500', pendiente: 'bg-amber-500', cancelado: 'bg-rose-500', completado: 'bg-slate-400' })[e] ??
+    'bg-slate-500'
 
   useEffect(() => {
     async function init() {
@@ -102,11 +83,12 @@ export default function AgendaTurnos() {
       let nId = null
       let negData = null
 
-      const { data: adm } = await supabase
-        .from('adminrol')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle()
+      const params = new URLSearchParams(window.location.search)
+      const day = params.get('fecha')
+      if (day && /^\d{4}-\d{2}-\d{2}$/.test(day)) setFechaFiltro(normalizeDateISO(day))
+      setTurnoEditando(params.get('turno'))
+
+      const { data: adm } = await supabase.from('adminrol').select('negocio_id,role').eq('user_id', user.id).maybeSingle()
       if (adm?.negocio_id) {
         nId = adm.negocio_id
       } else {
@@ -129,30 +111,13 @@ export default function AgendaTurnos() {
       }
 
       if (!negData) {
-        const { data: n2 } = await supabase
-          .from('negocio')
-          .select('id, tema')
-          .eq('id', nId)
-          .single()
+        const { data: n2 } = await supabase.from('negocio').select('id, tema').eq('id', nId).single()
         negData = n2
       }
 
       setNegocioId(nId)
       setColorPrincipal(getThemeColor(negData?.tema))
 
-      const [{ data: stf }, { data: svcs }] = await Promise.all([
-        supabase
-          .from('staff')
-          .select('id, nombre')
-          .eq('negocio_id', nId)
-          .eq('activo', true),
-        supabase
-          .from('servicio')
-          .select('id, nombre, precio, duracion')
-          .eq('negocio_id', nId),
-      ])
-      _setStaffList(stf ?? [])
-      _setServiciosList(svcs ?? [])
     }
     init()
   }, [router])
@@ -179,19 +144,13 @@ export default function AgendaTurnos() {
       if (vista === 'dia') {
         query = query.eq('fecha', fechaSegura)
       } else {
-        const inicio = new Date(fechaSegura + 'T12:00:00')
-        const lunes = new Date(inicio)
-        lunes.setDate(inicio.getDate() - ((inicio.getDay() + 6) % 7))
-        const domingo = new Date(lunes)
-        domingo.setDate(lunes.getDate() + 6)
-
-        query = query
-          .gte('fecha', lunes.toISOString().split('T')[0])
-          .lte('fecha', domingo.toISOString().split('T')[0])
+        const lunes = mondayOfISOWeek(fechaSegura)
+        query = query.gte('fecha', lunes).lte('fecha', addDaysISO(lunes, 6))
       }
 
-      const { data } = await query
+      const { data, error } = await query
       if (mounted) {
+        setAgendaError(Boolean(error))
         setTurnos((data as TurnoItem[]) ?? [])
         setLoading(false)
       }
@@ -201,114 +160,46 @@ export default function AgendaTurnos() {
     return () => {
       mounted = false
     }
-  }, [negocioId, fechaFiltro, vista])
+  }, [negocioId, fechaFiltro, vista, reloadKey])
 
   const moverFecha = (dias: number) => {
     const base = normalizeDateISO(fechaFiltro)
-    const d = new Date(base + 'T12:00:00')
-    d.setDate(d.getDate() + (vista === 'semana' ? dias * 7 : dias))
-    setFechaFiltro(d.toISOString().split('T')[0])
+    setFechaFiltro(addDaysISO(base, vista === 'semana' ? dias * 7 : dias))
   }
 
   const cambiarEstado = useCallback(async (id: string, estado: string) => {
-    const { data: updatedTurno, error } = await supabase
-      .from('turno')
-      .update({ estado })
-      .eq('id', id)
-      .select('*, servicio(nombre, precio), staff(nombre)')
-      .single()
-    if (error) return toast.error('Error al cambiar estado')
-
-    setTurnos((turnos) =>
-      turnos.map((t) => (t.id === id ? (updatedTurno as TurnoItem) : t))
-    )
+    const { error } = await supabase.from('turno').update({ estado }).eq('id', id)
+    if (error) return toast.error('No se pudo cambiar el estado', { description: error.message })
     toast.success('Estado actualizado')
+    setReloadKey((k) => k + 1)
   }, [])
 
   const registrarPago = useCallback(async (id: string, tipo: string) => {
-    const { data: updatedTurno, error } = await supabase
-      .from('turno')
-      .update({ pago_tipo: tipo, pago_estado: 'cobrado', estado: 'completado' })
-      .eq('id', id)
-      .select('*, servicio(nombre, precio), staff(nombre)')
-      .single()
-    if (error) return toast.error('Error al registrar el pago')
-
-    setTurnos((turnos) =>
-      turnos.map((t) => (t.id === id ? (updatedTurno as TurnoItem) : t))
-    )
+    const { error } = await supabase.from('turno').update({ pago_tipo: tipo, pago_estado: 'cobrado', estado: 'completado' }).eq('id', id)
+    if (error) return toast.error('No se pudo registrar el cobro', { description: error.message })
+    toast.success('Cobro registrado')
     setTurnoEditando(null)
-    toast.success('Pago registrado')
+    setReloadKey((k) => k + 1)
   }, [])
 
   const deshacerPago = useCallback(async (id: string) => {
-    const { data: updatedTurno, error } = await supabase
-      .from('turno')
-      .update({ pago_tipo: null, pago_estado: 'pendiente' })
-      .eq('id', id)
-      .select('*, servicio(nombre, precio), staff(nombre)')
-      .single()
-    if (error) return toast.error('Error al deshacer el pago')
-
-    setTurnos((turnos) =>
-      turnos.map((t) => (t.id === id ? (updatedTurno as TurnoItem) : t))
-    )
-    toast.success('Pago deshecho')
+    const { error } = await supabase.from('turno').update({ pago_tipo: null, pago_estado: 'pendiente' }).eq('id', id)
+    if (error) return toast.error('No se pudo deshacer el cobro', { description: error.message })
+    toast.success('Cobro deshecho')
+    setReloadKey((k) => k + 1)
   }, [])
 
   const eliminarTurno = useCallback(async (id: string) => {
-    if (!window.confirm('¿Seguro que quieres eliminar este turno?')) return
+    if (!confirm('Seguro?')) return
     const { error } = await supabase.from('turno').delete().eq('id', id)
-    if (error) return toast.error('Error al eliminar el turno')
-
-    setTurnos((turnos) => turnos.filter((t) => t.id !== id))
+    if (error) return toast.error('No se pudo eliminar el turno', { description: error.message })
     toast.success('Turno eliminado')
+    setReloadKey((k) => k + 1)
   }, [])
 
-  const bloquearCliente = useCallback(
-    async (turno: TurnoItem) => {
-      if (!negocioId) return
-
-      const nombreRaw = String(turno.cliente_nombre || '')
-        .split('·')[0]
-        .trim()
-      if (
-        !window.confirm(
-          `¿Seguro que quieres bloquear a ${nombreRaw || 'este cliente'}?`
-        )
-      )
-        return
-
-      const telefonoRaw = String(turno.cliente_nombre || '')
-        .split('·')[1]
-        ?.trim()
-      const telefono = (telefonoRaw || '').replace(/\D/g, '') || null
-
-      const payload = {
-        negocio_id: negocioId,
-        usuario_id: turno.cliente_id || null,
-        email: null as string | null,
-        telefono,
-        nombre: nombreRaw || turno.cliente_nombre || 'Cliente',
-        motivo: 'Bloqueado desde historial de turnos',
-      }
-
-      const { error } = await supabase
-        .from('lista_negra')
-        .upsert(payload, { onConflict: 'negocio_id,identidad' })
-      if (error) {
-        toast.error('No se pudo bloquear al cliente')
-        return
-      }
-      toast.success('Cliente bloqueado correctamente')
-    },
-    [negocioId]
-  )
-
-  const guardarEdicion = useCallback(async () => {
+  const guardarEdicion = async () => {
     if (!turnoEditar) return
-
-    const { data: updatedTurno, error } = await supabase
+    const { error } = await supabase
       .from('turno')
       .update({
         cliente_nombre: turnoEditar.cliente_nombre,
@@ -317,29 +208,20 @@ export default function AgendaTurnos() {
         estado: turnoEditar.estado,
       })
       .eq('id', turnoEditar.id)
-      .select('*, servicio(nombre, precio), staff(nombre)')
-      .single()
 
-    if (error) {
-      toast.error('Error al guardar el turno')
-      return
-    }
+    if (error) return toast.error('No se pudo guardar el turno', { description: error.message })
 
-    setTurnos((turnos) =>
-      turnos.map((t) =>
-        t.id === updatedTurno.id ? (updatedTurno as TurnoItem) : t
-      )
-    )
-    setTurnoEditar(null)
     toast.success('Turno actualizado')
-  }, [turnoEditar])
+    setTurnoEditar(null)
+    setReloadKey((k) => k + 1)
+  }
 
   const turnosFiltrados = busqueda.trim()
     ? turnos.filter(
         (t) =>
           t.cliente_nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
           t.servicio?.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
-          t.staff?.nombre?.toLowerCase().includes(busqueda.toLowerCase())
+          t.staff?.nombre?.toLowerCase().includes(busqueda.toLowerCase()),
       )
     : turnos
 
@@ -353,20 +235,12 @@ export default function AgendaTurnos() {
   }, [turnos])
 
   const diasSemana = useMemo(() => {
-    const inicio = new Date(normalizeDateISO(fechaFiltro) + 'T12:00:00')
-    const lunes = new Date(inicio)
-    lunes.setDate(inicio.getDate() - ((inicio.getDay() + 6) % 7))
+    const lunes = mondayOfISOWeek(normalizeDateISO(fechaFiltro))
 
     return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(lunes)
-      d.setDate(lunes.getDate() + i)
-      return {
-        iso: d.toISOString().split('T')[0],
-        label: d.toLocaleDateString('es-AR', {
-          weekday: 'short',
-          day: 'numeric',
-        }),
-      }
+      const iso = addDaysISO(lunes, i)
+      const d = new Date(`${iso}T12:00:00`)
+      return { iso, label: d.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric' }) }
     })
   }, [fechaFiltro])
 
@@ -374,42 +248,22 @@ export default function AgendaTurnos() {
     <div
       className={
         'rounded-[1.5rem] border overflow-hidden transition-all ' +
-        (t.estado === 'cancelado'
-          ? 'opacity-40 border-white/5 bg-white/2'
-          : 'border-white/8 bg-white/4 hover:border-white/15')
+        (t.estado === 'cancelado' ? 'opacity-40 border-white/5 bg-white/2' : 'border-white/8 bg-white/4 hover:border-white/15')
       }
     >
       <div className="p-4 flex items-center gap-3 justify-between">
         <div className="flex items-center gap-3">
-          <div
-            className={
-              'w-1 h-10 rounded-full flex-shrink-0 ' + estadoColor(t.estado)
-            }
-          />
-          <p
-            className="text-lg font-black italic w-12 flex-shrink-0"
-            style={{ color: colorPrincipal }}
-          >
+          <div className={'w-1 h-10 rounded-full flex-shrink-0 ' + estadoColor(t.estado)} />
+          <p className="text-lg font-black italic w-12 flex-shrink-0" style={{ color: colorPrincipal }}>
             {t.hora.slice(0, 5)}
           </p>
           <div>
-            <p className="font-black uppercase text-sm leading-tight">
-              {t.cliente_nombre}
-            </p>
+            <p className="font-black uppercase text-sm leading-tight">{t.cliente_nombre}</p>
             <p className="text-[10px] text-slate-500">
               {t.servicio?.nombre} · {t.staff?.nombre}
             </p>
-            <p
-              className={
-                'text-[9px] font-black ' +
-                (t.pago_estado === 'cobrado'
-                  ? 'text-emerald-400'
-                  : 'text-amber-400')
-              }
-            >
-              {t.pago_estado === 'cobrado'
-                ? 'Cobrado · ' + (t.pago_tipo ?? '')
-                : 'Sin cobrar'}
+            <p className={'text-[9px] font-black ' + (t.pago_estado === 'cobrado' ? 'text-emerald-400' : 'text-amber-400')}>
+              {t.pago_estado === 'cobrado' ? 'Cobrado · ' + (t.pago_tipo ?? '') : 'Sin cobrar'}
               {t.servicio?.precio ? ' $' + t.servicio.precio : ''}
             </p>
           </div>
@@ -422,46 +276,41 @@ export default function AgendaTurnos() {
             Editar
           </button>
           <button
-            onClick={() =>
-              setTurnoEditando(turnoEditando === t.id ? null : t.id)
-            }
+            onClick={() => setTurnoEditando(turnoEditando === t.id ? null : t.id)}
             className="px-2 py-1.5 rounded-lg text-[9px] font-black uppercase bg-white/5 hover:bg-white/10 border border-white/10 transition-all"
           >
-            Acciones
+            Cobro
           </button>
         </div>
       </div>
 
       {turnoEditando === t.id && (
-        <div className="border-t border-white/8 p-4 bg-black/20 space-y-3 animate-in fade-in">
+        <div className="border-t border-white/8 p-4 bg-black/20 space-y-3">
           <div>
-            <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-2">
-              Estado del Turno
-            </p>
+            {!t.inicio_real && ['pendiente','confirmado'].includes(t.estado) && <button onClick={async ()=>{
+              const {error}=await supabase.from('turno').update({inicio_real:new Date().toISOString()}).eq('id',t.id)
+              if(error) toast.error('No se pudo iniciar la atención')
+              else setReloadKey(k=>k+1)
+            }}>Iniciar atención</button>}
+            <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-2">Estado</p>
             <div className="flex gap-2 flex-wrap">
               {ESTADOS_TURNO.map((e) => (
                 <button
-                  key={e}
+                  key={e==='no_asistio'?'No asistió': e==='cancelado'?'Cancelado por el negocio':e}
                   onClick={() => cambiarEstado(t.id, e)}
                   className={
                     'px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase border transition-all ' +
-                    (t.estado === e
-                      ? 'text-black border-transparent'
-                      : 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10')
+                    (t.estado === e ? 'text-black border-transparent' : 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10')
                   }
-                  style={
-                    t.estado === e ? { backgroundColor: colorPrincipal } : {}
-                  }
+                  style={t.estado === e ? { backgroundColor: colorPrincipal } : {}}
                 >
-                  {e}
+                  {e==='no_asistio'?'No asistió': e==='cancelado'?'Cancelado por el negocio':e}
                 </button>
               ))}
             </div>
           </div>
           <div>
-            <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-2">
-              Registrar Pago
-            </p>
+            <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-2">Registrar cobro</p>
             <div className="flex gap-2 flex-wrap">
               {TIPOS_PAGO.map((tipo) => (
                 <button
@@ -474,39 +323,37 @@ export default function AgendaTurnos() {
                       : 'bg-white/5 text-slate-400 border-white/10 hover:bg-emerald-500/20 hover:text-emerald-400 hover:border-emerald-500/30')
                   }
                 >
-                  {tipo === 'mercadopago'
-                    ? 'MercadoPago'
-                    : tipo.charAt(0).toUpperCase() + tipo.slice(1)}
+                  {tipo === 'mercadopago' ? 'MercadoPago' : tipo.charAt(0).toUpperCase() + tipo.slice(1)}
                 </button>
               ))}
               {t.pago_estado === 'cobrado' && (
                 <button
                   onClick={() => deshacerPago(t.id)}
-                  className="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase bg-red-500/10 text-red-400 border border-red-500/20 transition-all hover:bg-red-500/20 hover:text-red-300"
+                  className="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase bg-red-500/10 text-red-400 border border-red-500/20 transition-all"
                 >
                   Deshacer
                 </button>
               )}
             </div>
           </div>
-          <div className="pt-2 flex justify-end gap-2">
-            <button
-              onClick={() => bloquearCliente(t)}
-              className="text-[9px] font-black uppercase text-amber-300/70 hover:text-amber-300 hover:bg-amber-500/10 px-2.5 py-1.5 rounded-lg transition-all"
-            >
-              Bloquear cliente
-            </button>
+          <div className="flex justify-end">
             <button
               onClick={() => eliminarTurno(t.id)}
-              className="text-[9px] font-black uppercase text-red-500/70 hover:text-red-400 hover:bg-red-500/10 px-2.5 py-1.5 rounded-lg transition-all"
+              className="text-[9px] font-black uppercase text-red-500/40 hover:text-red-400 hover:bg-red-500/10 px-2.5 py-1.5 rounded-lg transition-all"
             >
-              Eliminar Turno
+              Eliminar
             </button>
           </div>
         </div>
       )}
     </div>
   )
+
+  if (agendaError && !loading) {
+    return <main className="p-6"><h1>Agenda</h1><p role="alert">No pudimos cargar los turnos.</p>
+      <button className="my-4 underline" onClick={() => { setLoading(true); setReloadKey(k => k + 1) }}>Reintentar</button>
+    </main>
+  }
 
   return (
     <div className="min-h-screen bg-[#020617] text-white p-6">
@@ -519,32 +366,20 @@ export default function AgendaTurnos() {
             >
               Volver
             </button>
-            <h1
-              className="text-4xl font-black uppercase italic tracking-tighter"
-              style={{ color: colorPrincipal }}
-            >
+            <h1 className="text-4xl font-black uppercase italic tracking-tighter" style={{ color: colorPrincipal }}>
               Agenda
             </h1>
             <div className="mt-3 bg-white/4 border border-white/8 rounded-2xl p-4 flex gap-5">
               <div>
-                <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">
-                  Cobrado
-                </p>
-                <p
-                  className="text-xl font-black"
-                  style={{ color: colorPrincipal }}
-                >
+                <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Cobrado</p>
+                <p className="text-xl font-black" style={{ color: colorPrincipal }}>
                   ${totalCobrado.toLocaleString('es-AR')}
                 </p>
               </div>
               <div className="w-px bg-white/10" />
               <div>
-                <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">
-                  Turnos
-                </p>
-                <p className="text-xl font-black">
-                  {turnos.filter((t) => t.estado !== 'cancelado').length}
-                </p>
+                <p className="text-[9px] font-black uppercase text-slate-500 tracking-widest mb-1">Turnos</p>
+                <p className="text-xl font-black">{turnos.filter((t) => t.estado !== 'cancelado').length}</p>
               </div>
             </div>
           </div>
@@ -557,9 +392,7 @@ export default function AgendaTurnos() {
                   onClick={() => setVista(v)}
                   className={
                     'px-3 py-1.5 rounded-lg text-[10px] font-black uppercase transition-all ' +
-                    (vista === v
-                      ? 'text-black'
-                      : 'text-slate-400 hover:text-white')
+                    (vista === v ? 'text-black' : 'text-slate-400 hover:text-white')
                   }
                   style={vista === v ? { backgroundColor: colorPrincipal } : {}}
                 >
@@ -568,24 +401,16 @@ export default function AgendaTurnos() {
               ))}
             </div>
             <div className="flex items-center gap-1 bg-white/5 border border-white/8 p-1.5 rounded-xl">
-              <button
-                onClick={() => moverFecha(-1)}
-                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-sm font-black"
-              >
+              <button onClick={() => moverFecha(-1)} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-sm font-black">
                 {'<'}
               </button>
               <input
                 type="date"
                 value={fechaFiltro}
-                onChange={(e) =>
-                  setFechaFiltro(normalizeDateISO(e.target.value))
-                }
+                onChange={(e) => setFechaFiltro(normalizeDateISO(e.target.value))}
                 className="bg-transparent font-black text-xs outline-none cursor-pointer px-1"
               />
-              <button
-                onClick={() => moverFecha(1)}
-                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-sm font-black"
-              >
+              <button onClick={() => moverFecha(1)} className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-sm font-black">
                 {'>'}
               </button>
             </div>
@@ -602,96 +427,59 @@ export default function AgendaTurnos() {
 
         {turnoEditar && (
           <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/75 px-4 pb-0 md:pb-4">
-            <div className="w-full max-w-md bg-[#020617] border border-white/10 rounded-t-[2.5rem] md:rounded-[2.5rem] p-6 shadow-2xl animate-in slide-in-from-bottom-5 md:zoom-in-95">
+            <div className="w-full max-w-md bg-[#020617] border border-white/10 rounded-t-[2.5rem] md:rounded-[2.5rem] p-6 shadow-2xl">
               <div className="flex items-center justify-between mb-5">
-                <h3
-                  className="font-black italic uppercase text-lg"
-                  style={{ color: colorPrincipal }}
-                >
+                <h3 className="font-black italic uppercase text-lg" style={{ color: colorPrincipal }}>
                   Editar Turno
                 </h3>
-                <button
-                  onClick={() => setTurnoEditar(null)}
-                  className="text-slate-500 hover:text-white font-black"
-                >
+                <button onClick={() => setTurnoEditar(null)} className="text-slate-500 hover:text-white font-black">
                   X
                 </button>
               </div>
               <div className="space-y-4">
                 <div>
-                  <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest block mb-1">
-                    Cliente
-                  </label>
+                  <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest block mb-1">Cliente</label>
                   <input
                     type="text"
                     value={turnoEditar.cliente_nombre}
-                    onChange={(e) =>
-                      setTurnoEditar({
-                        ...turnoEditar,
-                        cliente_nombre: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setTurnoEditar({ ...turnoEditar, cliente_nombre: e.target.value })}
                     className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none focus:border-white/25 transition-colors"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest block mb-1">
-                      Fecha
-                    </label>
+                    <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest block mb-1">Fecha</label>
                     <input
                       type="date"
                       value={turnoEditar.fecha}
-                      onChange={(e) =>
-                        setTurnoEditar({
-                          ...turnoEditar,
-                          fecha: normalizeDateISO(e.target.value),
-                        })
-                      }
+                      onChange={(e) => setTurnoEditar({ ...turnoEditar, fecha: normalizeDateISO(e.target.value) })}
                       className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none"
                     />
                   </div>
                   <div>
-                    <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest block mb-1">
-                      Hora
-                    </label>
+                    <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest block mb-1">Hora</label>
                     <input
                       type="time"
                       value={turnoEditar.hora.slice(0, 5)}
-                      onChange={(e) =>
-                        setTurnoEditar({
-                          ...turnoEditar,
-                          hora: e.target.value + ':00',
-                        })
-                      }
+                      onChange={(e) => setTurnoEditar({ ...turnoEditar, hora: e.target.value + ':00' })}
                       className="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm outline-none"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest block mb-2">
-                    Estado
-                  </label>
+                  <label className="text-[9px] font-black uppercase text-slate-500 tracking-widest block mb-2">Estado</label>
                   <div className="flex gap-2 flex-wrap">
                     {ESTADOS_TURNO.map((e) => (
                       <button
-                        key={e}
-                        onClick={() =>
-                          setTurnoEditar({ ...turnoEditar, estado: e })
-                        }
+                        key={e==='no_asistio'?'No asistió': e==='cancelado'?'Cancelado por el negocio':e}
+                        onClick={() => setTurnoEditar({ ...turnoEditar, estado: e })}
                         className={
                           'px-3 py-1.5 rounded-lg text-[9px] font-black uppercase border transition-all ' +
-                          (turnoEditar.estado === e
-                            ? 'text-black border-transparent'
-                            : 'bg-white/5 text-slate-400 border-white/10')
+                          (turnoEditar.estado === e ? 'text-black border-transparent' : 'bg-white/5 text-slate-400 border-white/10')
                         }
-                        style={
-                          turnoEditar.estado === e
-                            ? { backgroundColor: colorPrincipal }
-                            : {}
-                        }
+                        style={turnoEditar.estado === e ? { backgroundColor: colorPrincipal } : {}}
                       >
-                        {e}
+                        {e==='no_asistio'?'No asistió': e==='cancelado'?'Cancelado por el negocio':e}
                       </button>
                     ))}
                   </div>
@@ -718,17 +506,13 @@ export default function AgendaTurnos() {
 
         {vista === 'dia' &&
           (loading ? (
-            <div className="text-center py-20 font-black italic text-slate-700 animate-pulse">
-              Buscando...
-            </div>
+            <div className="text-center py-20 font-black italic text-slate-700 animate-pulse">Buscando...</div>
           ) : turnosFiltrados.length === 0 ? (
             <div className="text-center py-20 bg-white/3 rounded-[2.5rem] border border-dashed border-white/10">
-              <p className="text-slate-500 font-black uppercase italic">
-                No hay turnos para este día
-              </p>
+              <p className="text-slate-500 font-black uppercase italic">No hay turnos para este día</p>
             </div>
           ) : (
-            <div className="space-y-3 animate-in fade-in">
+            <div className="space-y-3">
               {turnosFiltrados.map((t) => (
                 <TurnoCard key={t.id} t={t} />
               ))}
@@ -738,9 +522,7 @@ export default function AgendaTurnos() {
         {vista === 'semana' && (
           <div className="space-y-6 overflow-x-auto">
             {loading ? (
-              <div className="text-center py-20 font-black italic text-slate-700 animate-pulse">
-                Buscando...
-              </div>
+              <div className="text-center py-20 font-black italic text-slate-700 animate-pulse">Buscando...</div>
             ) : (
               diasSemana.map((dia) => {
                 const turnosDia = turnosPorFecha[dia.iso] ?? []
@@ -748,29 +530,20 @@ export default function AgendaTurnos() {
                 return (
                   <div key={dia.iso}>
                     <div className="flex items-center gap-3 mb-3">
-                      <p
-                        className={
-                          'text-xs font-black uppercase tracking-widest ' +
-                          (esHoy ? '' : 'text-slate-500')
-                        }
-                        style={esHoy ? { color: colorPrincipal } : {}}
-                      >
+                      <p className={'text-xs font-black uppercase tracking-widest ' + (esHoy ? '' : 'text-slate-500')} style={esHoy ? { color: colorPrincipal } : {}}>
                         {dia.label}
                       </p>
                       {turnosDia.length > 0 && (
                         <span className="text-[9px] font-black text-slate-600">
-                          {turnosDia.length} turno
-                          {turnosDia.length > 1 ? 's' : ''}
+                          {turnosDia.length} turno{turnosDia.length > 1 ? 's' : ''}
                         </span>
                       )}
                       <div className="flex-1 h-px bg-white/5" />
                     </div>
                     {turnosDia.length === 0 ? (
-                      <p className="text-slate-700 text-xs font-bold italic pl-2">
-                        Sin turnos
-                      </p>
+                      <p className="text-slate-700 text-xs font-bold italic pl-2">Sin turnos</p>
                     ) : (
-                      <div className="space-y-2 animate-in fade-in">
+                      <div className="space-y-2">
                         {turnosDia.map((t) => (
                           <TurnoCard key={t.id} t={t} />
                         ))}
@@ -785,4 +558,9 @@ export default function AgendaTurnos() {
       </div>
     </div>
   )
+}
+
+
+export default function TurnosPage() {
+  return <Suspense fallback={<p role="status">Cargando agenda…</p>}><AgendaTurnos /></Suspense>
 }

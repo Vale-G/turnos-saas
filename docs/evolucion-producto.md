@@ -28,7 +28,7 @@ A indica comportamiento existente conservado, B cobertura parcial, C trabajo com
 
 El orden heredado es `owner_operations`, `owner_insights`, `atomic_onboarding`, `restrict_public_truncate`, `commercial_subscriptions`, `mercadopago_saas_adapter` y `privacy_requests`. Después sigue `20261123000500_superadmin_directory.sql`. Agrega una función de lectura sobre entidades existentes. Para revertir ese cambio tras retirar la interfaz que la llama, se puede eliminar la función por su firma `public.turnly_superadmin_directory(text,text,boolean,integer)` en una intervención autorizada.
 
-`npm run lint`, `npm run typecheck`, `npm run build`, `npm test` y `npm audit` cubren el código. El workflow ejecuta también concurrencia en PostgreSQL 17 y HTTP contra un build local con valores sintéticos. La prueba de Chromium verifica portada y formularios de recuperación a 360, 768 y 1280 px, foco y persistencia del tema. Las capturas se limitan a la portada. La agenda autenticada y la reserva completa con un comercio real requieren Supabase Auth en un entorno aislado.
+`npm run lint`, `npm run typecheck`, `npm run build`, `npm test` y `npm audit` cubren el código. El workflow ejecuta también concurrencia en PostgreSQL 17 y HTTP contra un build local con valores sintéticos. La prueba de Chromium verifica portada y formularios de recuperación a 360, 768 y 1280 px, foco y persistencia del tema. Las capturas se limitan a la portada ilustrativa. Para ejecutar la misma prueba con el build local en `127.0.0.1:3100`, usá `npx --no-install playwright install --with-deps --only-shell chromium` y `node tests/browser-launch-smoke.mjs`. La agenda autenticada y la reserva completa con un comercio real requieren Supabase Auth en un entorno aislado.
 
 ## Puertas de lanzamiento
 

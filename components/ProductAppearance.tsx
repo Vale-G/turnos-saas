@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useSyncExternalStore } from 'react'
+import { useEffect, useId, useSyncExternalStore } from 'react'
 
 const preferenceKey = 'turnly-product-appearance'
 const appearanceEvent = 'turnly:appearance'
@@ -28,9 +28,10 @@ function subscribe(listener: () => void) {
 
 export function AppearancePicker() {
   const mode = useSyncExternalStore(subscribe, preference, () => 'system' as Preference)
-  return <label className="flex items-center gap-2 text-sm text-product-muted">
-    <span>Apariencia</span>
-    <select value={mode} className="product-field min-h-11" onChange={event => {
+  const id = useId()
+  return <div className="flex items-center gap-2 text-sm text-product-muted">
+    <label htmlFor={id}>Apariencia</label>
+    <select id={id} value={mode} className="product-field min-h-11" onChange={event => {
       const next = event.target.value as Preference
       fallback = next
       try { localStorage.setItem(preferenceKey, next) } catch {}
@@ -40,7 +41,7 @@ export function AppearancePicker() {
       <option value="light">Clara</option>
       <option value="dark">Oscura</option>
     </select>
-  </label>
+  </div>
 }
 
 const links = [

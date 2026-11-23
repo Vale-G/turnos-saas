@@ -4,7 +4,6 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { OwnerInsights } from '@/components/dashboard/OwnerInsights'
 import { reportFor, related, type ReportRow } from '@/lib/owner-report'
-import { hasProAccess } from '@/lib/server/plan-access'
 import { getThemeColor } from '@/lib/theme'
 
 const BA_TZ = 'America/Argentina/Buenos_Aires'
@@ -51,7 +50,9 @@ export default function InformesElite() {
         if (error) setAccessError(true)
         if (data) {
           setNegocio(data)
-          setTieneAcceso(adm?.role === 'superadmin' || hasProAccess(data))
+          const { data: subscription, error: access } = await supabase.rpc('turnly_commercial_summary', { business: data.id })
+          if (access) setAccessError(true)
+          setTieneAcceso(subscription?.limits?.advanced === true)
         }
       } else {
         setRestrictedRole(true)

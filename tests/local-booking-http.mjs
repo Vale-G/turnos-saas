@@ -53,6 +53,9 @@ try {
   mode = 'blocked'
   await send('/api/public/reservas', 'POST', data, 403, /no está disponible/)
   await send('/api/public/reservas/' + negocioId + '?token=' + token, 'PUT', null, 400, /inválidos/)
+  await send('/api/suscripcion', 'POST', { plan: 'pro', amount: 1 }, 400, /inválida/)
+  await send('/api/suscripcion', 'POST', { action: 'change_plan', plan: 'pro', amount: 1 }, 401, /Iniciá sesión/)
+  await send('/api/webhooks/suscripcion', 'POST', { type: 'payment', data: { id: 42 } }, 503, /deshabilitada/)
   assert.equal(bookingCalls, 0)
   const redirectChecks = new Map([
     ['/agenda', '/turnos?vista=semana'],
@@ -80,8 +83,11 @@ try {
   }
   const legacyReceipt = await fetch(origin + '/reserva/confirmada/' + negocioId)
   assert.match(await legacyReceipt.text(), /Ingresá a tu cuenta o abrí el enlace de gestión/)
+  await send('/api/suscripcion', 'POST', { plan: 'pro', amount: 1 }, 400, /inválida/)
+  await send('/api/suscripcion', 'POST', { action: 'change_plan', plan: 'pro', amount: 1 }, 401, /Iniciá sesión/)
+  await send('/api/webhooks/suscripcion', 'POST', { type: 'payment', data: { id: 42 } }, 503, /deshabilitada/)
   assert.equal(bookingCalls, 0)
-  console.log('HTTP local: 20/20 escenarios pasaron. El fixture no recibió RPC de escritura.')
+  console.log('HTTP local: 23/23 escenarios pasaron. El fixture no recibió RPC de escritura.')
 } finally {
   database.close()
 }

@@ -10,7 +10,8 @@
       "codex/turnly-owner-reports": false,
       "codex/turnly-release-stabilization": false,
       "codex/turnly-final-candidate-20261123": false,
-      "codex/turnly-main-reconciliation-20261123": false
+      "codex/turnly-main-reconciliation-20261123": false,
+      "codex/turnly-commercial-subscriptions": false
     }
   }
 }

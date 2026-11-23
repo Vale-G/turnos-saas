@@ -5,8 +5,7 @@ import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getThemeColor } from '@/lib/theme'
-import { LIMITES } from '@/lib/permisos'
-import { diasTrialRestantes } from '@/lib/planes'
+import { daysLeft, type SubscriptionSummary } from '@/lib/commercial-subscription'
 import { getAppearance } from '@/lib/personalization.mjs'
 import { useRouter } from 'next/navigation'
 
@@ -27,8 +26,7 @@ export default function DashboardPrincipal() {
   const [privateMode, setPrivateMode] = useState<string | null>(null)
   const [rol, setRol] = useState<string>('owner')
   const [esSuperAdmin, setEsSuperAdmin] = useState(false)
-  const [staffCount, setStaffCount] = useState(0)
-  const [serviciosCount, setServiciosCount] = useState(0)
+  const [subscription, setSubscription] = useState<SubscriptionSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [copiado, setCopiado] = useState(false)
@@ -75,29 +73,12 @@ export default function DashboardPrincipal() {
           .eq('id', negocioId)
           .maybeSingle()
         if (neg) {
-          const diasRestantes = diasTrialRestantes(neg.trial_hasta)
-          // Si es superadmin, no lo bloqueamos nunca con el paywall
-          if (currentRol !== 'superadmin') {
-            if (neg.suscripcion_tipo === 'trial' && diasRestantes < 0) {
-              router.push('/negocio-inactivo')
-              return
-            }
-            if (neg.suscripcion_tipo === 'inactiva' || neg.suscripcion_tipo === 'vencida') {
-               router.push('/negocio-inactivo')
-               return
-            }
-          }
-
           try { setPrivateMode(localStorage.getItem('turnly-panel-mode-' + user.id)) } catch {}
           setNegocio(neg)
           
-          if (currentRol === 'owner' || currentRol === 'superadmin') {
-             const [{ count: sc }, { count: svc }] = await Promise.all([
-               supabase.from('staff').select('id', { count: 'exact', head: true }).eq('negocio_id', neg.id),
-               supabase.from('servicio').select('id', { count: 'exact', head: true }).eq('negocio_id', neg.id),
-             ])
-             setStaffCount(sc ?? 0)
-             setServiciosCount(svc ?? 0)
+          if (currentRol !== 'staff') {
+            const { data } = await supabase.rpc('turnly_commercial_summary', { business: neg.id })
+            setSubscription(data)
           }
         } else if (!negocioError) {
           router.push('/onboarding')
@@ -127,11 +108,12 @@ export default function DashboardPrincipal() {
     visualMode: privateMode ?? negocio?.modo_visual,
   })
   const colorPrincipal = appearance.visualMode === 'claro' ? '#204c3a' : brand
-  const plan = (negocio?.suscripcion_tipo ?? 'normal') as keyof typeof LIMITES
-  const limites = LIMITES[plan] ?? LIMITES.normal
-  const esPro = plan === 'pro'
-  const esTrial = plan === 'trial'
-  const diasTrial = diasTrialRestantes(negocio?.trial_hasta)
+  const advanced = subscription?.limits.advanced === true
+  const esTrial = subscription?.effectivePlan === 'trial'
+  const diasTrial = daysLeft(subscription?.trialEnd ?? null)
+  const staffCount = subscription?.usage.staff ?? 0
+  const serviciosCount = subscription?.usage.services ?? 0
+  const limites = subscription?.limits
   const esStaff = rol === 'staff'
 
   const navItems = esStaff ? [
@@ -139,11 +121,12 @@ export default function DashboardPrincipal() {
     { label: 'Clientes', desc: 'Ver base de clientes.', href: '/clientes', badge: null, proOnly: false }
   ] : [
     { label: 'Agenda', desc: 'Gestioná tus citas.', href: '/turnos', badge: null, proOnly: false },
-    { label: 'Caja', desc: 'Control financiero.', href: (esPro || esTrial || esSuperAdmin) ? '/caja' : '/upgrade', badge: (esPro || esTrial || esSuperAdmin) ? null : 'PRO', proOnly: true },
-    { label: 'Informes', desc: 'Reservas, cancelaciones y equipo.', href: (esPro || esTrial || esSuperAdmin) ? '/informes' : '/upgrade', badge: (esPro || esTrial || esSuperAdmin) ? null : 'PRO', proOnly: true },
+    { label: 'Caja', desc: 'Control financiero.', href: advanced ? '/caja' : '/upgrade', badge: advanced ? null : 'PRO', proOnly: true },
+    { label: 'Informes', desc: 'Reservas, cancelaciones y equipo.', href: advanced ? '/informes' : '/upgrade', badge: advanced ? null : 'PRO', proOnly: true },
     { label: 'Clientes', desc: 'Historial y notas.', href: '/clientes', badge: null, proOnly: false },
-    { label: 'Servicios', desc: (esPro || esTrial || esSuperAdmin) ? 'Sin límite' : serviciosCount + ' / ' + limites.maxServicios, href: '/servicios', badge: !esPro && !esTrial && !esSuperAdmin && serviciosCount >= limites.maxServicios ? 'LÍMITE' : null, proOnly: false },
-    { label: 'Staff', desc: (esPro || esTrial || esSuperAdmin) ? 'Sin límite' : staffCount + ' / ' + limites.maxStaff, href: '/staff', badge: !esPro && !esTrial && !esSuperAdmin && staffCount >= limites.maxStaff ? 'LÍMITE' : null, proOnly: false },
+    { label: 'Servicios', desc: limites ? serviciosCount + ' / ' + limites.services : 'Ver catálogo', href: '/servicios', badge: null, proOnly: false },
+    { label: 'Staff', desc: limites ? staffCount + ' / ' + limites.staff : 'Ver equipo', href: '/staff', badge: null, proOnly: false },
+    { label: 'Mi suscripción', desc: 'Consultar plan y vencimiento.', href: '/upgrade', badge: null, proOnly: false },
     { label: 'Ajustes', desc: 'Marca y MP.', href: '/ajustes', badge: null, proOnly: false },
     { label: 'Bloqueos', desc: 'Bloquear horarios.', href: '/bloqueos', badge: null, proOnly: false },
   ]
@@ -161,7 +144,7 @@ export default function DashboardPrincipal() {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-2">
                 <h1 className="text-3xl sm:text-5xl font-black uppercase italic leading-none break-words" style={{ color: colorPrincipal, letterSpacing: appearance.tracking }}>{negocio?.nombre}</h1>
-                {esSuperAdmin ? <span className="bg-rose-500 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full shadow-lg shadow-rose-500/20">SUPERADMIN</span> : esStaff ? <span className="bg-slate-500/20 text-slate-500 text-[10px] font-black uppercase px-3 py-1 rounded-full">STAFF</span> : esPro ? <span className="bg-amber-400 text-black text-[10px] font-black uppercase px-3 py-1 rounded-full">PRO</span> : esTrial ? <span className="bg-blue-500 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full">TRIAL · {diasTrial}D</span> : <span className="bg-slate-500/10 text-slate-500 text-[10px] font-black uppercase px-3 py-1 rounded-full">NORMAL</span>}
+                {esSuperAdmin ? <span className="bg-rose-500 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full shadow-lg shadow-rose-500/20">SUPERADMIN</span> : esStaff ? <span className="bg-slate-500/20 text-slate-500 text-[10px] font-black uppercase px-3 py-1 rounded-full">STAFF</span> : subscription?.effectivePlan === 'pro' ? <span className="bg-amber-400 text-black text-[10px] font-black uppercase px-3 py-1 rounded-full">PRO</span> : esTrial ? <span className="bg-blue-500 text-white text-[10px] font-black uppercase px-3 py-1 rounded-full">TRIAL · {diasTrial}D</span> : <span className="bg-slate-500/10 text-slate-500 text-[10px] font-black uppercase px-3 py-1 rounded-full">NORMAL</span>}
               </div>
               <p className="text-[10px] font-black uppercase tracking-[0.25em]" style={{ color: appearance.muted }}>Panel de gestión</p>
             </div>
@@ -193,7 +176,7 @@ export default function DashboardPrincipal() {
           <div className="mb-10 p-8 rounded-[3rem] border border-blue-500/30 bg-blue-500/10 flex flex-col md:flex-row items-center justify-between gap-6 cursor-pointer hover:bg-blue-500/15 transition-all">
             <div>
               <p className="font-black uppercase text-xl text-blue-400 mb-1 tracking-tight">TRIAL TERMINA EN {diasTrial} DÍA{diasTrial !== 1 ? 'S' : ''}</p>
-              <p className="text-blue-200/60 text-xs font-bold uppercase tracking-widest">Activá tu plan PRO para no perder acceso al sistema.</p>
+              <p className="text-blue-200/60 text-xs font-bold uppercase tracking-widest">Al vencer la prueba se pausan las reservas nuevas. Conservás tu agenda y tus datos.</p>
             </div>
             <button onClick={() => router.push('/upgrade')} className="text-[10px] font-black uppercase text-black bg-blue-400 px-6 py-3 rounded-2xl shadow-lg shadow-blue-500/20">Ver mi plan</button>
           </div>

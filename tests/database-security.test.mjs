@@ -566,3 +566,108 @@ test('el cierre de TRUNCATE preserva operaciones por fila y detecta grants hered
   `)
   assert.deepEqual(grants, { anon_truncate: false, auth_truncate: false, auth_update: true })
 })
+
+const commercial = new URL('../supabase/migrations/20261123000200_commercial_subscriptions.sql', import.meta.url)
+
+async function commercialDatabase(t) {
+  const db = await database()
+  t.after(() => db.close())
+  await db.exec(await readFile(commercial, 'utf8'))
+  return db
+}
+
+test('prueba de 14 días, límites, aislamiento y agenda conservada al vencer', async (t) => {
+  const db = await commercialDatabase(t)
+  const { owner, negocio, otherNegocio, servicio, staff } = await seed(db)
+  const { rows: [trial] } = await db.query(`
+    select e.*, extract(epoch from s.trial_end-n.created_at) as duration
+    from turnly_private.commercial_effective($1) e
+    join turnly_private.commercial_subscription s on s.business_id=$1
+    join public.negocio n on n.id=$1
+  `, [negocio])
+  assert.equal(trial.state, 'trialing')
+  assert.equal(trial.advanced, true)
+  assert.deepEqual([trial.staff_limit, trial.service_limit, Number(trial.duration)], [5, 10, 14 * 86400])
+  await db.query("insert into public.staff(negocio_id,nombre) select $1,'Prueba '||i from generate_series(1,4) i", [negocio])
+  await assert.rejects(db.query("insert into public.staff(negocio_id,nombre) values ($1,'Excedente')", [negocio]), /Límite de profesionales/)
+  await db.query("insert into public.servicio(negocio_id,nombre,precio,duracion) select $1,'Prueba '||i,100,30 from generate_series(1,9) i", [negocio])
+  await assert.rejects(db.query("insert into public.servicio(negocio_id,nombre,precio,duracion) values ($1,'Excedente',100,30)", [negocio]), /Límite de servicios/)
+  const { rows: [booking] } = await db.query(`select * from public.turnly_book_with_policy($1,$2,$3,$4,'10:00',null,'Prueba','1123456789','example@example.test',false)`,
+    [negocio, servicio, staff, tomorrow()])
+  await db.query("update turnly_private.commercial_subscription set trial_end=statement_timestamp() where business_id=$1", [negocio])
+  await assert.rejects(db.query(`select * from public.turnly_book_with_policy($1,$2,$3,$4,'12:00',null,'Prueba','1123456789','example@example.test',false)`,
+    [negocio, servicio, staff, tomorrow()]), /Suscripción vencida/)
+  await db.exec('set role authenticated')
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [owner])
+  const { rows: [summary] } = await db.query('select public.turnly_commercial_summary() as subscription')
+  assert.equal(summary.subscription.state, 'expired')
+  assert.equal(summary.subscription.usage.staff, 5)
+  assert.equal((await db.query('select id from public.turno where id=$1', [booking.turno_id])).rows.length, 1)
+  await assert.rejects(db.query('select public.turnly_commercial_summary($1)', [otherNegocio]), /Acceso denegado/)
+  await assert.rejects(db.query("select public.turnly_commercial_record_payment('i','s','p','approved',1,'ARS')"), /permission denied/)
+  await assert.rejects(db.query("update public.negocio set suscripcion_tipo='pro' where id=$1", [negocio]), /permission denied/)
+  await db.exec('reset role')
+  assert.equal((await db.query('select public.turnly_cancel_public_booking($1,$2) ok', [booking.turno_id, booking.manage_token])).rows[0].ok, true)
+  const { rows: [duplicate] } = await db.query("insert into public.negocio(owner_id,nombre,slug) values ($1,'Otra prueba','otra-prueba') returning id", [owner])
+  assert.equal((await db.query('select state from turnly_private.commercial_effective($1)', [duplicate.id])).rows[0].state, 'expired')
+})
+
+test('facturas conciliadas, renovación, cambio de plan y cancelación auditada', async (t) => {
+  const db = await commercialDatabase(t)
+  const { owner, negocio } = await seed(db)
+  await db.exec("insert into turnly_private.commercial_price values ('basico',10,'ARS'),('pro',20,'ARS')")
+  await db.query("select set_config('request.jwt.claim.sub',$1,false)", [owner])
+  const change = (plan) => db.query("select public.turnly_commercial_request('change_plan',$1)", [plan])
+  const stage = (invoice, offset) => db.query(`
+    with boundary as (select (current_date+$3::interval)::timestamp as starts)
+    select public.turnly_commercial_stage_invoice($1,'provider-sub',$2,starts at time zone 'UTC',
+      (starts+interval '1 month') at time zone 'UTC') from boundary
+  `, [negocio, invoice, offset])
+  const pay = async (invoice, payment, status, amount, currency = 'ARS', sub = 'provider-sub') =>
+    (await db.query('select public.turnly_commercial_record_payment($1,$2,$3,$4,$5,$6) as ok',
+      [invoice, sub, payment, status, amount, currency])).rows[0].ok
+  const effective = async () => (await db.query('select * from turnly_private.commercial_effective($1)', [negocio])).rows[0]
+  await change('pro')
+  await stage('first','-2 months')
+  assert.equal(await pay('first','p1','approved',20), false) // El período ya venció.
+  await stage('second','-2 days')
+  assert.equal(await pay('second','p2','pending',20), true)
+  assert.equal((await effective()).effective_plan, 'trial')
+  assert.equal(await pay('second','p2','rejected',20), true)
+  assert.equal(await pay('second','p3','approved',10), false)
+  assert.equal(await pay('second','p3','approved',20,'USD'), false)
+  assert.equal(await pay('second','p3','approved',20,'ARS','wrong-subscription'), false)
+  assert.equal(await pay('second','p3','approved',20), true)
+  const { rows: [before] } = await db.query('select period_end from turnly_private.commercial_subscription where business_id=$1', [negocio])
+  assert.equal(await pay('second','p3','approved',20), true)
+  assert.equal(await pay('second','p4','approved',20), false)
+  assert.deepEqual((await db.query('select period_end from turnly_private.commercial_subscription where business_id=$1', [negocio])).rows[0], before)
+  assert.deepEqual([ (await effective()).effective_plan, (await effective()).staff_limit, (await effective()).service_limit ], ['pro',15,50])
+
+  await db.query("insert into public.staff(negocio_id,nombre) select $1,'Pro '||i from generate_series(1,4) i", [negocio])
+  await change('basico')
+  // Simulate arriving at the next billing boundary, without manipulating the server clock.
+  await db.query("update turnly_private.commercial_subscription set period_start=current_date-interval '1 month',period_end=current_date-interval '1 day' where business_id=$1", [negocio])
+  assert.equal((await effective()).effective_plan, null)
+  await stage('renewal','-1 day')
+  assert.equal(await pay('renewal','p5','rejected',10), true)
+  assert.equal((await effective()).state, 'past_due')
+  assert.equal(await pay('renewal','p6','approved',10), true)
+  assert.deepEqual([ (await effective()).effective_plan, (await effective()).staff_limit, (await effective()).service_limit ], ['basico',2,5])
+  assert.equal((await db.query('select count(*)::int as n from public.staff where negocio_id=$1', [negocio])).rows[0].n, 5)
+  await assert.rejects(db.query("insert into public.staff(negocio_id,nombre) values ($1,'Excedente')", [negocio]), /Límite de profesionales/)
+  await assert.rejects(db.query("insert into public.gasto(negocio_id,concepto,monto,fecha) values ($1,'Caja',1,current_date)", [negocio]), /requiere Pro/)
+  await change('pro')
+  await db.query("update turnly_private.commercial_subscription set period_start=current_date-interval '1 month',period_end=current_date where business_id=$1", [negocio])
+  await stage('upgrade','0 days')
+  assert.equal(await pay('upgrade','p7','approved',20), true)
+  assert.equal((await effective()).effective_plan, 'pro')
+  assert.equal((await db.query("select count(*)::int n from turnly_private.commercial_payment where status='approved'")).rows[0].n, 3)
+  await assert.rejects(db.query('select public.turnly_commercial_support($1,$2)', [negocio,'Incidencia']), /Acceso denegado/)
+  await db.exec("select public.turnly_commercial_request('cancel_renewal')")
+  assert.equal((await db.query("select public.turnly_commercial_confirm_cancellation($1,'provider-sub') ok", [negocio])).rows[0].ok, true)
+  assert.equal((await effective()).state, 'canceled')
+  assert.equal((await effective()).effective_plan, 'pro')
+  await assert.rejects(stage('new','1 month'), /no admite/)
+  assert.equal((await db.query("select count(*)::int n from turnly_private.commercial_audit where business_id=$1 and event='renewal_stopped'", [negocio])).rows[0].n, 1)
+})

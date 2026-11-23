@@ -52,8 +52,7 @@ export async function POST(request: NextRequest) {
     )
   }
   if (body.pagarSena === true) {
-    const { data: plan } = await admin.from('negocio').select('suscripcion_tipo,trial_hasta').eq('id',negocioId).maybeSingle()
-    if (!plan || !hasProAccess(plan) || !await getBusinessAccessToken(admin,negocioId)) {
+    if (!await hasProAccess(admin, negocioId) || !await getBusinessAccessToken(admin,negocioId)) {
       return NextResponse.json({ error: 'El negocio aún no tiene habilitados los cobros en línea.' }, { status: 409 })
     }
   }
@@ -71,6 +70,12 @@ export async function POST(request: NextRequest) {
   })
 
   if (error) {
+    if (error.code === '23514' && error.message.startsWith('Suscripción vencida:')) {
+      return NextResponse.json({ error: 'Este comercio no está tomando nuevos turnos. Los turnos existentes se conservan.' }, { status: 409 })
+    }
+    if (error.code === '23514' && error.message.startsWith('La seña obligatoria')) {
+      return NextResponse.json({ error: 'Este servicio requiere una seña que el comercio no puede cobrar en línea. Contactá al comercio.' }, { status: 409 })
+    }
     const conflict = error.code === '23P01' || /disponible|bloqueado/i.test(error.message)
     return NextResponse.json(
       { code: conflict ? 'slot_conflict' : 'invalid_booking', error: conflict ? 'Ese horario acaba de ocuparse. Elegí otro.' : 'No se pudo crear la reserva con esos datos.' },

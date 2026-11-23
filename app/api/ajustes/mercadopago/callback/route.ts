@@ -1,3 +1,4 @@
+import { hasProAccess } from '@/lib/server/plan-access'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient, createUserServerClient } from '@/lib/server/supabase'
 import { exchangeAuthorizationCode, readOAuthState, storeBusinessToken } from '@/lib/server/mercadopago-oauth'
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
 
   const admin = createAdminClient()
   const { data: negocio } = await admin.from('negocio').select('id').eq('id', oauth.negocioId).eq('owner_id', user.id).maybeSingle()
-  if (!negocio) return result(request, 'invalid')
+  if (!negocio || !await hasProAccess(admin, negocio.id)) return result(request, 'invalid')
 
   try {
     const token = await exchangeAuthorizationCode(code, oauth.verifier)

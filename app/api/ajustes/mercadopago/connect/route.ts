@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   const admin = createAdminClient()
   const { data: negocio } = await admin.from('negocio').select('id,suscripcion_tipo,trial_hasta').eq('owner_id', user.id).maybeSingle()
   if (!negocio) return NextResponse.json({ error: 'Solo el propietario puede conectar Mercado Pago' }, { status: 403 })
-  if (!hasProAccess(negocio)) return NextResponse.redirect(new URL('/upgrade?feature=mercadopago', request.nextUrl.origin))
+  if (!await hasProAccess(admin, negocio.id)) return NextResponse.redirect(new URL('/upgrade?feature=mercadopago', request.nextUrl.origin))
 
   try {
     const oauth = createOAuthState(negocio.id, user.id)

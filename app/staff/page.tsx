@@ -7,12 +7,12 @@ import { useRouter } from 'next/navigation'
 import { getNegocioDelUsuario } from '@/lib/getnegocio'
 
 type StaffItem = { id: string; nombre: string; activo: boolean }
-const MAX_STAFF: Record<string, number> = { normal: 2, basico: 2, pro: 999, trial: 999 }
+
 
 export default function GestionStaff() {
   const [staff, setStaff] = useState<StaffItem[]>([])
   const [negocioId, setNegocioId] = useState<string | null>(null)
-  const [plan, setPlan] = useState<string>('normal')
+  const [limite, setLimite] = useState<number | null>(null)
   const [colorPrincipal, setColorPrincipal] = useState(getThemeColor())
   const [nombre, setNombre] = useState('')
   const [loading, setLoading] = useState(true)
@@ -35,7 +35,8 @@ export default function GestionStaff() {
 
       setNegocioId(neg.id)
       setColorPrincipal(getThemeColor(neg.tema))
-      setPlan(neg.suscripcion_tipo ?? 'normal')
+      const { data } = await supabase.rpc('turnly_commercial_summary', { business: neg.id })
+      setLimite(data?.limits?.staff ?? null)
       await cargarStaff(neg.id)
       setLoading(false)
     }
@@ -47,10 +48,8 @@ export default function GestionStaff() {
     if (!negocioId) return
     setError(null)
 
-    if (staff.length >= MAX_STAFF[plan]) {
-      setError(plan === 'normal'
-        ? 'Límite del plan Normal (2 profesionales). Pasate a Pro para agregar más.'
-        : 'Límite alcanzado.')
+    if (limite !== null && staff.length >= limite) {
+      setError('Límite alcanzado. Consultá Mi suscripción.')
       return
     }
 
@@ -78,8 +77,7 @@ export default function GestionStaff() {
       style={{ color: colorPrincipal }}>Cargando...</div>
   )
 
-  const limite = MAX_STAFF[plan]
-  const lleno = staff.length >= limite
+  const lleno = limite !== null && staff.length >= limite
 
   return (
     <div className="min-h-screen bg-[#020617] text-white p-8">
@@ -94,17 +92,14 @@ export default function GestionStaff() {
             Mi Equipo
           </h1>
           <span className="text-xs font-black text-slate-500">
-            {plan === 'pro' ? staff.length + ' profesionales' : staff.length + ' / ' + limite}
+            {limite === null ? staff.length : staff.length + ' / ' + limite}
           </span>
-          {plan === 'pro' && (
-            <span className="bg-amber-400 text-black text-[9px] font-black uppercase px-2 py-0.5 rounded-full">PRO</span>
-          )}
         </div>
 
-        {lleno && plan === 'normal' ? (
+        {lleno ? (
           <div className="bg-amber-400/10 border border-amber-400/20 rounded-2xl p-5 mb-8">
-            <p className="font-black text-amber-400 text-sm uppercase">Límite del plan Normal</p>
-            <p className="text-slate-400 text-xs mt-0.5">Tenés {limite} profesionales. Pasate a Pro para agregar más.</p>
+            <p className="font-black text-amber-400 text-sm uppercase">Límite del plan vigente</p>
+            <p className="text-slate-400 text-xs mt-0.5">Consultá Mi suscripción para regularizar el acceso o cambiar de plan.</p>
           </div>
         ) : (
           <form onSubmit={agregarBarbero}

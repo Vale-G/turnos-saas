@@ -1,3 +1,4 @@
+import { hasProAccess } from '@/lib/server/plan-access'
 import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient, createUserServerClient } from '@/lib/server/supabase'
 import { validUuid } from '@/lib/server/public-booking'
@@ -21,6 +22,7 @@ export async function POST(request: NextRequest) {
     admin.from('servicio').select('nombre,precio').eq('id', turno.servicio_id).maybeSingle(),
   ])
   if (!negocio || negocio.owner_id !== user.id) return NextResponse.json({ error: 'No autorizado' }, { status: 403 })
+  if (!await hasProAccess(admin, negocio.id)) return NextResponse.json({ error: 'Cobros en línea fuera del plan vigente' }, { status: 403 })
   const accessToken = await getBusinessAccessToken(admin, negocio.id)
   if (!accessToken || !servicio) return NextResponse.json({ error: 'Mercado Pago no está configurado' }, { status: 409 })
   const amount = Number(turno.precio_acordado ?? servicio.precio) - (turno.sena_pagada ? Number(turno.monto_sena) : 0)

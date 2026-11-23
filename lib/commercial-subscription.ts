@@ -8,6 +8,8 @@ export type SubscriptionSummary = {
   trialEnd: string | null
   periodStart: string | null
   periodEnd: string | null
+  billingEnabled?: boolean
+  mandate?: { plan: PaidPlan; state: string } | null
   requestedPlan: PaidPlan | null
   autoRenew: boolean
   cancelPending: boolean

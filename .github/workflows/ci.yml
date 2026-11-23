@@ -106,7 +106,7 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-not-a-real-key
           NEXT_PUBLIC_SITE_URL: http://localhost:3000
 
-      - name: Probar rutas de reservas y suscripciones sobre el build aislado
+      - name: Probar reservas, suscripciones y recuperación sobre el build aislado
         env:
           SUPABASE_SERVICE_ROLE_KEY: ci-placeholder-not-a-real-key
           NEXT_PUBLIC_SITE_URL: http://127.0.0.1:3100
@@ -116,6 +116,11 @@ jobs:
           trap 'kill "$next_pid" 2>/dev/null || true' EXIT
           curl --fail --silent --retry 10 --retry-connrefused http://127.0.0.1:3100/login > /dev/null
           node tests/local-booking-http.mjs
+          if browser=$(command -v google-chrome || command -v chromium); then
+            TURNLY_BROWSER="$browser" node tests/browser-launch-smoke.mjs
+          else
+            echo "::notice::Prueba de navegador pendiente: el runner no ofrece Chromium"
+          fi
 
   baseline-lint:
     name: ESLint en base (informativo)

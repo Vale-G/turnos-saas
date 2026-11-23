@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
 import { planNames, stateNames, type SubscriptionSummary } from '@/lib/commercial-subscription'
 
@@ -29,6 +30,7 @@ export default function SubscriptionSupport() {
 
   return <main className="mx-auto max-w-3xl space-y-5 p-6 text-white">
     <h1 className="text-3xl font-bold">Soporte de suscripciones</h1>
+    <Link href="/superadmin/privacidad" className="underline">Solicitudes de privacidad</Link>
     <form className="space-y-3" onSubmit={event => { event.preventDefault(); void submit() }}>
       <label htmlFor="commercial-business">ID del comercio</label>
       <input id="commercial-business" className="block w-full rounded border p-2" value={business}

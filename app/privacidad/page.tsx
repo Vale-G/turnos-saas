@@ -1,4 +1,5 @@
 'use client'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 export default function PoliticaPrivacidad() {
@@ -30,8 +31,9 @@ export default function PoliticaPrivacidad() {
 
           <section className="bg-white/5 border border-white/10 p-8 rounded-[2rem]">
             <h2 className="text-xl font-black uppercase italic text-white mb-4">4. Propiedad de los Datos</h2>
-            <p>La base de datos de clientes generada por un negocio le pertenece exclusivamente a dicho negocio. Si El Cliente decide cancelar su suscripción, puede solicitar la exportación o eliminación total de sus datos contactando a soporte.</p>
+            <p>La base de datos de clientes generada por un negocio le pertenece exclusivamente a dicho negocio. Podés registrar una solicitud de exportación o eliminación. Soporte verifica identidad y alcance antes de resolverla.</p>
           </section>
+          <Link href="/privacidad/solicitudes" className="inline-block py-3 underline">Gestionar solicitudes de privacidad</Link>
         </div>
       </div>
     </div>

@@ -25,7 +25,7 @@ export default function TerminosYCondiciones() {
 
           <section className="bg-white/5 border border-white/10 p-8 rounded-[2rem]">
             <h2 className="text-xl font-black uppercase italic text-white mb-4">3. Suscripciones y Cortes de Servicio</h2>
-            <p>El uso del sistema requiere una suscripción mensual activa (Planes Básico o PRO) luego del período de prueba. En caso de falta de pago, Turnly se reserva el derecho de suspender temporalmente el acceso al panel administrativo y al portal público de reservas hasta regularizar la situación.</p>
+            <p>La prueba dura 14 días. Para continuar recibiendo reservas nuevas se necesita un período vigente de Básico o Pro. Desde Mi suscripción se puede solicitar la baja de próximas renovaciones. Una vez confirmada por el proveedor, se conserva el acceso ya pagado hasta su vencimiento. Los datos y turnos existentes siguen disponibles.</p>
           </section>
 
           <section className="bg-white/5 border border-white/10 p-8 rounded-[2rem]">

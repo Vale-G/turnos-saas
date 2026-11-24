@@ -10,10 +10,36 @@ const token = 'a'.repeat(64)
 const fecha = '2026-12-02'
 let mode = 'error'
 let bookingCalls = 0
+let historyCalls = 0
+const ownerId = '10000000-0000-4000-8000-000000000001'
+const otherCustomerId = '10000000-0000-4000-8000-000000000002'
+const sessionCookie = access_token => 'sb-127-auth-token=base64-' + Buffer.from(JSON.stringify({
+  access_token, refresh_token: 'synthetic-refresh', expires_at: Math.floor(Date.now() / 1000) + 3600,
+})).toString('base64url')
 
 const database = createServer((req, res) => {
   res.setHeader('Content-Type', 'application/json')
   const path = new URL(req.url, origin).pathname
+  if (path === '/auth/v1/user') {
+    const account = { 'Bearer synthetic-customer': ownerId, 'Bearer synthetic-other': otherCustomerId }[req.headers.authorization]
+    if (!account) { res.statusCode = 401; return res.end(JSON.stringify({ message: 'invalid session' })) }
+    return res.end(JSON.stringify({ id: account, aud: 'authenticated', role: 'authenticated' }))
+  }
+  if (path === '/rest/v1/rpc/turnly_server_customer_history') {
+    historyCalls++
+    if (req.headers.authorization !== 'Bearer ' + process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      res.statusCode = 403
+      return res.end(JSON.stringify({ message: 'service role required' }))
+    }
+    let body = ''
+    req.on('data', chunk => { body += chunk })
+    req.on('end', () => {
+      const args = JSON.parse(body)
+      const own = args.customer_id === ownerId && (!args.booking_id || args.booking_id === negocioId)
+      res.end(JSON.stringify(own ? [{ id: negocioId, fecha, hora: '10:30', estado: 'confirmado', negocio_nombre: 'Comercio de prueba', servicio_nombre: 'Servicio de prueba' }] : []))
+    })
+    return
+  }
   if (path === '/rest/v1/config') {
     if (mode === 'disconnect') return req.socket.destroy()
     if (mode === 'error') {
@@ -92,8 +118,21 @@ try {
   }
   const legacyReceipt = await fetch(origin + '/reserva/confirmada/' + negocioId)
   assert.match(await legacyReceipt.text(), /Ingresá a tu cuenta o abrí el enlace de gestión/)
+  assert.equal((await fetch(origin + '/api/customer/reservations')).status, 401)
+  const headers = { cookie: sessionCookie('synthetic-customer') }
+  const history = await fetch(origin + '/api/customer/reservations?customer_id=' + otherCustomerId, { headers })
+  assert.equal(history.status, 200)
+  assert.equal((await history.json()).reservations[0].id, negocioId)
+  const other = { cookie: sessionCookie('synthetic-other') }
+  const foreign = await fetch(origin + '/api/customer/reservations?customer_id=' + ownerId, { headers: other })
+  assert.deepEqual(await foreign.json(), { reservations: [] })
+  const receipt = await fetch(origin + '/reserva/confirmada/' + negocioId, { headers })
+  assert.equal(receipt.status, 200)
+  assert.match(await receipt.text(), /Comercio de prueba/)
+  assert.equal((await fetch(origin + '/reserva/confirmada/' + negocioId, { headers: other })).status, 404)
+  assert.equal(historyCalls, 4)
   assert.equal(bookingCalls, 0)
-  console.log('HTTP local: 26/26 escenarios pasaron. El fixture no recibió RPC de escritura.')
+  console.log('HTTP local: escenarios anteriores y 5 controles nuevos de sesión, historial y comprobante aprobados. El fixture no recibió RPC de escritura.')
 } finally {
   database.close()
 }

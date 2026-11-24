@@ -1,129 +1,59 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
-import { cookies } from 'next/headers'
+import type { Plan } from '@/lib/server/mercadopago-saas'
+import { billingConfig, billingRuntime } from '@/lib/server/saas-billing-runtime'
 import { NextRequest, NextResponse } from 'next/server'
+import { createUserServerClient } from '@/lib/server/supabase'
 
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json().catch(() => ({}))
-    const plan = (body.plan ?? 'pro') as 'basico' | 'pro'
-
-    const cookieStore = await cookies()
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => cookieStore.getAll(),
-          setAll: (toSet: { name: string; value: string; options: CookieOptions }[]) => {
-            try {
-              toSet.forEach(({ name, value, options }: { name: string; value: string; options: CookieOptions }) =>
-                cookieStore.set(name, value, options)
-              )
-            } catch {}
-          },
-        },
-      }
-    )
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user)
-      return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
-
-    // Leer precio desde la DB (configurable por superadmin)
-    const { data: configs } = await supabase
-      .from('config')
-      .select('clave, valor')
-      .in('clave', ['precio_basico', 'precio_pro'])
-
-    const precioMap: Record<string, number> = {}
-    configs?.forEach((c) => {
-      precioMap[c.clave] = Number(c.valor)
-    })
-    const precio =
-      plan === 'pro'
-        ? (precioMap.precio_pro ?? 25000)
-        : (precioMap.precio_basico ?? 5000)
-
-    // Buscar negocio
-    const { data: neg } = await supabase
-      .from('negocio')
-      .select('id, nombre, slug')
-      .eq('owner_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single()
-
-    if (!neg) {
-      return NextResponse.json(
-        { error: 'Negocio no encontrado' },
-        { status: 404 }
-      )
-    }
-
-    const origin =
-      req.headers.get('origin') ??
-      process.env.NEXT_PUBLIC_SITE_URL ??
-      'http://localhost:3000'
-    const planNombre = plan === 'pro' ? 'Pro' : 'Basico'
-
-    const mpBody = {
-      items: [
-        {
-          title: 'Turnly ' + planNombre + ' — 1 mes',
-          description: 'Plan ' + planNombre + ' para ' + neg.nombre,
-          quantity: 1,
-          unit_price: precio,
-          currency_id: 'ARS',
-        },
-      ],
-      payer: { email: user.email },
-      external_reference: neg.id + '|' + plan,
-      back_urls: {
-        success: origin + '/upgrade?suscripcion=ok',
-        failure: origin + '/upgrade?suscripcion=error',
-        pending: origin + '/upgrade?suscripcion=pendiente',
-      },
-      auto_return: 'approved',
-      notification_url: origin + '/api/webhooks/suscripcion',
-      statement_descriptor: 'TURNLY',
-    }
-
-    const mpRes = await fetch(
-      'https://api.mercadopago.com/checkout/preferences',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: 'Bearer ' + process.env.MP_ACCESS_TOKEN,
-        },
-        body: JSON.stringify(mpBody),
-      }
-    )
-
-    if (!mpRes.ok) throw new Error('MP error: ' + (await mpRes.text()))
-    const preferencia = await mpRes.json()
-
-    await supabase.from('suscripcion').insert({
-      negocio_id: neg.id,
-      plan,
-      estado: 'pendiente',
-      mp_preference_id: preferencia.id,
-      monto: precio,
-    })
-
-    return NextResponse.json({
-      url:
-        process.env.NODE_ENV === 'production'
-          ? preferencia.init_point
-          : preferencia.sandbox_init_point,
-    })
-  } catch (err) {
-    console.error('[Turnly] Error suscripcion:', err)
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Error' },
-      { status: 500 }
-    )
+export async function GET() {
+  const user = await createUserServerClient()
+  const { data: { user: actor } } = await user.auth.getUser()
+  if (!actor) return NextResponse.json({ error: 'Iniciá sesión para continuar' }, { status: 401 })
+  const { data, error } = await user.rpc('turnly_commercial_summary')
+  if (error) return NextResponse.json({ error: 'No se pudo consultar la suscripción' }, { status: error.code === '42501' ? 403 : 503 })
+  if (!data) return NextResponse.json({ error: 'No encontramos un comercio asociado a tu cuenta' }, { status: 404 })
+  const config = billingConfig()
+  let mandate: { plan: Plan; state: string } | null = null
+  if (config) {
+    try {
+      const state = await billingRuntime(config).rpc<{ plan: Plan; state: string } | null>('turnly_saas_owner', { actor: actor.id })
+      if (state?.plan && state.state) mandate = { plan: state.plan, state: state.state }
+    } catch { return NextResponse.json({ error: 'No se pudo consultar la autorización de pago' }, { status: 503 }) }
   }
+  return NextResponse.json({ ...data, billingEnabled: Boolean(config), mandate }, { headers: { 'Cache-Control': 'no-store' } })
+}
+
+export async function POST(request: NextRequest) {
+  if (!request.headers.get('content-type')?.startsWith('application/json')) {
+    return NextResponse.json({ error: 'Solicitud inválida' }, { status: 415 })
+  }
+  const body = await request.json().catch(() => null)
+  if (body?.action !== 'cancel_renewal' && !(body?.action === 'change_plan' && ['basico', 'pro'].includes(body.plan))) {
+    return NextResponse.json({ error: 'Solicitud inválida' }, { status: 400 })
+  }
+  const user = await createUserServerClient()
+  const { data: { user: actor } } = await user.auth.getUser()
+  if (!actor) return NextResponse.json({ error: 'Iniciá sesión para continuar' }, { status: 401 })
+  const config = billingConfig()
+  if (config && body.action === 'cancel_renewal') {
+    try {
+      const outcome = await billingRuntime(config).provider.cancelOwner(actor.id)
+      return NextResponse.json({ outcome }, { status: outcome === 'pending' ? 202 : outcome === 'forbidden' ? 403 : 200 })
+    } catch {
+      return NextResponse.json({ outcome: 'pending', error: 'La baja requiere confirmación del proveedor' }, { status: 503 })
+    }
+  }
+  if (config && body.action === 'change_plan') {
+    if (body.acknowledgeRenewal !== true) return NextResponse.json({ error: 'Confirmá la renovación mensual' }, { status: 400 })
+    if (!actor.email || !actor.email_confirmed_at) return NextResponse.json({ error: 'Confirmá el correo de tu cuenta' }, { status: 400 })
+    try {
+      const result = await billingRuntime(config).provider.start(actor.id, actor.email, body.plan)
+      return NextResponse.json(result, { status: result.status === 'forbidden' ? 403 : 200 })
+    } catch {
+      return NextResponse.json({ status: 'reconciling' }, { status: 202 })
+    }
+  }
+  const { error } = await user.rpc('turnly_commercial_request', {
+    action: body.action, desired_plan: body.action === 'change_plan' ? body.plan : null,
+  })
+  if (error) return NextResponse.json({ error: 'No se pudo registrar la solicitud' }, { status: error.code === '42501' ? 403 : 503 })
+  return NextResponse.json({ recorded: true }, { headers: { 'Cache-Control': 'no-store' } })
 }

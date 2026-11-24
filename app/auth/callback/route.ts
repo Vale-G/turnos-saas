@@ -5,7 +5,9 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/dashboard'
+  const requested = searchParams.get('next') ?? ''
+  const next = requested === '/onboarding' || requested === '/recuperar/restablecer' || /^\/reservar\/[a-z0-9-]+$/i.test(requested)
+    ? requested : '/dashboard'
 
   if (code) {
     const cookieStore = await cookies()

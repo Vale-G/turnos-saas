@@ -1,312 +1,114 @@
 'use client'
 
-import { supabase } from '@/lib/supabase'
-import { getThemeColor } from '@/lib/theme'
-import { useRouter, useSearchParams } from 'next/navigation'
-import { Suspense, useEffect, useState } from 'react'
+import Link from 'next/link'
+import { useEffect, useState } from 'react'
+import { daysLeft, planNames, stateNames, type PaidPlan, type SubscriptionSummary } from '@/lib/commercial-subscription'
 
-const FEATURES_BASICO = [
-  'Reservas online ilimitadas',
-  '2 barberos, 5 servicios',
-  'Agenda y cobros',
-  'WhatsApp al confirmar',
-]
+const date = (value: string) => new Date(value).toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })
 
-const FEATURES_PRO = [
-  'Todo lo del plan Basico',
-  'Staff y servicios ilimitados',
-  'Informes y estadisticas PRO',
-  'Historial completo de clientes',
-  'Cobros con MercadoPago',
-  'Recordatorios automaticos',
-]
-
-function Check({ color }: { color: string }) {
-  return (
-    <div
-      className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0"
-      style={{ background: color + '25' }}
-    >
-      <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-        <path
-          d="M1.5 4l1.5 1.5 3.5-3"
-          stroke={color}
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    </div>
-  )
-}
-
-function UpgradeContent() {
-  const [loadingPlan, setLoadingPlan] = useState<string | null>(null)
-  const [negocio, setNegocio] = useState<{
-    nombre: string
-    tema?: string
-    suscripcion_tipo?: string
-  } | null>(null)
-  const [colorPrincipal, setColorPrincipal] = useState('#6366F1')
-  const [precios, setPrecios] = useState({ basico: 5000, pro: 25000 })
-  const [error, setError] = useState<string | null>(null)
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const estado = searchParams.get('suscripcion')
+export default function SubscriptionPage() {
+  const [summary, setSummary] = useState<SubscriptionSummary | null>(null)
+  const [message, setMessage] = useState('')
+  const [acknowledgeRenewal, setAcknowledgeRenewal] = useState(false)
+  const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    async function init() {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/login')
+    const control = new AbortController()
+    fetch('/api/suscripcion', { cache: 'no-store', signal: control.signal }).then(async result => {
+      if (!result.ok) throw new Error()
+      setSummary(await result.json())
+    }).catch(() => { if (!control.signal.aborted) setMessage('No pudimos consultar la suscripción.') })
+    return () => control.abort()
+  }, [])
+
+  async function request(action: 'change_plan' | 'cancel_renewal', plan?: PaidPlan) {
+    setBusy(true)
+    setMessage('')
+    try {
+      const response = await fetch('/api/suscripcion', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action, plan, acknowledgeRenewal }),
+      })
+      if (!response.ok) throw new Error()
+      const result = await response.json()
+      if (result.status === 'checkout' && typeof result.url === 'string') {
+        window.location.assign(result.url)
         return
       }
-
-      let neg = null
-      const { data: byOwner } = await supabase
-        .from('negocio')
-        .select('nombre, tema, suscripcion_tipo')
-        .eq('owner_id', user.id)
-        .single()
-      if (byOwner) neg = byOwner
-      else {
-        const { data: byId } = await supabase
-          .from('negocio')
-          .select('nombre, tema, suscripcion_tipo')
-          .eq('owner_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single()
-        neg = byId
+      const messages: Record<string, string> = {
+        paid_period: 'Podés autorizar el próximo plan al finalizar el período pagado. Conservás el acceso hasta esa fecha.',
+        open_mandate: 'Cancelá la renovación anterior y esperá su confirmación. Podés contratar el nuevo plan al finalizar el período pagado.',
+        price: 'El precio comercial de este plan todavía no está disponible.',
+        reconciling: 'Estamos verificando la autorización. Si no aparece, contactá a soporte antes de volver a iniciar un pago.',
+        authorized: 'Autorización registrada. El acceso cambia al confirmarse el pago del período.',
+        canceled: 'Mercado Pago confirmó la baja. Conservás el acceso ya pagado.',
+        pending: 'La baja está pendiente de confirmación.',
+        no_mandate: 'No hay una autorización recurrente para cancelar.',
       }
-      if (neg) {
-        setNegocio(neg)
-        setColorPrincipal(getThemeColor(neg.tema))
-      }
-
-      // Cargar precios desde Config
-      const { data: configs } = await supabase
-        .from('config')
-        .select('clave, valor')
-        .in('clave', ['precio_basico', 'precio_pro'])
-      if (configs) {
-        const pm: Record<string, number> = {}
-        configs.forEach((c: { clave: string; valor: string }) => {
-          pm[c.clave] = Number(c.valor)
-        })
-        setPrecios({
-          basico: pm.precio_basico ?? 5000,
-          pro: pm.precio_pro ?? 25000,
-        })
-      }
-    }
-    init()
-  }, [router])
-
-  const handlePago = async (plan: 'basico' | 'pro') => {
-    setLoadingPlan(plan)
-    setError(null)
-    try {
-      const res = await fetch('/api/suscripcion', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan }),
-      })
-      if (!res.ok) {
-        const e = await res.json()
-        throw new Error(e.error ?? 'Error')
-      }
-      const { url } = await res.json()
-      window.location.href = url
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error inesperado')
-      setLoadingPlan(null)
-    }
+      setMessage(messages[result.status ?? result.outcome] ?? 'Solicitud registrada.')
+      const refresh = await fetch('/api/suscripcion', { cache: 'no-store' })
+      if (refresh.ok) setSummary(await refresh.json())
+    } catch { setMessage('No pudimos registrar la solicitud. Volvé a intentar.') }
+    finally { setBusy(false) }
   }
 
-  const planActual = negocio?.suscripcion_tipo ?? ''
-
   return (
-    <div className="min-h-screen bg-[#020617] text-white p-6">
-      <div className="max-w-3xl mx-auto">
-        <div className="mb-8">
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="text-slate-500 text-[10px] font-black uppercase mb-3 block hover:text-white transition-colors"
-          >
-            Volver al panel
-          </button>
-          <h1
-            className="text-4xl font-black italic uppercase tracking-tighter"
-            style={{ color: colorPrincipal }}
-          >
-            Planes Turnly
-          </h1>
-          <p className="text-slate-500 text-sm mt-1">
-            Para {negocio?.nombre ?? 'tu negocio'}
-          </p>
-        </div>
-
-        {estado === 'ok' && (
-          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 text-center mb-6">
-            <p className="text-emerald-400 font-black uppercase">
-              Pago aprobado — tu plan se activa en segundos
-            </p>
-          </div>
-        )}
-        {estado === 'error' && (
-          <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 text-center mb-6">
-            <p className="text-red-400 font-black uppercase">
-              Pago rechazado — intenta de nuevo
-            </p>
-          </div>
-        )}
-        {estado === 'pendiente' && (
-          <div className="bg-amber-400/10 border border-amber-400/20 rounded-2xl p-4 text-center mb-6">
-            <p className="text-amber-400 font-black uppercase">
-              Pago en proceso — te avisamos cuando se acredite
-            </p>
-          </div>
-        )}
-
-        {error && (
-          <p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 mb-6">
-            {error}
-          </p>
-        )}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* BASICO */}
-          <div className="bg-white/4 border border-white/8 rounded-[2rem] overflow-hidden flex flex-col">
-            <div className="p-6 border-b border-white/8">
-              <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-2">
-                Plan Basico
-              </p>
-              <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-black text-white">
-                  ${precios.basico.toLocaleString('es-AR')}
-                </span>
-                <span className="text-slate-400 text-sm">ARS / mes</span>
+    <main className="mx-auto max-w-4xl space-y-7 p-6 text-product-ink">
+      <Link className="underline" href="/dashboard">Volver al panel</Link>
+      <h1 className="text-3xl font-bold">Mi suscripción</h1>
+      {message && <p role="status">{message}</p>}
+      {!summary && !message && <p role="status">Cargando suscripción…</p>}
+      {summary && <>
+        <section className="space-y-3 rounded-2xl border border-product-line p-5">
+          <h2 className="text-xl font-semibold">Estado y consumo</h2>
+          <dl className="grid gap-3 sm:grid-cols-2">
+            <div><dt>Estado</dt><dd>{stateNames[summary.state]}</dd></div>
+            <div><dt>Plan contratado</dt><dd>{summary.plan ? planNames[summary.plan] : 'Sin contratación'}</dd></div>
+            <div><dt>Acceso vigente</dt><dd>{summary.effectivePlan ? planNames[summary.effectivePlan] : 'Agenda existente y datos del comercio'}</dd></div>
+            <div><dt>Renovación automática</dt><dd>{summary.cancelPending ? 'Cancelación solicitada' : summary.autoRenew ? 'Activa' : 'Desactivada'}</dd></div>
+            {summary.periodStart && <div><dt>Inicio del período</dt><dd>{date(summary.periodStart)}</dd></div>}
+            {summary.periodEnd && <div><dt>Fin del período pagado</dt><dd>{date(summary.periodEnd)}</dd></div>}
+            {summary.effectivePlan === 'trial' && summary.trialEnd && <div><dt>Fin de la prueba</dt><dd>{date(summary.trialEnd)} · {daysLeft(summary.trialEnd)} días restantes</dd></div>}
+            <div><dt>Profesionales</dt><dd>{summary.usage.staff} / {summary.limits.staff}</dd></div>
+            <div><dt>Servicios</dt><dd>{summary.usage.services} / {summary.limits.services}</dd></div>
+          </dl>
+          {summary.limits.advanced && <p>Incluye informes, operaciones de caja y notas avanzadas de clientes.</p>}
+          <p>Al vencer el acceso se conservan tus datos y podés gestionar los turnos existentes. Se cierran las reservas nuevas y las altas de profesionales y servicios.</p>
+          {(summary.autoRenew || summary.mandate) && !summary.cancelPending && <button className="min-h-11 underline" disabled={busy}
+            onClick={() => void request('cancel_renewal')}>Solicitar cancelación de renovación</button>}
+          {summary.cancelPending && <p>La renovación sigue activa hasta la confirmación del proveedor. El acceso pagado dura hasta el cierre del período.</p>}
+        </section>
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold">Cambio de plan</h2>
+          <p>{summary.billingEnabled
+            ? 'Ambiente de prueba. Si hay un período pagado, la contratación del nuevo plan se habilita al vencer.'
+            : 'La facturación todavía no está habilitada. Podés registrar una solicitud sin cobro. Los precios están pendientes de aprobación.'}</p>
+          {summary.billingEnabled && <label className="flex items-start gap-3 py-2">
+            <input className="mt-1" type="checkbox" checked={acknowledgeRenewal} onChange={event => setAcknowledgeRenewal(event.target.checked)} />
+            <span>Entiendo que la autorización se renueva mensualmente. Mercado Pago muestra el importe antes de confirmar. Puedo cancelar próximas renovaciones desde esta pantalla.</span>
+          </label>}
+          {summary.requestedPlan && <p>Plan solicitado: {planNames[summary.requestedPlan]}</p>}
+          <div className="grid gap-3 sm:grid-cols-2">
+            {summary.catalog.filter(item => item.id !== 'trial').map(item => (
+              <div key={item.id} className="space-y-2 rounded-xl border border-product-line p-4">
+                <h3 className="font-bold">{planNames[item.id]}</h3>
+                <p>{item.staff_limit} profesionales y {item.service_limit} servicios.</p>
+                <p>{item.advanced ? 'Agenda, Informes avanzados, Control de caja y notas de clientes.' : 'Agenda, reservas y gestión esencial.'}</p>
+                <button className="min-h-11 underline" disabled={busy || (summary.billingEnabled ? !acknowledgeRenewal : summary.requestedPlan === item.id)}
+                  onClick={() => void request('change_plan', item.id as PaidPlan)}>{summary.billingEnabled ? 'Continuar con' : 'Solicitar'} {planNames[item.id]}</button>
               </div>
-              <p className="text-slate-500 text-xs mt-1">
-                Para negocios que estan empezando
-              </p>
-            </div>
-            <div className="p-6 space-y-2.5 flex-1">
-              {FEATURES_BASICO.map((f) => (
-                <div key={f} className="flex items-center gap-3">
-                  <Check color="#94A3B8" />
-                  <span className="text-sm text-slate-400">{f}</span>
-                </div>
-              ))}
-            </div>
-            <div className="px-6 pb-6">
-              {planActual === 'basico' ? (
-                <div className="w-full py-3 rounded-2xl text-center text-slate-500 border border-white/10 text-sm font-black uppercase">
-                  Plan actual
-                </div>
-              ) : (
-                <button
-                  onClick={() => handlePago('basico')}
-                  disabled={!!loadingPlan}
-                  className="w-full py-4 rounded-2xl font-black italic text-base text-white border border-white/20 hover:bg-white/10 transition-all disabled:opacity-50"
-                >
-                  {loadingPlan === 'basico'
-                    ? 'Redirigiendo...'
-                    : 'Elegir Basico'}
-                </button>
-              )}
-            </div>
+            ))}
           </div>
-
-          {/* PRO */}
-          <div
-            className="bg-white/4 rounded-[2rem] overflow-hidden flex flex-col border-2"
-            style={{ borderColor: colorPrincipal + '50' }}
-          >
-            <div className="absolute-free">
-              <div
-                className="flex items-center justify-between p-6 border-b border-white/8"
-                style={{ background: colorPrincipal + '12' }}
-              >
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <p
-                      className="text-[10px] font-black uppercase tracking-widest"
-                      style={{ color: colorPrincipal }}
-                    >
-                      Plan Pro
-                    </p>
-                    <span className="bg-amber-400 text-black text-[9px] font-black uppercase px-2 py-0.5 rounded-full">
-                      Recomendado
-                    </span>
-                  </div>
-                  <div className="flex items-baseline gap-2">
-                    <span
-                      className="text-4xl font-black"
-                      style={{ color: colorPrincipal }}
-                    >
-                      ${precios.pro.toLocaleString('es-AR')}
-                    </span>
-                    <span className="text-slate-400 text-sm">ARS / mes</span>
-                  </div>
-                  <p className="text-slate-500 text-xs mt-1">
-                    Para negocios que quieren crecer
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="p-6 space-y-2.5 flex-1">
-              {FEATURES_PRO.map((f) => (
-                <div key={f} className="flex items-center gap-3">
-                  <Check color="#22C55E" />
-                  <span className="text-sm text-slate-300">{f}</span>
-                </div>
-              ))}
-            </div>
-            <div className="px-6 pb-6">
-              {planActual === 'pro' ? (
-                <div className="w-full py-3 rounded-2xl text-center font-black uppercase text-sm text-emerald-400 border border-emerald-500/20 bg-emerald-500/10">
-                  Plan activo
-                </div>
-              ) : (
-                <button
-                  onClick={() => handlePago('pro')}
-                  disabled={!!loadingPlan}
-                  className="w-full py-4 rounded-2xl font-black italic text-base text-black transition-all hover:opacity-90 disabled:opacity-50"
-                  style={{ backgroundColor: colorPrincipal }}
-                >
-                  {loadingPlan === 'pro'
-                    ? 'Redirigiendo...'
-                    : 'Activar Pro con MercadoPago'}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <p className="text-center text-slate-600 text-xs mt-6">
-          Pago seguro via MercadoPago · Podes cancelar cuando quieras
-        </p>
-      </div>
-    </div>
-  )
-}
-
-export default function UpgradePro() {
-  return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-[#020617] flex items-center justify-center">
-          <div className="text-slate-500 font-black italic uppercase animate-pulse">
-            Cargando...
-          </div>
-        </div>
-      }
-    >
-      <UpgradeContent />
-    </Suspense>
+        </section>
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold">Historial de pagos</h2>
+          {!summary.payments.length && <p>Todavía no hay pagos registrados.</p>}
+          <ul className="space-y-2">
+            {summary.payments.map((payment, index) => <li key={index} className="rounded-lg border border-product-line p-3">
+              {date(payment.at)} · {payment.plan} · {payment.amount} {payment.currency ?? '(moneda histórica sin verificar)'} · {({ pending: 'Pendiente', rejected: 'Rechazado', approved: 'Aprobado' } as Record<string, string>)[payment.status] ?? payment.status}
+            </li>)}
+          </ul>
+        </section>
+      </>}
+    </main>
   )
 }

@@ -1,56 +1,41 @@
 'use client'
-
-import { brandConfig } from '@/config/brand'
-import { useTranslations } from 'next-intl'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
-export default function PrivacyPage() {
-  const t = useTranslations('PrivacyPage')
-  const appName = brandConfig.appName
-  const updatedAt = 'April 9, 2026' // Example date, consider making this dynamic or translatable if needed
-
-  const sections = [
-    'dataCollection',
-    'dataUsage',
-    'legalBasis',
-    'sharing',
-    'security',
-    'userRights',
-  ]
+export default function PoliticaPrivacidad() {
+  const router = useRouter()
 
   return (
-    <main className="min-h-screen bg-[#020617] text-white px-6 py-12 md:px-10">
-      <div className="mx-auto max-w-4xl">
-        <Link
-          href="/"
-          className="inline-flex text-xs font-bold uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-colors"
-        >
-          {t('backToHome')}
-        </Link>
+    <div className="min-h-screen bg-[#020617] text-white p-6 md:p-12 font-sans selection:bg-emerald-500/30">
+      <div className="max-w-4xl mx-auto">
+        <button onClick={() => router.push('/')} className="text-slate-500 text-[10px] font-black uppercase tracking-[0.4em] mb-12 hover:text-white transition-colors">← Volver al Inicio</button>
+        
+        <h1 className="text-4xl md:text-6xl font-black uppercase italic tracking-tighter mb-4">Política de <span className="text-emerald-400">Privacidad</span></h1>
+        <p className="text-slate-500 text-sm font-bold uppercase tracking-widest mb-12">Última actualización: Abril 2026</p>
 
-        <h1 className="mt-8 text-4xl md:text-6xl font-black uppercase italic tracking-tighter">
-          {t('title')}
-        </h1>
-        <p className="mt-3 text-xs uppercase tracking-[0.25em] text-slate-500">
-          {t('lastUpdated', { updatedAt })}
-        </p>
+        <div className="space-y-8 text-slate-300 text-sm leading-relaxed">
+          <section className="bg-white/5 border border-white/10 p-8 rounded-[2rem]">
+            <h2 className="text-xl font-black uppercase italic text-white mb-4">1. Recopilación de Datos</h2>
+            <p>Recopilamos información básica para el funcionamiento del software: nombre, correo electrónico y teléfono de contacto de los administradores de los locales, así como los datos que los usuarios finales ingresan voluntariamente para realizar una reserva (Nombre y WhatsApp).</p>
+          </section>
 
-        <div className="mt-10 space-y-6 text-slate-200">
-          {sections.map((section) => (
-            <section
-              key={section}
-              className="rounded-3xl border border-white/10 bg-white/5 p-8"
-            >
-              <h2 className="text-xl font-black uppercase italic text-white">
-                {t(`sections.${section}.title`)}
-              </h2>
-              <p className="mt-3 text-sm leading-relaxed">
-                {t(`sections.${section}.content`, { appName })}
-              </p>
-            </section>
-          ))}
+          <section className="bg-white/5 border border-white/10 p-8 rounded-[2rem]">
+            <h2 className="text-xl font-black uppercase italic text-white mb-4">2. Uso de la Información</h2>
+            <p>Los datos telefónicos y de correo electrónico se utilizan exclusivamente para enviar notificaciones de confirmación de turnos, recordatorios y operar el servicio. <strong>Bajo ningún concepto vendemos, alquilamos ni cedemos bases de datos a terceros.</strong></p>
+          </section>
+
+          <section className="bg-white/5 border border-white/10 p-8 rounded-[2rem]">
+            <h2 className="text-xl font-black uppercase italic text-white mb-4">3. Seguridad y Almacenamiento</h2>
+            <p>Los datos son almacenados en servidores seguros (Supabase) con encriptación estándar de la industria. Los pagos procesados a través de MercadoPago son gestionados íntegramente por dicha plataforma; Turnly no almacena datos de tarjetas de crédito o débito.</p>
+          </section>
+
+          <section className="bg-white/5 border border-white/10 p-8 rounded-[2rem]">
+            <h2 className="text-xl font-black uppercase italic text-white mb-4">4. Propiedad de los Datos</h2>
+            <p>La base de datos de clientes generada por un negocio le pertenece exclusivamente a dicho negocio. Podés registrar una solicitud de exportación o eliminación. Soporte verifica identidad y alcance antes de resolverla.</p>
+          </section>
+          <Link href="/privacidad/solicitudes" className="inline-block py-3 underline">Gestionar solicitudes de privacidad</Link>
         </div>
       </div>
-    </main>
+    </div>
   )
 }

@@ -1,25 +1,40 @@
 'use client'
-
-import { supabase } from '@/lib/supabase'
-import { getThemeColor } from '@/lib/theme'
-import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 
+type NegocioTema = {
+  id: string
+  tema: string | null
+}
+
+type Servicio = {
+  id: string
+  negocio_id: string
+  nombre: string
+  precio: number
+  duracion: number
+  politica_sena: string | null
+  seña_tipo: string | null
+  seña_valor: number | null
+  created_at?: string
+}
+
 export default function ServiciosConfig() {
-  const [negocio, setNegocio] = useState<any>(null)
-  const [servicios, setServicios] = useState<any[]>([])
+  const [negocio, setNegocio] = useState<NegocioTema | null>(null)
+  const [servicios, setServicios] = useState<Servicio[]>([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const router = useRouter()
 
   // Formulario
+  const [policy,setPolicy] = useState('')
   const [editId, setEditId] = useState<string | null>(null)
   const [nombre, setNombre] = useState('')
-  const [descripcion, setDescripcion] = useState('')
   const [precio, setPrecio] = useState('')
   const [duracion, setDuracion] = useState('30')
-  const [señaTipo, setSeñaTipo] = useState('porcentaje')
+  const [señaTipo, setSeñaTipo] = useState('porcentaje') // porcentaje, fijo, ninguno
   const [señaValor, setSeñaValor] = useState('50')
   const [guardando, setGuardando] = useState(false)
 
@@ -27,234 +42,127 @@ export default function ServiciosConfig() {
     async function init() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return router.push('/login')
-
-      const { data: adm } = await supabase.from('adminrol').select('negocio_id').eq('user_id', user.id).maybeSingle()
+      
+      const { data: adm } = await supabase.from('adminrol').select('negocio_id,role').eq('user_id', user.id).maybeSingle()
       let nId = adm?.negocio_id
-
       if (!nId) {
-        const { data: n } = await supabase.from('negocio').select('id').eq('owner_id', user.id).maybeSingle()
+        const { data: n } = await supabase.from('negocio').select('id, tema').eq('owner_id', user.id).maybeSingle()
         nId = n?.id
+        setNegocio(n)
+      } else {
+        const { data: n } = await supabase.from('negocio').select('id, tema').eq('id', nId).single()
+        setNegocio(n)
       }
 
-      if (!nId) {
-        toast.error('No se encontró un negocio asociado.')
-        router.push('/dashboard')
-        return
+      if (nId) {
+        const { data: s } = await supabase.from('servicio').select('*').eq('negocio_id', nId).order('created_at')
+        setServicios(s || [])
       }
-
-      const { data: neg } = await supabase.from('negocio').select('*').eq('id', nId).single()
-      setNegocio(neg)
-
-      const { data: s } = await supabase.from('servicio').select('*').eq('negocio_id', nId).order('created_at')
-      setServicios(s || [])
       setLoading(false)
     }
     init()
   }, [router])
 
-  const abrirModal = (s: any = null) => {
+  const abrirModal = (s: Servicio | null = null) => {
+    setPolicy(s?.politica_sena ?? '')
     if (s) {
-      setEditId(s.id)
-      setNombre(s.nombre)
-      setDescripcion(s.descripcion || '')
-      setPrecio(s.precio)
-      setDuracion(s.duracion)
-      setSeñaTipo(s.seña_tipo || 'porcentaje')
-      setSeñaValor(s.seña_valor || '50')
+      setEditId(s.id); setNombre(s.nombre); setPrecio(String(s.precio)); setDuracion(String(s.duracion));
+      setSeñaTipo(s.seña_tipo || 'porcentaje'); setSeñaValor(String(s.seña_valor || '50'));
     } else {
-      setEditId(null)
-      setNombre('')
-      setDescripcion('')
-      setPrecio('')
-      setDuracion('30')
-      setSeñaTipo('porcentaje')
-      setSeñaValor('50')
+      setEditId(null); setNombre(''); setPrecio(''); setDuracion('30');
+      setSeñaTipo('porcentaje'); setSeñaValor('50');
     }
     setShowModal(true)
   }
 
   const guardar = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!negocio) return toast.error('No se encontró el negocio')
     setGuardando(true)
     const payload = {
       negocio_id: negocio.id,
       nombre,
-      descripcion,
       precio: Number(precio),
       duracion: Number(duracion),
+      politica_sena: policy || null,
       seña_tipo: señaTipo,
-      seña_valor: señaTipo === 'ninguno' ? 0 : Number(señaValor),
+      seña_valor: señaTipo === 'ninguno' ? 0 : Number(señaValor)
     }
 
-    const { data: savedService, error } = editId
-      ? await supabase.from('servicio').update(payload).eq('id', editId).select().single()
-      : await supabase.from('servicio').insert(payload).select().single()
+    const { error } = editId 
+      ? await supabase.from('servicio').update(payload).eq('id', editId)
+      : await supabase.from('servicio').insert(payload)
 
-    if (error) {
-      toast.error('Error al guardar el servicio.')
-    } else {
-      if (editId) {
-        setServicios(servicios.map(s => s.id === savedService.id ? savedService : s))
-        toast.success('Servicio actualizado')
-      } else {
-        setServicios([savedService, ...servicios])
-        toast.success('Servicio creado')
-      }
+    if (error) toast.error('Error al guardar')
+    else {
+      toast.success('Servicio guardado')
       setShowModal(false)
+      window.location.reload()
     }
     setGuardando(false)
   }
 
-  const handleDelete = async (serviceId: string) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar este servicio? Esta acción no se puede deshacer.')) {
-      const { error } = await supabase.from('servicio').delete().eq('id', serviceId)
-
-      if (error) {
-        toast.error('No se pudo eliminar el servicio.')
-      } else {
-        setServicios(servicios.filter(s => s.id !== serviceId))
-        toast.success('Servicio eliminado')
-      }
-    }
-  }
-
-  if (loading) return (
-    <div className="min-h-screen bg-[#020617] flex items-center justify-center font-black animate-pulse text-white">CARGANDO SERVICIOS...</div>
-  )
-
-  const colorP = getThemeColor(negocio?.tema)
+  if (loading) return <div className="min-h-screen bg-product-bg flex items-center justify-center font-black animate-pulse text-product-ink">CARGANDO SERVICIOS...</div>
+  const colorP = 'var(--product-accent)'
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white p-6 md:p-12">
+    <div className="min-h-screen bg-product-bg text-product-ink p-6 md:p-12">
       <div className="max-w-5xl mx-auto">
         <header className="flex justify-between items-end mb-12">
           <div>
-            <button onClick={() => router.push('/dashboard')} className="text-slate-600 text-[10px] font-black uppercase tracking-[0.3em] mb-4 hover:text-white transition-colors">
-              ← Dashboard
-            </button>
-            <h1 className="text-6xl font-black uppercase italic tracking-tighter leading-none">
-              Mis <span style={{ color: colorP }}>Servicios</span>
-            </h1>
+            <button onClick={() => router.push('/dashboard')} className="text-product-muted text-[10px] font-black uppercase tracking-[0.3em] mb-4 hover:text-product-ink transition-colors">← Dashboard</button>
+            <h1 className="text-3xl font-semibold tracking-tight sm:text-5xl">Mis <span style={{ color: colorP }}>Servicios</span></h1>
           </div>
-          <button onClick={() => abrirModal()} className="bg-white text-black px-8 py-4 rounded-2xl font-black uppercase italic text-sm hover:scale-105 transition-all active:scale-95">
-            Nuevo Servicio +
-          </button>
+          <button onClick={() => abrirModal()} className="bg-white text-product-button-ink px-8 py-4 rounded-2xl font-black uppercase italic text-sm hover:scale-105 transition-all active:scale-95">Nuevo Servicio +</button>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {servicios.map((s) => (
-            <div key={s.id} className="bg-white/5 border border-white/10 p-8 rounded-[2.5rem] flex flex-col justify-between group hover:border-white/20 transition-all">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="text-2xl font-black uppercase italic">{s.nombre}</h3>
-                  <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-1">
-                    ${s.precio} · {s.duracion} min ·
-                    <span className="text-white ml-1">
-                      Seña: {' '}
-                      {s.seña_tipo === 'porcentaje' ? `${s.seña_valor}%` : s.seña_tipo === 'fijo' ? `$${s.seña_valor}` : 'Sin seña'}
-                    </span>
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 ml-4">
-                  <button onClick={() => abrirModal(s)} title="Editar servicio" className="bg-white/10 p-4 rounded-2xl hover:bg-white hover:text-black transition-all">
-                    ✏️
-                  </button>
-                  <button onClick={() => handleDelete(s.id)} title="Eliminar servicio" className="bg-rose-500/10 text-rose-400 p-4 rounded-2xl hover:bg-rose-500 hover:text-white transition-all">
-                    🗑️
-                  </button>
-                </div>
+          {servicios.map(s => (
+            <div key={s.id} className="bg-product-subtle border border-product-line p-8 rounded-[2.5rem] flex justify-between items-center group hover:border-product-line transition-all">
+              <div>
+                <h3 className="text-2xl font-black uppercase italic">{s.nombre}</h3>
+                <p className="text-product-muted text-[10px] font-black uppercase tracking-widest mt-1">
+                  ${s.precio} · {s.duracion} min · 
+                  <span className="text-product-ink ml-1">
+                    Seña: {s.seña_tipo === 'porcentaje' ? `${s.seña_valor}%` : s.seña_tipo === 'fijo' ? `$${s.seña_valor}` : 'Sin seña'}
+                  </span>
+                </p>
               </div>
-              {s.descripcion && (
-                <p className="text-slate-400 text-sm mt-4 border-t border-white/10 pt-4">{s.descripcion}</p>
-              )}
+              <button onClick={() => abrirModal(s)} className="opacity-0 group-hover:opacity-100 bg-product-subtle p-4 rounded-2xl hover:bg-white hover:text-product-button-ink transition-all">✏️</button>
             </div>
           ))}
         </div>
 
         {showModal && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-            <div className="bg-[#020617] border border-white/10 p-10 rounded-[3.5rem] max-w-md w-full animate-in zoom-in-95">
-              <h2 className="text-3xl font-black uppercase italic mb-8">
-                Configurar <span style={{ color: colorP }}>Servicio</span>
-              </h2>
+            <div className="bg-product-bg border border-product-line p-10 rounded-[3.5rem] max-w-md w-full animate-in zoom-in-95">
+              <h2 className="text-3xl font-black uppercase italic mb-8">Configurar <span style={{ color: colorP }}>Servicio</span></h2>
               <form onSubmit={guardar} className="space-y-5">
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">Nombre</label>
-                  <input
-                    type="text"
-                    value={nombre}
-                    onChange={(e) => setNombre(e.target.value)}
-                    required
-                    className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-xs font-black outline-none focus:border-white/30"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">Descripción (Opcional)</label>
-                  <textarea
-                    value={descripcion}
-                    onChange={(e) => setDescripcion(e.target.value)}
-                    rows={3}
-                    className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-xs font-light outline-none focus:border-white/30 resize-y"
-                  />
-                </div>
+                <div><label className="text-[10px] font-black uppercase text-product-muted mb-2 block">Nombre</label><input type="text" value={nombre} onChange={e=>setNombre(e.target.value)} required className="w-full bg-product-subtle border border-product-line p-4 rounded-2xl text-xs font-black outline-none focus:border-product-accent" /></div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">Precio ($)</label>
-                    <input
-                      type="number"
-                      value={precio}
-                      onChange={(e) => setPrecio(e.target.value)}
-                      required
-                      className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-xs font-black outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">Duración (min)</label>
-                    <input
-                      type="number"
-                      value={duracion}
-                      onChange={(e) => setDuracion(e.target.value)}
-                      required
-                      className="w-full bg-white/5 border border-white/10 p-4 rounded-2xl text-xs font-black outline-none"
-                    />
-                  </div>
+                  <div><label className="text-[10px] font-black uppercase text-product-muted mb-2 block">Precio ($)</label><input type="number" value={precio} onChange={e=>setPrecio(e.target.value)} required className="w-full bg-product-subtle border border-product-line p-4 rounded-2xl text-xs font-black outline-none" /></div>
+                  <div><label className="text-[10px] font-black uppercase text-product-muted mb-2 block">Duración (min)</label><input type="number" value={duracion} onChange={e=>setDuracion(e.target.value)} required className="w-full bg-product-subtle border border-product-line p-4 rounded-2xl text-xs font-black outline-none" /></div>
                 </div>
 
-                <div className="bg-white/5 p-6 rounded-3xl border border-white/5">
-                  <label className="text-[10px] font-black uppercase text-slate-400 mb-4 block tracking-widest">Configuración de Seña</label>
+                <div className="bg-product-subtle p-6 rounded-3xl border border-product-line">
+                  <label className="text-[10px] font-black uppercase text-product-muted mb-4 block tracking-widest">Configuración de Seña</label>
+                  <label>Política para este servicio <select className="bg-product-surface" value={policy} onChange={e=>setPolicy(e.target.value)}><option value="">Usar ajuste del negocio</option><option value="ninguna">Sin seña</option><option value="opcional">Opcional</option><option value="obligatoria">Obligatoria</option></select></label>
                   <div className="grid grid-cols-3 gap-2 mb-4">
-                    {['porcentaje', 'fijo', 'ninguno'].map((t) => (
-                      <button
-                        type="button"
-                        key={t}
-                        onClick={() => setSeñaTipo(t)}
-                        className={`py-2 rounded-xl text-[9px] font-black uppercase border transition-all ${señaTipo === t ? 'bg-white text-black border-white' : 'border-white/10 text-slate-500'}`}>
-                        {t}
-                      </button>
+                    {['porcentaje', 'fijo', 'ninguno'].map(t => (
+                      <button type="button" key={t} onClick={() => setSeñaTipo(t)} className={`py-2 rounded-xl text-[9px] font-black uppercase border transition-all ${señaTipo === t ? 'bg-white text-product-button-ink border-white' : 'border-product-line text-product-muted'}`}>{t}</button>
                     ))}
                   </div>
                   {señaTipo !== 'ninguno' && (
                     <div className="animate-in slide-in-from-top-2">
-                      <label className="text-[10px] font-black uppercase text-slate-500 mb-2 block">{señaTipo === 'porcentaje' ? 'Porcentaje (%)' : 'Monto Fijo ($)'}</label>
-                      <input
-                        type="number"
-                        value={señaValor}
-                        onChange={(e) => setSeñaValor(e.target.value)}
-                        className="w-full bg-black/50 border border-white/10 p-4 rounded-2xl text-xs font-black outline-none"
-                      />
+                      <label className="text-[10px] font-black uppercase text-product-muted mb-2 block">{señaTipo === 'porcentaje' ? 'Porcentaje (%)' : 'Monto Fijo ($)'}</label>
+                      <input type="number" value={señaValor} onChange={e=>setSeñaValor(e.target.value)} className="w-full bg-product-subtle border border-product-line p-4 rounded-2xl text-xs font-black outline-none" />
                     </div>
                   )}
                 </div>
 
                 <div className="flex gap-3 pt-4">
-                  <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-4 text-xs font-black uppercase text-slate-500">Cancelar</button>
-                  <button
-                    type="submit"
-                    disabled={guardando}
-                    className="flex-[2] py-4 rounded-2xl font-black uppercase italic text-black"
-                    style={{ backgroundColor: colorP }}>
-                    {guardando ? 'GUARDANDO...' : 'GUARDAR'}
-                  </button>
+                  <button type="button" onClick={() => setShowModal(false)} className="flex-1 py-4 text-xs font-black uppercase text-product-muted">Cancelar</button>
+                  <button type="submit" disabled={guardando} className="flex-[2] py-4 rounded-2xl font-black uppercase italic text-product-button-ink" style={{ backgroundColor: colorP }}>{guardando ? 'GUARDANDO...' : 'GUARDAR'}</button>
                 </div>
               </form>
             </div>

@@ -1,9 +1,20 @@
-
 {
   "crons": [
     {
-      "path": "/api/cron/recordatorios",
-      "schedule": "0 8 * * *"
+      "path": "/api/cron/reminders",
+      "schedule": "0 12 * * *"
     }
-  ]
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "codex/turnly-owner-reports": false,
+      "codex/turnly-release-stabilization": false,
+      "codex/turnly-final-candidate-20261123": false,
+      "codex/turnly-main-reconciliation-20261123": false,
+      "codex/turnly-commercial-subscriptions": false,
+      "codex/turnly-final-launch-candidate": false,
+      "codex/turnly-product-evolution": false,
+      "codex/turnly-final-close-20261124": false
+    }
+  }
 }

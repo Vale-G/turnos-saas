@@ -1,72 +1,35 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/server/supabase'
+import { validUuid } from '@/lib/server/public-booking'
+import { obtenerPagoMercadoPago, verificarFirmaMercadoPago, type MercadoPagoWebhookPayload } from '@/lib/webhooks/mercadopago-handler'
+import { getBusinessAccessToken } from '@/lib/server/mercadopago-oauth'
 
-import { mercadoPagoClient } from '@/lib/mercadopago';
-import { createServerClient } from '@supabase/ssr';
-import { Payment } from 'mercadopago';
-import { cookies } from 'next/headers';
-import { NextResponse } from 'next/server';
+export async function POST(request: NextRequest) {
+  let body: MercadoPagoWebhookPayload
+  try { body = await request.json() } catch { return NextResponse.json({ ok: false }, { status: 400 }) }
+  const dataId = String(request.nextUrl.searchParams.get('data.id') ?? body.data?.id ?? '')
+  if (!verificarFirmaMercadoPago(request.headers, dataId)) return NextResponse.json({ ok: false }, { status: 401 })
+  if (body.type && body.type !== 'payment') return NextResponse.json({ ok: true })
 
-export async function POST(req: Request) {
-  const body = await req.json();
-  
-  if (body.type !== 'payment') {
-    return NextResponse.json({ status: 'ignored', reason: 'Not a payment notification' });
+  const admin = createAdminClient()
+  const negocioId = request.nextUrl.searchParams.get('negocio')
+  let businessToken: string | undefined
+  if (validUuid(negocioId)) {
+    businessToken = await getBusinessAccessToken(admin, negocioId) ?? undefined
   }
-
-  const paymentId = body.data.id;
-
-  if (!paymentId) {
-    return NextResponse.json({ error: 'Payment ID no encontrado en la notificación' }, { status: 400 });
+  const payment = await obtenerPagoMercadoPago(dataId, businessToken)
+  const [turnoId, suffix = 'full'] = payment?.external_reference?.split('|') ?? []
+  const kind = suffix === 'sena' ? 'sena' : 'full'
+  if (!payment || !validUuid(turnoId) || !payment.status || !Number.isFinite(payment.transaction_amount) || !payment.currency_id) {
+    return NextResponse.json({ ok: false }, { status: 422 })
   }
-
-  try {
-    const payment = await new Payment(mercadoPagoClient).get({ id: paymentId });
-
-    if (!payment || !payment.external_reference) {
-      return NextResponse.json({ status: 'ignored', reason: 'Missing external reference' });
-    }
-
-    const turnoId = payment.external_reference; 
-    const paymentStatus = payment.status; 
-
-    const cookieStore = cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        cookies: {
-          get(name: string) {
-            return cookieStore.get(name)?.value;
-          },
-        },
-      }
-    );
-    
-    let nuevoEstadoTurno: 'confirmado' | 'fallido' | null = null;
-
-    if (paymentStatus === 'approved') {
-      nuevoEstadoTurno = 'confirmado';
-    } else if (['rejected', 'cancelled', 'refunded'].includes(paymentStatus!)) {
-      nuevoEstadoTurno = 'fallido';
-    }
-
-    if (nuevoEstadoTurno) {
-      // --- CAMBIO CLAVE: Actualizar la tabla 'turnos' en lugar de 'reservas' ---
-      const { error } = await supabase
-        .from('turnos')
-        .update({ estado: nuevoEstadoTurno })
-        .eq('id', turnoId);
-
-      if (error) {
-        console.error(`Error al actualizar turno ${turnoId} a ${nuevoEstadoTurno}:`, error);
-        return NextResponse.json({ error: 'Error al actualizar la base de datos' }, { status: 500 });
-      }
-    }
-    
-    return NextResponse.json({ status: 'received' });
-
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-    console.error(`Error procesando webhook de MercadoPago para paymentId ${paymentId}:`, errorMessage);
-    return NextResponse.json({ error: 'Error interno del servidor' }, { status: 500 });
-  }
+  const { data: applied, error } = await admin.rpc('turnly_apply_booking_payment', {
+    p_event_key: `payment:${dataId}:${payment.status}`,
+    p_payment_id: String(payment.id ?? dataId), p_turno_id: turnoId, p_kind: kind,
+    p_status: payment.status, p_amount: payment.transaction_amount, p_currency: payment.currency_id,
+  })
+  if (error || applied !== true) return NextResponse.json({ ok: false }, { status: 422 })
+  return NextResponse.json({ ok: true })
 }
+
+export async function GET() { return NextResponse.json({ status: 'Turnly MP Webhook activo' }) }

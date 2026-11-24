@@ -1,0 +1,94 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { cleanText, validDate, validHour, validUuid } from '@/lib/server/public-booking'
+import { createAdminClient, createUserServerClient } from '@/lib/server/supabase'
+import { hasProAccess } from '@/lib/server/plan-access'
+import { getBusinessAccessToken } from '@/lib/server/mercadopago-oauth'
+import { rateLimitByIp } from '@/lib/rate-limit'
+import { verificarListaNegra } from '@/lib/reserva-lista-negra.mjs'
+
+export const dynamic = 'force-dynamic'
+
+export async function POST(request: NextRequest) {
+  const rate = rateLimitByIp(request, { limit: 6, windowMs: 60_000 }, 'public-booking')
+  if (!rate.success) {
+    return NextResponse.json({ error: 'Demasiadas solicitudes. Intentá nuevamente en un minuto.' }, { status: 429 })
+  }
+
+  let body: Record<string, unknown>
+  try {
+    body = await request.json()
+  } catch {
+    return NextResponse.json({ error: 'Solicitud inválida' }, { status: 400 })
+  }
+
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return NextResponse.json({ error: 'Solicitud inválida' }, { status: 400 })
+  }
+  const negocioId = body.negocioId
+  const servicioId = body.servicioId
+  const staffId = body.staffId
+  const fecha = body.fecha
+  const hora = body.hora
+  const nombre = cleanText(body.nombre, 120)
+  const telefono = cleanText(body.telefono, 30)
+  const email = cleanText(body.email, 254).toLowerCase()
+  if (!validUuid(negocioId) || !validUuid(servicioId) || !validUuid(staffId) || !validDate(fecha) || !validHour(hora)
+      || nombre.length < 2 || !/^\+?[0-9 ()-]{6,30}$/.test(telefono) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return NextResponse.json({ error: 'Revisá los datos de contacto y del turno' }, { status: 400 })
+  }
+
+  const userClient = await createUserServerClient()
+  const { data: { user } } = await userClient.auth.getUser()
+  const admin = createAdminClient()
+  const control = await verificarListaNegra(
+    () => admin.from('config').select('valor').eq('clave', `blacklist_${negocioId}`).maybeSingle(),
+    telefono,
+  )
+  if (!control.permitido) {
+    const bloqueado = control.motivo === 'bloqueado'
+    return NextResponse.json(
+      { error: bloqueado ? 'Este servicio no está disponible para tu número. Contactá al local.' : control.motivo === 'consulta' ? 'No se pudo validar la reserva. Intentá nuevamente.' : 'No se pudo validar la reserva. Contactá al local.' },
+      { status: bloqueado ? 403 : 503 },
+    )
+  }
+  if (body.pagarSena === true) {
+    if (!await hasProAccess(admin, negocioId) || !await getBusinessAccessToken(admin,negocioId)) {
+      return NextResponse.json({ error: 'El negocio aún no tiene habilitados los cobros en línea.' }, { status: 409 })
+    }
+  }
+  const { data, error } = await admin.rpc('turnly_book_with_policy', {
+    p_negocio_id: negocioId,
+    p_servicio_id: servicioId,
+    p_staff_id: staffId,
+    p_fecha: fecha,
+    p_hora: `${hora}:00`,
+    p_pagar_sena: body.pagarSena === true,
+    p_cliente_id: user?.id ?? null,
+    p_cliente_nombre: nombre,
+    p_cliente_telefono: telefono,
+    p_cliente_email: email,
+  })
+
+  if (error) {
+    if (error.code === '23514' && error.message.startsWith('Suscripción vencida:')) {
+      return NextResponse.json({ error: 'Este comercio no está tomando nuevos turnos. Los turnos existentes se conservan.' }, { status: 409 })
+    }
+    if (error.code === '23514' && error.message.startsWith('La seña obligatoria')) {
+      return NextResponse.json({ error: 'Este servicio requiere una seña que el comercio no puede cobrar en línea. Contactá al comercio.' }, { status: 409 })
+    }
+    const conflict = error.code === '23P01' || /disponible|bloqueado/i.test(error.message)
+    return NextResponse.json(
+      { code: conflict ? 'slot_conflict' : 'invalid_booking', error: conflict ? 'Ese horario acaba de ocuparse. Elegí otro.' : 'No se pudo crear la reserva con esos datos.' },
+      { status: conflict ? 409 : 400 },
+    )
+  }
+  const result = Array.isArray(data) ? data[0] : data
+  if (!result?.turno_id || !result?.manage_token) {
+    return NextResponse.json({ error: 'No se pudo confirmar la reserva' }, { status: 500 })
+  }
+
+  return NextResponse.json(
+    { id: result.turno_id, manageToken: result.manage_token, obligatoria: result.obligatoria },
+    { status: 201, headers: { 'Cache-Control': 'no-store' } },
+  )
+}

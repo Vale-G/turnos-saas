@@ -34,3 +34,7 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+### Ejecutor externo de facturación SaaS
+
+El scheduler autorizado puede ejecutar `node scripts/run-billing-worker.mjs` con `TURNLY_BILLING_WORKER_ORIGIN` y `TURNLY_SAAS_WORKER_SECRET` configurados en su entorno privado. El origen se configura sin ruta y debe usar HTTPS. Consultá la preparación y los controles pendientes en [el informe final](docs/FINAL_RELEASE_REPORT.md).

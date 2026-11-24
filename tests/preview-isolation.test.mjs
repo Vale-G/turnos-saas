@@ -15,7 +15,7 @@ test('Preview rechaza el host productivo aunque se indique como QA y valida los 
   assert.throws(() => assertPreviewIsolation({ ...config, NEXT_PUBLIC_SITE_URL: 'https://turnos-saas-eight.vercel.app' }))
   assert.throws(() => assertPreviewIsolation({ ...config, SUPABASE_SERVICE_ROLE_KEY: 'sb_secret_synthetic' }))
   assert.throws(() => assertPreviewIsolation({ ...config, NEXT_PUBLIC_SUPABASE_ANON_KEY: jwt(ref, 'service_role') }))
-  for (const name of ['RESEND_API_KEY', 'MP_ACCESS_TOKEN', 'MP_CLIENT_SECRET', 'CRON_SECRET', 'TURNLY_SAAS_WORKER_SECRET']) {
+  for (const name of ['SERVICE_ROLE_KEY', 'SUPABASESERVICEROLEKEY', 'MP_PUBLIC_KEY', 'RESEND_API_KEY', 'MP_ACCESS_TOKEN', 'MP_CLIENT_SECRET', 'CRON_SECRET', 'TURNLY_SAAS_WORKER_SECRET']) {
     assert.throws(() => assertPreviewIsolation({ ...config, [name]: 'synthetic-secret' }),
       error => error.message.includes(name) && !error.message.includes('synthetic-secret'))
   }

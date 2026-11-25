@@ -45,6 +45,44 @@ try {
     }
     await page.close()
   }
+  const signupPage = await browser.newPage({ viewport: { width: 390, height: 820 } })
+  const authOrigin = 'http://127.0.0.1:54321'
+  const cors = {
+    'access-control-allow-origin': origin,
+    'access-control-allow-methods': 'POST, OPTIONS',
+    'access-control-allow-headers': '*',
+  }
+  let signupAttempts = 0
+  let onboardingCalls = 0
+  await signupPage.route(origin + '/api/onboarding', route => {
+    onboardingCalls++
+    return route.fulfill({ status: 500 })
+  })
+  await signupPage.route(origin + '/api/public/slugs/**', route => route.fulfill({ json: { available: true } }))
+  await signupPage.route(authOrigin + '/auth/v1/signup?**', route => {
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: cors })
+    signupAttempts++
+    if (signupAttempts === 1) return route.abort()
+    return route.fulfill({ headers: cors,
+      json: { id: '10000000-0000-4000-8000-000000000004', aud: 'authenticated', identities: [] } })
+  })
+  await signupPage.goto(origin + '/registro-negocio', { waitUntil: 'networkidle' })
+  await signupPage.getByLabel('Nombre del negocio').fill('Comercio sintético')
+  await signupPage.getByLabel('Correo electrónico').fill('registro@example.invalid')
+  await signupPage.getByLabel('Contraseña nueva').fill('Sintetica61')
+  await signupPage.getByText('Disponible', { exact: true }).waitFor()
+  const createAccount = signupPage.getByRole('button', { name: 'Crear mi cuenta gratis' })
+  await createAccount.click()
+  await signupPage.getByText(/No pudimos crear la cuenta|No pudimos completar el registro/).waitFor()
+  const signupRequest = signupPage.waitForRequest(request => request.method() === 'POST' && new URL(request.url()).pathname === '/auth/v1/signup')
+  await createAccount.click()
+  const submitted = await signupRequest
+  assert.equal(new URL(submitted.url()).searchParams.get('redirect_to'), origin + '/auth/callback?next=/onboarding')
+  await signupPage.waitForURL(origin + '/login')
+  assert.equal(signupAttempts, 2)
+  assert.equal(onboardingCalls, 0)
+  await signupPage.close()
+  console.log('Chromium: callback local de alta, recuperación tras fallo de red y onboarding pendiente hasta confirmar correo.')
   console.log('Chromium: portada y formularios sin desborde a 360, 768 y 1280 px. Preferencia oscura persistente.')
 } finally {
   await browser.close()

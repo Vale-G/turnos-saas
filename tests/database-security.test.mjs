@@ -104,9 +104,16 @@ test('el historial se sirve solo al backend y devuelve la reserva del cliente co
   await db.exec(`
     create schema graphql;
     create schema graphql_public;
-    create function graphql.resolve(text,jsonb,text,jsonb) returns text language sql as 'select null::text';
-    create function graphql_public.graphql(text,text,jsonb,jsonb) returns text language sql as 'select null::text';
-    grant usage on schema graphql, graphql_public to anon, authenticated;
+    create function graphql.resolve(query text, variables jsonb, "operationName" text, extensions jsonb)
+      returns jsonb language sql as $$ select jsonb_build_object('role', current_user::text, 'query', query) $$;
+    create function graphql_public.graphql("operationName" text, query text, variables jsonb, extensions jsonb)
+      returns jsonb language sql security invoker as $$
+        select graphql.resolve(query := query, variables := coalesce(variables, '{}'),
+          "operationName" := "operationName", extensions := extensions);
+      $$;
+    grant usage on schema graphql, graphql_public to anon, authenticated, service_role;
+    revoke all on function graphql_public.graphql(text,text,jsonb,jsonb) from public;
+    grant execute on function graphql_public.graphql(text,text,jsonb,jsonb) to service_role, anon, authenticated;
     create table public.perfiles (id integer, nombre text);
     grant select (nombre) on public.perfiles to authenticated;
     grant select on public.perfiles to anon;
@@ -126,6 +133,8 @@ test('el historial se sirve solo al backend y devuelve la reserva del cliente co
     await db.exec('reset role')
   }
   await db.exec('set role service_role')
+  const graphql = await db.query("select graphql_public.graphql(null, '{ __typename }', null, null) as result")
+  assert.deepEqual(graphql.rows[0].result, { role: 'service_role', query: '{ __typename }' })
   const own = await db.query('select * from public.turnly_server_customer_history($1, $2)', [ids.owner, id])
   assert.equal(own.rows.length, 1)
   assert.equal(own.rows[0].id, id)

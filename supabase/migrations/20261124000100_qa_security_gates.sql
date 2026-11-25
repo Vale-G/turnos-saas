@@ -21,14 +21,21 @@ begin
 end
 $$;
 
--- Turnly uses PostgREST. Close both GraphQL entry points without changing
--- the table grants or RLS that REST clients need.
+-- Close both GraphQL entry points to client roles. Keep existing service-role
+-- access explicit where it would otherwise disappear with PUBLIC. The wrapper
+-- runs with the caller's privileges and needs EXECUTE on the resolver.
 do $$
 begin
   if to_regprocedure('graphql_public.graphql(text,text,jsonb,jsonb)') is not null then
+    if has_function_privilege('service_role', 'graphql_public.graphql(text,text,jsonb,jsonb)', 'EXECUTE') then
+      grant execute on function graphql_public.graphql(text,text,jsonb,jsonb) to service_role;
+    end if;
     revoke execute on function graphql_public.graphql(text,text,jsonb,jsonb) from public, anon, authenticated;
   end if;
   if to_regprocedure('graphql.resolve(text,jsonb,text,jsonb)') is not null then
+    if has_function_privilege('service_role', 'graphql.resolve(text,jsonb,text,jsonb)', 'EXECUTE') then
+      grant execute on function graphql.resolve(text,jsonb,text,jsonb) to service_role;
+    end if;
     revoke execute on function graphql.resolve(text,jsonb,text,jsonb) from public, anon, authenticated;
   end if;
 end

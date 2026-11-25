@@ -94,18 +94,56 @@ function tomorrow() {
   return date.toISOString().slice(0, 10)
 }
 
-test('historial privado filtra por identidad de sesión y no concede lectura general', async t => {
-  const db=await database(); t.after(()=>db.close()); const ids=await seed(db)
-  const booking=await book(db,ids,'10:00')
-  await db.query('update public.turno set cliente_id=$1 where id=$2',[ids.owner,booking.rows[0].turno_id])
-  await db.exec(`set role authenticated; set request.jwt.claim.sub='${ids.owner}'`)
-  const own=await db.query('select * from public.turnly_customer_history()')
-  assert.equal(own.rows.length,1)
-  assert.equal('cliente_email' in own.rows[0],false)
-  await db.exec("set request.jwt.claim.sub='10000000-0000-4000-8000-000000000002'")
-  assert.equal((await db.query('select * from public.turnly_customer_history()')).rows.length,0)
-  await db.exec('reset role; set role anon')
-  await assert.rejects(()=>db.query('select * from public.turnly_customer_history()'),/permission denied/i)
+test('el historial se sirve solo al backend y devuelve la reserva del cliente correcto', async t => {
+  const db = await database()
+  t.after(() => db.close())
+  const ids = await seed(db)
+  const booking = await book(db, ids, '10:00')
+  const id = booking.rows[0].turno_id
+  await db.query('update public.turno set cliente_id=$1 where id=$2', [ids.owner, id])
+  await db.exec(`
+    create schema graphql;
+    create schema graphql_public;
+    create function graphql.resolve(query text, variables jsonb, "operationName" text, extensions jsonb)
+      returns jsonb language sql as $$ select jsonb_build_object('role', current_user::text, 'query', query) $$;
+    create function graphql_public.graphql("operationName" text, query text, variables jsonb, extensions jsonb)
+      returns jsonb language sql security invoker as $$
+        select graphql.resolve(query := query, variables := coalesce(variables, '{}'),
+          "operationName" := "operationName", extensions := extensions);
+      $$;
+    grant usage on schema graphql, graphql_public to anon, authenticated, service_role;
+    revoke all on function graphql_public.graphql(text,text,jsonb,jsonb) from public;
+    grant execute on function graphql_public.graphql(text,text,jsonb,jsonb) to service_role, anon, authenticated;
+    create table public.perfiles (id integer, nombre text);
+    grant select (nombre) on public.perfiles to authenticated;
+    grant select on public.perfiles to anon;
+    grant select on public.perfiles to service_role;
+    grant select, update on public.mercadopago_connection to service_role;
+    grant update(access_token_encrypted) on public.mercadopago_connection to authenticated;
+  `)
+  await db.exec(await readFile(new URL('../supabase/migrations/20261124000100_qa_security_gates.sql', import.meta.url), 'utf8'))
+  for (const role of ['anon', 'authenticated']) {
+    await db.exec(`set role ${role}`)
+    await assert.rejects(() => db.query('select * from public.turnly_customer_history()'), /permission denied/i)
+    await assert.rejects(() => db.query('select * from public.turnly_server_customer_history($1)', [ids.owner]), /permission denied/i)
+    await assert.rejects(() => db.query('select graphql_public.graphql(null,null,null,null)'), /permission denied/i)
+    await assert.rejects(() => db.query('select graphql.resolve(null,null,null,null)'), /permission denied/i)
+    await assert.rejects(() => db.query('select nombre from public.perfiles'), /permission denied/i)
+    await assert.rejects(() => db.query("update public.mercadopago_connection set access_token_encrypted='fixture'"), /permission denied/i)
+    await db.exec('reset role')
+  }
+  await db.exec('set role service_role')
+  const graphql = await db.query("select graphql_public.graphql(null, '{ __typename }', null, null) as result")
+  assert.deepEqual(graphql.rows[0].result, { role: 'service_role', query: '{ __typename }' })
+  const own = await db.query('select * from public.turnly_server_customer_history($1, $2)', [ids.owner, id])
+  assert.equal(own.rows.length, 1)
+  assert.equal(own.rows[0].id, id)
+  assert.deepEqual(Object.keys(own.rows[0]).sort(), ['estado', 'fecha', 'hora', 'id', 'negocio_nombre', 'servicio_nombre'])
+  assert.equal((await db.query('select * from public.turnly_server_customer_history($1, $2)', [
+    '10000000-0000-4000-8000-000000000002', id,
+  ])).rows.length, 0)
+  await db.query('select nombre from public.perfiles')
+  await db.query('select access_token_encrypted from public.mercadopago_connection')
 })
 
 test('banner y bienvenida respetan RLS y validan contenido', async t => {

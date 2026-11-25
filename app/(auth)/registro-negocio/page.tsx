@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '@/lib/supabase'
+import { getOAuthRedirectUrl, supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 
@@ -36,35 +36,28 @@ export default function RegistroNegocio() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
-  // Validación de SLUG en tiempo real con debounce
-  const checkSlugDisponibilidad = useCallback(async (slugToCheck: string) => {
-    if (!slugToCheck || slugToCheck.length < 3) {
-      setSlugStatus('invalid')
-      return
-    }
-
+  const checkSlugDisponibilidad = useCallback(async (slugToCheck: string, signal: AbortSignal) => {
+    if (slugToCheck.length < 3) return
     setSlugStatus('checking')
-
-    const response = await fetch(`/api/public/slugs/${encodeURIComponent(slugToCheck)}`, { cache: 'no-store' })
-    if (!response.ok) {
-      setSlugStatus('idle')
-      return
+    try {
+      const response = await fetch(`/api/public/slugs/${encodeURIComponent(slugToCheck)}`, { cache: 'no-store', signal })
+      const data = response.ok ? await response.json() : null
+      if (!signal.aborted) {
+        setSlugStatus(typeof data?.available === 'boolean' ? data.available ? 'available' : 'taken' : 'idle')
+      }
+    } catch {
+      if (!signal.aborted) setSlugStatus('idle')
     }
-    const data = await response.json()
-    setSlugStatus(data.available ? 'available' : 'taken')
   }, [])
 
-  // Debounce de 500ms para no saturar la DB
   useEffect(() => {
-    if (!slug) {
-      return
+    if (!slug) return
+    const request = new AbortController()
+    const timer = setTimeout(() => { void checkSlugDisponibilidad(slug, request.signal) }, 500)
+    return () => {
+      clearTimeout(timer)
+      request.abort()
     }
-
-    const timer = setTimeout(() => {
-      checkSlugDisponibilidad(slug)
-    }, 500)
-
-    return () => clearTimeout(timer)
   }, [slug, checkSlugDisponibilidad])
 
   const handleNombreChange = (value: string) => {
@@ -111,32 +104,38 @@ export default function RegistroNegocio() {
     setPasswordError(null)
     setLoading(true)
 
-    const { data: authData, error: authError } = await supabase.auth.signUp({ email, password })
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: email.trim(), password,
+        options: { emailRedirectTo: getOAuthRedirectUrl('/auth/callback?next=/onboarding') },
+      })
+      if (authError) {
+        toast.error('No pudimos crear la cuenta. Revisá los datos o iniciá sesión si ya tenés una cuenta.')
+        return
+      }
+      if (!authData.session) {
+        toast.success('Revisá tu correo para confirmar la cuenta y continuar')
+        router.push('/login')
+        return
+      }
 
-    if (authError) {
-      toast.error(authError.message)
-      setLoading(false)
-      return
-    }
-
-    if (authData.session) {
       const response = await fetch('/api/onboarding', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ nombre: nombreNegocio, slug, whatsapp: '', tema: 'emerald', apertura: '09:00', cierre: '18:00' }),
-      })
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}))
-        toast.error(payload.error ?? 'La cuenta se creó, pero falta configurar el negocio')
+      }).catch(() => null)
+      if (!response?.ok) {
+        const payload = await response?.json().catch(() => null)
+        toast.error(payload?.error ?? 'La cuenta se creó. Continuá con la configuración del negocio.')
         router.push('/onboarding')
-      } else {
-        toast.success('¡Cuenta y negocio creados!')
-        router.push('/dashboard')
+        return
       }
-    } else if (authData.user) {
-      toast.success('Revisá tu correo para confirmar la cuenta y continuar')
-      router.push('/login')
+      toast.success('¡Cuenta y negocio creados!')
+      router.push('/dashboard')
+    } catch {
+      toast.error('No pudimos completar el registro. Revisá tu correo o intentá de nuevo.')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   // Función para obtener el ícono y color del estado del slug
@@ -167,6 +166,8 @@ export default function RegistroNegocio() {
         <form onSubmit={handleRegistro} className="space-y-4">
           <input
             type="text"
+            aria-label="Nombre del negocio"
+            autoComplete="organization"
             placeholder="Nombre de tu negocio (ej: Espacio Norte)"
             value={nombreNegocio}
             className="w-full bg-black/50 border border-slate-800 p-4 rounded-2xl focus:border-emerald-500 outline-none transition-all"
@@ -178,6 +179,7 @@ export default function RegistroNegocio() {
             <div className="relative">
               <input
                 type="text"
+                aria-label="Enlace público del negocio"
                 placeholder="tu-negocio-aqui"
                 value={slug}
                 className={`w-full bg-black/50 border p-4 rounded-2xl outline-none font-mono text-sm transition-all ${
@@ -216,6 +218,8 @@ export default function RegistroNegocio() {
 
           <input
             type="email"
+            aria-label="Correo electrónico"
+            autoComplete="email"
             placeholder="Email de acceso"
             className="w-full bg-black/50 border border-slate-800 p-4 rounded-2xl focus:border-emerald-500 outline-none transition-all"
             onChange={(e) => setEmail(e.target.value)}
@@ -225,6 +229,10 @@ export default function RegistroNegocio() {
           <div className="space-y-1">
             <input
               type="password"
+              aria-label="Contraseña nueva"
+              aria-describedby="registro-password-help"
+              aria-invalid={Boolean(passwordError)}
+              autoComplete="new-password"
               placeholder="Contraseña segura"
               className={`w-full bg-black/50 border p-4 rounded-2xl outline-none transition-all ${
                 passwordError
@@ -235,9 +243,9 @@ export default function RegistroNegocio() {
               required
             />
             {passwordError ? (
-              <p className="text-red-400 text-xs ml-2 font-bold">{passwordError}</p>
+              <p id="registro-password-help" role="alert" className="text-red-400 text-xs ml-2 font-bold">{passwordError}</p>
             ) : (
-              <p className="text-slate-600 text-[11px] ml-2">Mín. 8 caracteres, una mayúscula y un número</p>
+              <p id="registro-password-help" className="text-slate-400 text-[11px] ml-2">Mín. 8 caracteres, una mayúscula y un número</p>
             )}
           </div>
 

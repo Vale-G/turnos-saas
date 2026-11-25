@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import PrintReservation from '@/components/PrintReservation'
 import { validUuid } from '@/lib/server/public-booking'
-import { createUserServerClient } from '@/lib/server/supabase'
+import { createAdminClient, createUserServerClient } from '@/lib/server/supabase'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,9 +24,9 @@ export default async function Receipt({ params, searchParams }: {
     <Link href="/login" className="underline">Iniciar sesión</Link>
   </main>
 
-  const { data, error } = await client.rpc('turnly_customer_history')
+  const { data, error } = await createAdminClient().rpc('turnly_server_customer_history', { customer_id: user.id, booking_id: id })
   if (error) return <main className="p-6"><p role="alert">No pudimos cargar el comprobante. Intentá nuevamente.</p></main>
-  const reserva = data?.find((row: { id: string }) => row.id === id)
+  const reserva = data?.[0]
   if (!reserva) notFound()
 
   return (

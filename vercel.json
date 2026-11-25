@@ -14,7 +14,8 @@
       "codex/turnly-commercial-subscriptions": false,
       "codex/turnly-final-launch-candidate": false,
       "codex/turnly-product-evolution": false,
-      "codex/turnly-final-close-20261124": false
+      "codex/turnly-final-close-20261124": false,
+      "codex/turnly-release-qa-gates": false
     }
   }
 }
